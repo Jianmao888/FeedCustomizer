@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ContentDialog
+    x:Class="FeedCustomizer.Dialogs.WebIconFetchErrorDialog"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Style="{StaticResource DefaultContentDialogStyle}"
+    x:Uid="WebIconFetchErrorDialog"
+    DefaultButton="Close">
+    <Grid MinWidth="300" MaxWidth="640">
+        <ScrollViewer MaxHeight="420"
+                      HorizontalScrollBarVisibility="Disabled"
+                      VerticalScrollBarVisibility="Auto">
+            <TextBox x:Name="ErrorTextBox"
+                     IsReadOnly="True"
+                     TextWrapping="Wrap"
+                     AcceptsReturn="True"
+                     BorderThickness="0"
+                     Padding="0" />
+        </ScrollViewer>
+    </Grid>
+</ContentDialog>

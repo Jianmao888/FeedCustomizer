@@ -1,0 +1,53 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<Package
+  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+  xmlns:mp="http://schemas.microsoft.com/appx/2014/phone/manifest"
+  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+	xmlns:uap3="http://schemas.microsoft.com/appx/manifest/uap/windows10/3"
+	xmlns:uap5="http://schemas.microsoft.com/appx/manifest/uap/windows10/5"
+  IgnorableNamespaces="uap uap5 rescap">
+
+  <Identity
+    Name="D454B137.Jianmao.FeedCustomizer"
+    Publisher="CN=8CB38C3F-7EA3-4B56-82F9-A2018B33EF3F"
+    Version="1.0.0.0" />
+
+  <Properties>
+    <DisplayName>ms-resource:AppName</DisplayName>
+    <PublisherDisplayName>窗边的贱猫</PublisherDisplayName>
+    <Logo>Assets\StoreLogo.png</Logo>
+  </Properties>
+
+	<Resources>
+		<Resource Language="x-generate" />
+	</Resources>
+
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Universal" MinVersion="10.0.17763.0" MaxVersionTested="10.0.26226.0" />
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.17763.0" MaxVersionTested="10.0.26226.0" />
+  </Dependencies>
+
+  <Applications>
+    <Application Id="App"
+      Executable="$targetnametoken$.exe"
+      EntryPoint="$targetentrypoint$">
+      <uap:VisualElements
+        DisplayName="ms-resource:AppName"
+        BackgroundColor="transparent"
+        Square150x150Logo="Assets\Square150x150Logo.png"
+        Square44x44Logo="Assets\Square44x44Logo.png" Description="FeedCustomizer">
+        <uap:DefaultTile Square71x71Logo="Assets\SmallTile.png" Wide310x150Logo="Assets\WideTile.png" Square310x310Logo="Assets\LargeTile.png"/>
+        <uap:SplashScreen Image="Assets\SplashScreen.png" uap5:Optional="true"/>
+      </uap:VisualElements>
+    </Application>
+  </Applications>
+
+  <Capabilities>
+    <Capability Name="internetClient" />
+    <rescap:Capability Name="runFullTrust" />
+  </Capabilities>
+
+  <mp:PhoneIdentity PhoneProductId="31c78893-34b3-4832-a2ce-4446c67dfcd0" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
+</Package>

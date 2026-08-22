@@ -1,0 +1,111 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<OutputType>WinExe</OutputType>
+		<TargetFramework>net10.0-windows10.0.26100.0</TargetFramework>
+		<TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
+		<RootNamespace>FeedCustomizer</RootNamespace>
+		<ApplicationManifest>app.manifest</ApplicationManifest>
+		<Platforms>x64;ARM64</Platforms>
+		<RuntimeIdentifiers>win-x64;win-arm64</RuntimeIdentifiers>
+		<RuntimeIdentifier Condition="'$(Platform)' == 'x64'">win-x64</RuntimeIdentifier>
+		<RuntimeIdentifier Condition="'$(Platform)' == 'ARM64'">win-arm64</RuntimeIdentifier>
+		<UseWinUI>true</UseWinUI>
+		<WinUISDKReferences>false</WinUISDKReferences>
+		<EnableMsixTooling>true</EnableMsixTooling>
+		<Nullable>enable</Nullable>
+		<PublishAot>true</PublishAot>
+		<SelfContained>false</SelfContained>
+		<WindowsAppSDKSelfContained>false</WindowsAppSDKSelfContained>
+		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+	</PropertyGroup>
+	
+	<ItemGroup>
+		<ProjectReference Include="..\FeedProvider\FeedProvider.csproj">
+			<Private>false</Private>
+			<ExcludeAssets>runtime</ExcludeAssets>
+			<ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+		</ProjectReference>
+	</ItemGroup>
+
+	<Target Name="CopyFeedProviderToAssets" BeforeTargets="BeforeBuild">
+		<MSBuild Projects="$(MSBuildProjectDirectory)\..\FeedProvider\FeedProvider.csproj" Targets="Build" Properties="Configuration=$(Configuration);Platform=$(Platform);RuntimeIdentifier=$(RuntimeIdentifier)" BuildInParallel="false" />
+		<PropertyGroup>
+			<_FeedProviderPath>$(MSBuildProjectDirectory)\..\FeedProvider\bin\$(Platform)\$(Configuration)\$(TargetFramework)\$(RuntimeIdentifier)\</_FeedProviderPath>
+		</PropertyGroup>
+		<Message Text="FeedProvider path = $(_FeedProviderPath)" Importance="High" />
+		<MakeDir Directories="$(ProjectDir)Resources\FeedProvider" />
+		<ItemGroup>
+			<FeedProviderFiles Include="$(_FeedProviderPath)**\*.*" />
+			<!-- This item is created after the provider build, so it also works on a clean build. -->
+			<Content Include="Resources\FeedProvider\$(RuntimeIdentifier)\**" />
+		</ItemGroup>
+		<Copy SourceFiles="@(FeedProviderFiles)" DestinationFolder="$(ProjectDir)Resources\FeedProvider\$(RuntimeIdentifier)\%(RecursiveDir)" SkipUnchangedFiles="true" />
+	</Target>
+
+	<ItemGroup>
+		<Content Include="Resources\**" Exclude="Resources\FeedProvider\**" />
+		<Content Remove="Resources\resources.pri" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<Manifest Include="$(ApplicationManifest)" />
+	</ItemGroup>
+
+	<ItemGroup Condition="'$(DisableMsixProjectCapabilityAddedByProject)'!='true' and '$(EnableMsixTooling)'=='true'">
+		<ProjectCapability Include="Msix" />
+	</ItemGroup>
+	<ItemGroup>
+		<PackageReference Include="CommunityToolkit.WinUI.Controls.SettingsControls" Version="8.3.260402-preview2" />
+		<PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.28000.2526" />
+		<PackageReference Include="Microsoft.WindowsAppSDK" Version="2.4.0" />
+	</ItemGroup>
+	
+	<ItemGroup>
+	  <Content Update="Assets\AppIcon.ico">
+	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+	  </Content>
+	</ItemGroup>
+
+	<!--
+    Defining the "HasPackageAndPublishMenuAddedByProject" property here allows the Solution
+    Explorer "Package and Publish" context menu entry to be enabled for this project even if
+    the Windows App SDK Nuget package has not yet been restored.
+  -->
+	<PropertyGroup Condition="'$(DisableHasPackageAndPublishMenuAddedByProject)'!='true' and '$(EnableMsixTooling)'=='true'">
+		<HasPackageAndPublishMenu>true</HasPackageAndPublishMenu>
+	</PropertyGroup>
+
+	<!-- Publish Properties -->
+	<PropertyGroup>
+		<PublishReadyToRun Condition="'$(Configuration)' == 'Debug'">True</PublishReadyToRun>
+		<PublishReadyToRun Condition="'$(Configuration)' != 'Debug'">True</PublishReadyToRun>
+		<!-- Native AOT implies trimming; disabling it makes publish fail with NETSDK1102. -->
+		<PublishTrimmed>true</PublishTrimmed>
+		<DefaultLanguage>en-US</DefaultLanguage>
+		<SupportedOSPlatformVersion>10.0.22621.0</SupportedOSPlatformVersion>
+		<GenerateAppInstallerFile>False</GenerateAppInstallerFile>
+		<AppxPackageSigningEnabled>True</AppxPackageSigningEnabled>
+		<AppxPackageSigningTimestampDigestAlgorithm>SHA256</AppxPackageSigningTimestampDigestAlgorithm>
+		<AppxAutoIncrementPackageRevision>False</AppxAutoIncrementPackageRevision>
+		<AppxSymbolPackageEnabled>False</AppxSymbolPackageEnabled>
+		<GenerateTestArtifacts>False</GenerateTestArtifacts>
+		<AppxBundle>Never</AppxBundle>
+		<AppxBundlePlatforms>$(Platform)</AppxBundlePlatforms>
+		<HoursBetweenUpdateChecks>0</HoursBetweenUpdateChecks>
+		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+		<GenerateTemporaryStoreCertificate>True</GenerateTemporaryStoreCertificate>
+		<PackageCertificateKeyFile>FeedCustomizer_TemporaryKey.pfx</PackageCertificateKeyFile>
+	</PropertyGroup>
+	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+	  <DebugType>none</DebugType>
+	</PropertyGroup>
+	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">
+	  <DebugType>none</DebugType>
+	</PropertyGroup>
+	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+	  <DebugType>none</DebugType>
+	</PropertyGroup>
+	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">
+	  <DebugType>none</DebugType>
+	</PropertyGroup>
+</Project>

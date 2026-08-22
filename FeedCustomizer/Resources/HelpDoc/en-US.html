@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Feed Customization Tool Help</title>
+    <style>
+        /* Reset & Base - Professional, restrained */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #f2f4f8;
+            font-family: 'Segoe UI', 'Roboto', system-ui, -apple-system, sans-serif;
+            display: flex;
+            justify-content: center;
+            padding: 2.5rem 1.2rem;
+            line-height: 1.6;
+            color: #1e293b;
+        }
+
+        .doc-container {
+            max-width: 900px;
+            width: 100%;
+            background: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+            padding: 2.8rem 3.2rem;
+            border: 1px solid #e2e8f0;
+        }
+
+        @media (max-width: 640px) {
+            .doc-container {
+                padding: 1.8rem 1.2rem;
+            }
+        }
+
+        h1 {
+            font-size: 1.8rem;
+            font-weight: 500;
+            letter-spacing: -0.02em;
+            color: #0b1e33;
+            border-bottom: 2px solid #e9edf4;
+            padding-bottom: 0.8rem;
+            margin-bottom: 1.2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+        }
+
+        .subheading {
+            background: #f8faff;
+            border-left: 4px solid #6b7f9f;
+            padding: 0.8rem 1.2rem;
+            color: #2c3e50;
+            font-size: 0.98rem;
+            margin-bottom: 2.2rem;
+            border-radius: 0 6px 6px 0;
+        }
+
+        .prereq-section {
+            display: flex;
+            flex-direction: column;
+            gap: 1.8rem;
+            margin: 1.8rem 0 1.5rem;
+        }
+
+        .prereq-card {
+            background: #fafcff;
+            border-radius: 6px;
+            padding: 1.4rem 1.8rem;
+            border: 1px solid #e2e8f0;
+        }
+
+        .card-header {
+            display: flex;
+            align-items: baseline;
+            gap: 0.5rem;
+            margin-bottom: 0.6rem;
+            flex-wrap: wrap;
+        }
+
+        .step-number {
+            font-weight: 600;
+            color: #2c3e50;
+            background: #e9edf4;
+            padding: 0.1rem 0.8rem;
+            border-radius: 30px;
+            font-size: 0.8rem;
+            letter-spacing: 0.3px;
+        }
+
+        .card-title {
+            font-size: 1.2rem;
+            font-weight: 500;
+            color: #0b1e33;
+        }
+
+        .card-desc {
+            color: #2d3f57;
+            margin-top: 0.2rem;
+        }
+
+            .card-desc p {
+                margin-bottom: 0.4rem;
+            }
+
+            .card-desc code {
+                background: #eef2f6;
+                padding: 0.1rem 0.6rem;
+                border-radius: 4px;
+                font-size: 0.9rem;
+                font-family: 'Consolas', 'Monaco', monospace;
+                color: #1e293b;
+            }
+
+        .step-list {
+            margin: 0.6rem 0 0.2rem 1.4rem;
+            padding-left: 0.2rem;
+        }
+
+            .step-list li {
+                margin-bottom: 0.2rem;
+                color: #1e3a5f;
+            }
+
+        .ref-box {
+            background: #f1f5f9;
+            border-radius: 4px;
+            padding: 0.6rem 1.2rem;
+            margin: 0.6rem 0 0.2rem;
+            border-left: 3px solid #6b7f9f;
+            font-size: 0.95rem;
+        }
+
+            .ref-box a {
+                color: #1f4f8a;
+                text-decoration: none;
+                font-weight: 500;
+                border-bottom: 1px solid #bac8dd;
+            }
+
+                .ref-box a:hover {
+                    border-bottom: 1.5px solid #1f4f8a;
+                }
+
+        .img-indicator {
+            background: #f1f5f9;
+            border-radius: 4px;
+            padding: 0.5rem 1.2rem;
+            margin: 0.6rem 0 0.2rem;
+            border: 1px solid #dce3ec;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 0.6rem 1.2rem;
+            color: #1e3a5f;
+        }
+
+            .img-indicator img {
+                max-width: 100%;
+                height: auto;
+                display: block;
+                border-radius: 4px;
+            }
+
+        .eu-list {
+            margin-top: 0.5rem;
+            font-size: 0.92rem;
+            background: #f8fafc;
+            padding: 0.4rem 0.8rem;
+            border-radius: 4px;
+            color: #1e3a5f;
+            border: 1px solid #e2e8f0;
+        }
+
+        .action-hint {
+            background: #f1f5f9;
+            padding: 0.3rem 1.2rem;
+            border-radius: 30px;
+            display: inline-block;
+            font-size: 0.9rem;
+            margin-top: 0.3rem;
+            color: #1e3a5f;
+        }
+
+        .confirm-tag {
+            margin-top: 0.5rem;
+            background: #f1f5f9;
+            padding: 0.2rem 1rem;
+            border-radius: 30px;
+            display: inline-block;
+            font-size: 0.9rem;
+        }
+
+        /* Security warning & disclaimer */
+        .warning-box {
+            background: #fef6f0;
+            border-left: 4px solid #c2410c;
+            padding: 0.8rem 1.2rem;
+            margin: 0.8rem 0 0.2rem;
+            border-radius: 0 4px 4px 0;
+            font-size: 0.95rem;
+            color: #7c2d12;
+        }
+
+            .warning-box strong {
+                color: #9a3412;
+            }
+
+        .disclaimer {
+            margin-top: 2.5rem;
+            padding-top: 1.2rem;
+            border-top: 2px solid #e9edf4;
+            font-size: 0.9rem;
+            color: #64748b;
+            background: #fafcff;
+            padding: 1rem 1.4rem;
+            border-radius: 6px;
+            border: 1px solid #e2e8f0;
+        }
+
+            .disclaimer strong {
+                color: #475569;
+            }
+
+        @media (max-width: 500px) {
+            .prereq-card {
+                padding: 1rem;
+            }
+
+            .card-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 0.2rem;
+            }
+
+            .img-indicator {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="doc-container">
+        <h1>
+            <span>Feed Customization Tool · Help</span>
+        </h1>
+        <div class="subheading">
+            Before launching this tool, please ensure the following three system configurations are in place. Instructions are provided for each.
+        </div>
+
+        <div class="prereq-section">
+            <!-- 1. Developer Mode (with security warning) -->
+            <div class="prereq-card">
+                <div class="card-header">
+                    <span class="step-number">Prerequisite 1</span>
+                    <span class="card-title">Developer Mode</span>
+                </div>
+                <div class="card-desc">
+                    <p>Windows Developer Mode must be enabled to allow local debugging interfaces.</p>
+                    <ul class="step-list">
+                        <li>Open <strong>Settings</strong> → <strong>System</strong> → <strong>Advanced</strong> → <strong>Developer Options</strong></li>
+                        <li>Toggle <code>Developer Mode</code> to <strong>On</strong> and confirm when prompted.</li>
+                    </ul>
+                    <div class="action-hint">
+                        If you cannot find it, use the Settings search bar and look for "Developer Mode"
+                    </div>
+
+                    <!-- Security warning -->
+                    <div class="warning-box">
+                        <strong>⚠️ Security Warning:</strong> Enabling Developer Mode may reduce device security and increase potential risks. It is recommended to enable it only temporarily while editing feed configurations or enabling/disabling custom feeds.<br>
+                        <span style="font-size:0.92rem; display:inline-block; margin-top:0.2rem;">After disabling Developer Mode, any custom feeds you have added will still display normally and existing functionality remains unaffected.</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2. Region: EU Country -->
+            <div class="prereq-card">
+                <div class="card-header">
+                    <span class="step-number">Prerequisite 2</span>
+                    <span class="card-title">Region: EU Country</span>
+                </div>
+                <div class="card-desc">
+                    <p>The device's "device region" must be set to an EU member state.</p>
+                    <ul class="step-list">
+                        <li>Go to <strong>Settings</strong> → <strong>Time & Language</strong> → <strong>Language & Region</strong></li>
+                        <li>Under <strong>Device region</strong> (note: this is not the "Country or region" drop-down above), it must show an EU country (e.g. <code>Germany</code>, <code>France</code>, <code>Italy</code>, etc.).</li>
+                        <li>After changing this, you may need to re-enable custom feeds in the Feed Customization Tool.</li>
+                    </ul>
+
+                    <div class="ref-box">
+                        <span style="font-weight: 500;">📄 Refer to this third-party blog post:</span>
+                        <a href="https://lxnchan.cn/change-windows-installtion-region.html" target="_blank">
+                            change-windows-installtion-region · Lxn-Chan!
+                        </a>
+                        <div style="margin-top: 0.2rem; font-size:0.9rem; color: #1e3a5f;">
+                            ⚠️ This blog is not authored by the tool creator; it is provided for reference only.
+                        </div>
+                    </div>
+
+                    <div class="eu-list">
+                        <strong>EU countries (partial list):</strong> Austria, Belgium, Bulgaria, Croatia, Cyprus, Czech Republic, Denmark, Estonia, Finland, France, Germany, Greece, Hungary, Ireland, Italy, Latvia, Lithuania, Luxembourg, Malta, Netherlands, Poland, Portugal, Romania, Slovakia, Slovenia, Spain, Sweden.
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3. WinUI 3 Widget -->
+            <div class="prereq-card">
+                <div class="card-header">
+                    <span class="step-number">Prerequisite 3</span>
+                    <span class="card-title">WinUI 3 Widget</span>
+                </div>
+                <div class="card-desc">
+                    <p>Ensure that the WinUI 3 widget is activated; see the example below for reference.</p>
+                    <div class="img-indicator">
+                        <img src="winui3.png" alt="WinUI 3 widget example">
+                    </div>
+                    <div class="confirm-tag">
+                        ✅ How to confirm: open the widget, if a sidebar appears on the left, it is enabled.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Disclaimer -->
+        <div class="disclaimer">
+            <strong>Disclaimer:</strong> The developer of this software bears no responsibility for any losses incurred due to improper system configuration changes by the user, or due to third-party applications or websites. Users are advised to assess the risks at their own discretion and proceed with caution.
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,209 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="FeedCustomizer.Pages.MainPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:FeedCustomizer"
+    xmlns:views="using:FeedCustomizer.Pages"
+    xmlns:view_models="using:FeedCustomizer.ViewModels"
+    xmlns:controls="using:CommunityToolkit.WinUI.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d"
+    Loaded="MainPage_Loaded">
+
+    <Page.Resources>
+        <!-- ↓ Add this. ↓ -->
+        <DataTemplate x:Key="FeedItemTemplate" 
+                  x:DataType="view_models:FeedViewModel">
+            <ItemContainer CornerRadius="0" >
+                <Border 
+                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
+                    BorderThickness="0,0,0,1">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <Border
+                            Grid.Column="0"
+                            Width="40"
+                            Height="40"
+                            Margin="12,6,0,6"
+                            Padding="6"
+                            CornerRadius="4"
+                            Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
+                            <Image
+                                Source="{x:Bind BitmapImage, Mode=OneTime}"
+                                Stretch="Uniform" />
+                        </Border>
+
+                        <TextBlock 
+                            Grid.Column="1" 
+                            Text="{x:Bind Name}"
+                            Padding="12,10"
+                            VerticalAlignment="Center"/>
+
+                        <!-- 3. 右侧按钮区域（StackPanel横向排列） -->
+                        <StackPanel 
+                            Grid.Column="2" 
+                            Orientation="Horizontal" 
+                            VerticalAlignment="Center"
+                            Margin="0,0,8,0"
+                            Spacing="4" >
+                            <!-- 编辑与删除按钮 -->
+                            <HyperlinkButton Padding="6" x:Uid="EditFeedButton" Click="OnEditFeedButtonClicked" DataContext="{x:Bind}">
+                                <FontIcon Glyph="&#xE70F;" FontSize="12"/>
+                            </HyperlinkButton>
+                            <HyperlinkButton Padding="6" x:Uid="DeleteFeedButton" Click="OnDeleteFeedButtonClicked" DataContext="{x:Bind}">
+                                <FontIcon Glyph="&#xE74D;" FontSize="12"/>
+                            </HyperlinkButton>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+            </ItemContainer>
+        </DataTemplate>
+        <!-- ↑ Add this. ↑ -->
+    </Page.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <!-- 设置列表区域：占据剩余所有空间 -->
+            <RowDefinition Height="*" />
+            <!-- 底部按钮栏：自动高度，带分隔线 -->
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- 整体内容区域 -->
+        <StackPanel
+            Grid.Row="0"
+            Padding="12,12"
+            Spacing="4"
+            VerticalAlignment="Top">
+            <controls:SettingsCard
+                x:Uid="EnableCustomizerCard"
+                MinHeight="64"
+                Padding="16,0"
+                HorizontalAlignment="Stretch"
+                HorizontalContentAlignment="Stretch">
+                <ToggleSwitch
+                    x:Uid="FeedProviderToggle"
+                    HorizontalAlignment="Right"
+                    IsEnabled="{x:Bind MainPageViewModel.IsButtonsEnabled.Value, Mode=OneWay}"
+                    AutomationProperties.Name="EnableFeedToggle"
+                    Toggled="OnFeedProviderToggleChanged"
+                    IsOn="{x:Bind MainPageViewModel.IsFeedProviderEnabled.Value, Mode=TwoWay}"/>
+            </controls:SettingsCard>
+
+            <!-- 源列表设置展开器，列表内容由嵌套 SettingsCard 承载 -->
+            <controls:SettingsExpander
+                x:Uid="FeedListExpander"
+                IsExpanded="True"
+                HorizontalAlignment="Stretch"
+                VerticalAlignment="Top">
+                <controls:SettingsExpander.Content>
+                    <Button
+                        x:Uid="FeedListAddButton"
+                        Padding="0"
+                        Height="32"
+                        Margin="0,0,16,0"
+                        Style="{StaticResource AccentButtonStyle}"
+                        IsEnabled="{x:Bind MainPageViewModel.IsButtonsEnabled.Value, Mode=OneWay}"
+                        Click="AddFeedButton_Click">
+                        <Button.Content>
+                            <StackPanel Orientation="Horizontal" Spacing="6" Padding="11,0">
+                                <FontIcon
+                                    FontFamily="Segoe Fluent Icons"
+                                    Glyph="&#xE710;"
+                                    FontSize="16" />
+                                <TextBlock
+                                    x:Uid="AddFeedButton"
+                                    FontSize="14"
+                                    Padding="0,5,0,6"/>
+                            </StackPanel>
+                        </Button.Content>
+                    </Button>
+                </controls:SettingsExpander.Content>
+                <controls:SettingsExpander.Items>
+                    <controls:SettingsCard
+                        x:Load="{x:Bind MainPageViewModel.HasFeeds.Value, Mode=OneWay}"
+                        Padding="0"
+                        MinHeight="0"
+                        ContentAlignment="Vertical"
+                        HorizontalAlignment="Stretch"
+                        HorizontalContentAlignment="Stretch">
+                        <ScrollViewer
+                            VerticalScrollBarVisibility="Auto"
+                            VerticalScrollMode="Enabled"
+                            BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
+                            BorderThickness="0,1,0,0">
+                            <ItemsRepeater
+                                x:Name="FeedListView"
+                                ItemTemplate="{StaticResource FeedItemTemplate}"
+                                ItemsSource="{x:Bind MainPageViewModel.Feeds}"/>
+                        </ScrollViewer>
+                    </controls:SettingsCard>
+                </controls:SettingsExpander.Items>
+            </controls:SettingsExpander>
+        </StackPanel>
+
+        <!-- 底部按钮部分 -->
+        <Border 
+            Grid.Row="1"
+            Background="{ThemeResource ControlFillColorSecondaryBrush}"
+            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+            BorderThickness="0,1,0,0"
+            Padding="16,12,12,12">
+            <Grid>
+                <!-- 定义两列：左侧列容纳两个按钮，右侧列容纳一个按钮 -->
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <!-- 左侧的 StackPanel，用于垂直排列两个按钮 -->
+                <!-- StackPanel 被放置在第一列 (Grid.Column="0") -->
+                <StackPanel 
+                    Grid.Column="0" 
+                    Spacing="8" 
+                    Orientation="Horizontal"
+                    HorizontalAlignment="Left">
+                    <HyperlinkButton Padding="6" x:Uid="GetHelpButton" Click="OnGetHelpButtonClicked">
+                        <FontIcon Glyph="&#xE82F;" FontSize="16"/>
+                    </HyperlinkButton>
+                    <HyperlinkButton Padding="6" x:Uid="AboutButton" Click="OnAboutButtonClicked">
+                        <FontIcon Glyph="&#xE946;" FontSize="16"/>
+                    </HyperlinkButton>
+                </StackPanel>
+
+                <!-- 右侧的按钮，被放置在第二列 (Grid.Column="1") -->
+                <StackPanel
+                    Grid.Column="1" 
+                    Spacing="12"
+                    Orientation="Horizontal"
+                    HorizontalAlignment="Right">
+                    <Button
+                        x:Name="CancelChangesButton"
+                        x:Load="{x:Bind MainPageViewModel.IsApplyButtonEnabled.Value, Mode=OneWay}"
+                        MinWidth="128"
+                        HorizontalAlignment="Right"
+                        IsEnabled="{x:Bind MainPageViewModel.IsApplyButtonEnabled.Value, Mode=OneWay}"
+                        Click="OnCancelChangesButtonClicked">
+                        <TextBlock x:Uid="CancelButton" />
+                    </Button>
+                    <Button
+                        x:Name="ApplyButton"
+                        MinWidth="128"
+                        x:Uid="ApplyButton"
+                        HorizontalAlignment="Right"
+                        IsEnabled="{x:Bind MainPageViewModel.IsApplyButtonEnabled.Value, Mode=OneWay}"
+                        Style="{StaticResource AccentButtonStyle}"
+                        Click="OnApplyButtonClicked"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</Page>

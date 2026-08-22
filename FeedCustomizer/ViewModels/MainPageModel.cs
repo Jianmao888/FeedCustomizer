@@ -1,0 +1,409 @@
+﻿using FeedCustomizer.Core.Constants;
+using FeedCustomizer.Core.DataService;
+using FeedCustomizer.Core.Tools;
+using FeedCustomizer.Models;
+using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.Diagnostics;
+using System.Threading.Tasks;
+
+namespace FeedCustomizer.ViewModels
+{
+    public class MainPageModel
+    {
+        // =====================
+        // 数据
+        // =====================
+        public ObservableCollection<FeedViewModel> Feeds { get; set; } = [];
+        public ObservableValue<bool> HasFeeds { get; } = new(false);
+        public ObservableValue<bool> IsFeedProviderEnabled { get; set; } = new(false);
+        private static List<FeedViewModel> DeleteFeeds { get; set; } = [];
+        private bool CanApplyFeeds { get; set; } = false;
+        public Task InitializationTask { get; }
+
+
+
+        // =====================
+        // UI状态绑定
+        // =====================
+        public ObservableValue<bool> IsLoading { get; set; } = new(true);
+        public ObservableValue<bool> IsButtonsEnabled { get; set; } = new(false);
+        public ObservableValue<bool> IsApplyButtonEnabled { get; set; } = new(false);
+
+
+        // =====================
+        // 初始化逻辑
+        // =====================
+        public MainPageModel()
+        {
+            Feeds.CollectionChanged += (_, _) => HasFeeds.Value = Feeds.Count > 0;
+            InitializationTask = InitiAllFeeds();
+        }
+
+        private async Task InitiAllFeeds()
+        {
+            await Init();
+            IsLoading.Value = false;
+            IsButtonsEnabled.Value = true;
+            IsApplyButtonEnabled.Value = CanApplyFeeds;
+        }
+
+        // =====================
+        // 业务逻辑
+        // =====================
+        /// <summary>
+        /// 初始化应用程序，检查源提供程序是否安装，并更新或复制资源文件。
+        /// </summary>
+        /// <returns></returns>
+        public async Task Init()
+        {
+            if (FeedProviderEnableDataService.IsFeedProviderEnabled != null)
+            {
+                Debug.WriteLine("改变了开关的状态");
+                Debug.WriteLine($"{IsLoading.Value}");
+                IsFeedProviderEnabled.Value = (bool)FeedProviderEnableDataService.IsFeedProviderEnabled;
+            }
+            else
+            {
+                IsFeedProviderEnabled.Value = await PackageInstaller.IsFeedProviderInstalled();
+            }
+
+            if (FeedListDataService.IsEnable)
+            {
+                // 如果有缓存的源，则直接读取
+                LoadFeedsFromDataService();
+            }
+            else
+            {
+                // 如果没有，则进行从磁盘初始化的逻辑
+                // 更新或者复制源提供程序至用户数据目录
+                bool isUpToDate = await ResourcesCopier.IsResourceUpToDate();
+                if (!isUpToDate)
+                {
+                    if (IsFeedProviderEnabled)
+                    {
+                        await PackageInstaller.UninstallFeedProvider();
+                        await ResourcesCopier.ResourcesCopyAsync();
+                        await PackageInstaller.InstallFeedProvider();
+                    }
+                    else
+                    {
+                        await ResourcesCopier.ResourcesCopyAsync();
+                    }
+                }
+                // 加载源列表
+                await LoadFeedsFromXml();
+            }
+
+            // 如果有新建或者编辑的源，则将其添加进列表
+            if (AddOrEditFeedDataService.Feed != null)
+            {
+                AddOrEditFeed(new FeedViewModel(AddOrEditFeedDataService.Feed));
+                AddOrEditFeedDataService.Feed = null;
+            }
+
+            if (IsFeedProviderEnabled.Value && !ResourcesCopier.IsRegisteredProviderCurrent())
+            {
+                await PackageInstaller.UninstallFeedProvider();
+                if (!await PackageInstaller.InstallFeedProvider())
+                {
+                    IsFeedProviderEnabled.Value = false;
+                }
+            }
+        }
+
+        /// <summary>
+        /// 从Xml文件加载源列表
+        /// </summary>
+        /// <returns></returns>
+        public async Task LoadFeedsFromXml()
+        {
+            Feeds.Clear();
+            try
+            {
+                var feedItems = await ManifestXmlService.Read();
+                foreach (var item in feedItems)
+                {
+                    Feeds.Add(new FeedViewModel(item));
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error loading feeds: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 从DataService中加载数据
+        /// </summary>
+        public void LoadFeedsFromDataService()
+        {
+            foreach (var item in FeedListDataService.FeedList)
+            {
+                Feeds.Add(new FeedViewModel(item));
+            }
+            foreach (var item in FeedListDataService.DeleteFeedList)
+            {
+                DeleteFeeds.Add(new FeedViewModel(item));
+            }
+            CanApplyFeeds = FeedListDataService.CanAppltFeeds;
+        }
+
+        public void RefreshAfterNavigation()
+        {
+            if (AddOrEditFeedDataService.Feed != null)
+            {
+                AddOrEditFeed(new FeedViewModel(AddOrEditFeedDataService.Feed));
+                AddOrEditFeedDataService.Feed = null;
+            }
+
+            IsLoading.Value = false;
+            IsButtonsEnabled.Value = true;
+            IsApplyButtonEnabled.Value = CanApplyFeeds;
+        }
+
+        /// <summary>
+        /// 检查是否需要显示首次运行安全警告
+        /// </summary>
+        /// <returns></returns>
+        public static bool CheckFirstRunDialog()
+        {
+            bool isFirstRun = true; // 默认认为是第一次
+
+            if (SettingsLoader.ContainsKey("IsFirstRun"))
+            {
+                isFirstRun = (bool)SettingsLoader.GetSettingsOption("IsFirstRun");
+            }
+            return isFirstRun;
+        }
+
+        /// <summary>
+        /// 将首次运行标志设置为false
+        /// </summary>
+        public static void SetFirstRunFalg()
+        {
+            SettingsLoader.SetSettingsOption("IsFirstRun", false);
+        }
+
+        /// <summary>
+        /// 禁用所有控件
+        /// </summary>
+        public void DisableAllControl()
+        {
+            IsLoading.Value = true;
+            IsButtonsEnabled.Value = false;
+            IsApplyButtonEnabled.Value = false;
+        }
+
+        /// <summary>
+        /// 编辑或添加源
+        /// </summary>
+        /// <param name="FeedViewModel"></param>
+        public void AddOrEditFeed(FeedViewModel FeedViewModel)
+        {
+            if (UpdateObject(Feeds, FeedViewModel))
+            {
+                Debug.WriteLine($"Feed with ID {FeedViewModel.IsEdited} updated.");
+                Debug.WriteLine($"Feed with ID {FeedViewModel.GetHashCode()} updated.");
+                if (FeedViewModel.IsEdited)
+                {
+                    FeedViewModel.IsEdited = false;
+                    CanApplyFeeds = true;
+                    IsApplyButtonEnabled.Value = CanApplyFeeds;
+                }
+            }
+            else
+            {
+                Feeds.Add(FeedViewModel);
+                FeedViewModel.IsEdited = false;
+                CanApplyFeeds = true;
+                IsApplyButtonEnabled.Value = CanApplyFeeds;
+            }
+        }
+
+        /// <summary>
+        /// 删除源
+        /// </summary>
+        /// <param name="FeedViewModel"></param>
+        public void DeleteFeed(FeedViewModel FeedViewModel)
+        {
+            if (Feeds.Remove(FeedViewModel))
+            {
+                DeleteFeeds.Add(FeedViewModel);
+                CanApplyFeeds = true;
+                IsApplyButtonEnabled.Value = CanApplyFeeds;
+            }
+
+            IsLoading.Value = false;
+            IsButtonsEnabled.Value = true;
+        }
+
+        /// <summary>
+        /// 保存源列表到Xml文件，并根据是否启用源提供程序来安装或卸载源提供程序
+        /// </summary>
+        /// <returns></returns>
+        public async Task SaveFeeds()
+        {
+            try
+            {
+                if (IsFeedProviderEnabled)
+                    await PackageInstaller.UninstallFeedProvider();
+                List<Feed> feedItems = [];
+                foreach (var feedViewModel in Feeds)
+                {
+                    feedItems.Add(feedViewModel.FeedItem);
+                    await feedViewModel.DeleteOldCacheImage();
+                }
+                await ManifestXmlService.Write(feedItems);
+                if (IsFeedProviderEnabled)
+                    await PackageInstaller.InstallFeedProvider();
+                foreach (var item in DeleteFeeds)
+                {
+                    await item.Delete();
+                }
+                DeleteFeeds.Clear();
+                CanApplyFeeds = false;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error saving feeds: {ex.Message}");
+            }
+            finally
+            {
+                IsApplyButtonEnabled.Value = CanApplyFeeds;
+                IsButtonsEnabled.Value = true;
+                IsLoading.Value = false;
+            }
+        }
+
+        public async Task CancelPendingChanges()
+        {
+            try
+            {
+                await DeleteNewCacheImages();
+                Feeds.Clear();
+                DeleteFeeds.Clear();
+                FeedListDataService.FeedList.Clear();
+                FeedListDataService.DeleteFeedList.Clear();
+                FeedListDataService.CanAppltFeeds = false;
+                FeedListDataService.IsEnable = false;
+                AddOrEditFeedDataService.Feed = null;
+                await LoadFeedsFromXml();
+                CanApplyFeeds = false;
+            }
+            finally
+            {
+                IsApplyButtonEnabled.Value = CanApplyFeeds;
+                IsButtonsEnabled.Value = true;
+                IsLoading.Value = false;
+            }
+        }
+
+        /// <summary>
+        /// 启用或关闭自定义源
+        /// </summary>
+        /// <returns></returns>
+        public async Task EnableOrDisableFeedProvider()
+        {
+            try
+            {
+                if (!IsFeedProviderEnabled.Value)
+                {
+                    await PackageInstaller.UninstallFeedProvider();
+                }
+                else if (!await PackageInstaller.InstallFeedProvider())
+                {
+                    IsFeedProviderEnabled.Value = false;
+                }
+            }
+            finally
+            {
+                IsLoading.Value = false;
+                IsButtonsEnabled.Value = true;
+                IsApplyButtonEnabled.Value = CanApplyFeeds;
+            }
+        }
+
+        /// <summary>
+        /// 更新ObservableCollection中的对象，如果找到匹配的Id，则替换该对象
+        /// </summary>
+        /// <param name="list"></param>
+        /// <param name="newObj"></param>
+        /// <returns></returns>
+        private static bool UpdateObject(ObservableCollection<FeedViewModel> list, FeedViewModel newObj)
+        {
+            // 查找匹配的索引
+            int index = -1;
+
+            foreach (var item in list)
+            {
+                if (item.Id == newObj.Id)
+                {
+                    index = list.IndexOf(item);
+                    break;
+                }
+            }
+
+            if (index >= 0)
+            {
+                list[index] = newObj;  // 替换
+                return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// 删除所有新缓存的图片，包括已删除的源和现有源的图片
+        /// </summary>
+        /// <returns></returns>
+        public async Task DeleteNewCacheImages()
+        {
+            foreach (var item in Feeds)
+            {
+                await item.DeleteNewCacheImage();
+            }
+
+            foreach (var item in DeleteFeeds)
+            {
+                await item.DeleteNewCacheImage();
+            }
+        }
+
+        /// <summary>
+        /// 将当前数据缓存至DataService单例中
+        /// </summary>
+        public void SaveListToDataService()
+        {
+            FeedListDataService.FeedList.Clear();
+            FeedListDataService.DeleteFeedList.Clear();
+            foreach (var item in Feeds)
+            {
+                FeedListDataService.FeedList.Add(item.FeedItem);
+            }
+            foreach (var item in DeleteFeeds)
+            {
+                FeedListDataService.DeleteFeedList.Add(item.FeedItem);
+            }
+            FeedListDataService.CanAppltFeeds = CanApplyFeeds;
+            FeedListDataService.IsEnable = true;
+            FeedProviderEnableDataService.IsFeedProviderEnabled = IsFeedProviderEnabled.Value;
+        }
+
+        public bool CanAddFeed()
+        {
+            if (Feeds.Count >= Constants.MaxFeedNum) return false;
+
+            return true;
+        }
+
+        /// <summary>
+        /// 打开帮助文档
+        /// </summary>
+        public async Task<Windows.Storage.StorageFile?> GetHelpFileAsync()
+        {
+            return await GetHelpTool.GetHelpFileAsync();
+        }
+    }
+}
