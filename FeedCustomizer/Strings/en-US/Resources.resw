@@ -1,0 +1,313 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- 
+    Microsoft ResX Schema 
+    
+    Version 2.0
+    
+    The primary goals of this format is to allow a simple XML format 
+    that is mostly human readable. The generation and parsing of the 
+    various data types are done through the TypeConverter classes 
+    associated with the data types.
+    
+    Example:
+    
+    ... ado.net/XML headers & schema ...
+    <resheader name="resmimetype">text/microsoft-resx</resheader>
+    <resheader name="version">2.0</resheader>
+    <resheader name="reader">System.Resources.ResXResourceReader, System.Windows.Forms, ...</resheader>
+    <resheader name="writer">System.Resources.ResXResourceWriter, System.Windows.Forms, ...</resheader>
+    <data name="Name1"><value>this is my long string</value><comment>this is a comment</comment></data>
+    <data name="Color1" type="System.Drawing.Color, System.Drawing">Blue</data>
+    <data name="Bitmap1" mimetype="application/x-microsoft.net.object.binary.base64">
+        <value>[base64 mime encoded serialized .NET Framework object]</value>
+    </data>
+    <data name="Icon1" type="System.Drawing.Icon, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
+        <value>[base64 mime encoded string representing a byte array form of the .NET Framework object]</value>
+        <comment>This is a comment</comment>
+    </data>
+                
+    There are any number of "resheader" rows that contain simple 
+    name/value pairs.
+    
+    Each data row contains a name, and value. The row also contains a 
+    type or mimetype. Type corresponds to a .NET class that support 
+    text/value conversion through the TypeConverter architecture. 
+    Classes that don't support this are serialized and stored with the 
+    mimetype set.
+    
+    The mimetype is used for serialized objects, and tells the 
+    ResXResourceReader how to depersist the object. This is currently not 
+    extensible. For a given mimetype the value must be set accordingly:
+    
+    Note - application/x-microsoft.net.object.binary.base64 is the format 
+    that the ResXResourceWriter will generate, however the reader can 
+    read any of the formats listed below.
+    
+    mimetype: application/x-microsoft.net.object.binary.base64
+    value   : The object must be serialized with 
+            : System.Runtime.Serialization.Formatters.Binary.BinaryFormatter
+            : and then encoded with base64 encoding.
+    
+    mimetype: application/x-microsoft.net.object.soap.base64
+    value   : The object must be serialized with 
+            : System.Runtime.Serialization.Formatters.Soap.SoapFormatter
+            : and then encoded with base64 encoding.
+
+    mimetype: application/x-microsoft.net.object.bytearray.base64
+    value   : The object must be serialized into a byte array 
+            : using a System.ComponentModel.TypeConverter
+            : and then encoded with base64 encoding.
+    -->
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="AboutButton.ToolTipService.ToolTip" xml:space="preserve">
+    <value>About</value>
+    <comment>Tooltip text for the "About" button at the bottom of the home page</comment>
+  </data>
+  <data name="AboutButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>About</value>
+    <comment>Screen reader text for the "About" button at the bottom of the home page</comment>
+  </data>
+  <data name="AddFeedButton.Text" xml:space="preserve">
+    <value>New</value>
+    <comment>Display text for the new feed button on the home page</comment>
+  </data>
+  <data name="AddFeedPageTitle" xml:space="preserve">
+    <value>Add Feed Configuration</value>
+    <comment>Title for the "Add Feed Configuration" page</comment>
+  </data>
+  <data name="ApplyButton.Content" xml:space="preserve">
+    <value>Apply</value>
+    <comment>Display text for the "Apply" button on the home page</comment>
+  </data>
+  <data name="AppName" xml:space="preserve">
+    <value>Feed Customization Tool</value>
+    <comment>Display name of the application</comment>
+  </data>
+  <data name="CancelButton.Text" xml:space="preserve">
+    <value>Cancel</value>
+    <comment>Text displayed on the cancel button</comment>
+  </data>
+  <data name="ClearButton.Text" xml:space="preserve">
+    <value>Clear</value>
+    <comment>Text for the clear button</comment>
+  </data>
+  <data name="EditFeedPageTitle" xml:space="preserve">
+    <value>Edit Feed Configuration</value>
+    <comment>Title for the "Edit Feed Configuration" page</comment>
+  </data>
+  <data name="EnableCustomizerToggle.Text" xml:space="preserve">
+    <value>Enable Custom Feed</value>
+    <comment>Display text for the "Enable Custom Feed" toggle on the home page</comment>
+  </data>
+  <data name="EnableCustomizerCard.Header" xml:space="preserve">
+    <value>Enable Custom Feed</value>
+    <comment>Title of the custom feed settings card on the home page</comment>
+  </data>
+  <data name="FeedProviderToggle.OnContent" xml:space="preserve">
+    <value>On</value>
+    <comment>The toggle's own enabled state text</comment>
+  </data>
+  <data name="FeedProviderToggle.OffContent" xml:space="preserve">
+    <value>Off</value>
+    <comment>The toggle's own disabled state text</comment>
+  </data>
+  <data name="FeedListExpander.Header" xml:space="preserve">
+    <value>Feed List</value>
+    <comment>Header for the feed list expander on the home page</comment>
+  </data>
+  <data name="GetHelpButton.ToolTipService.ToolTip" xml:space="preserve">
+    <value>View Tutorial</value>
+    <comment>Tooltip text for the "View Tutorial" button at the bottom of the home page</comment>
+  </data>
+  <data name="GetHelpButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>View Tutorial</value>
+    <comment>Screen reader text for the "View Tutorial" button at the bottom of the home page</comment>
+  </data>
+  <data name="ImageSelectionHeader.Text" xml:space="preserve">
+    <value>Image Selection</value>
+    <comment>Header text for the image selection area</comment>
+  </data>
+  <data name="NameTextBox.Header" xml:space="preserve">
+    <value>Name</value>
+    <comment>Header for the name text box on the add/edit feed configuration page</comment>
+  </data>
+  <data name="NameTextBox.PlaceholderText" xml:space="preserve">
+    <value>Please enter a name</value>
+    <comment>Placeholder text for the name text box on the add/edit feed configuration page</comment>
+  </data>
+  <data name="UrlTextBox.PlaceholderText" xml:space="preserve">
+    <value>Please enter a URL (e.g., https://example.com)</value>
+    <comment>Placeholder text for the URL text box on the add/edit feed configuration page</comment>
+  </data>
+  <data name="SaveButton.Text" xml:space="preserve">
+    <value>Save</value>
+    <comment>Text for the save button</comment>
+  </data>
+  <data name="SelectImageButton.Text" xml:space="preserve">
+    <value>Select Image</value>
+    <comment>Text for the select image button</comment>
+  </data>
+  <data name="Title.Title" xml:space="preserve">
+    <value>Feed Customization Tool</value>
+    <comment>Content displayed in the application window title bar</comment>
+  </data>
+  <data name="UrlTextBox.Header" xml:space="preserve">
+    <value>URL</value>
+    <comment>Header for the URL text box on the add/edit feed configuration page</comment>
+  </data>
+  <data name="EditFeedButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Edit</value>
+    <comment>Screen reader text for the edit button on feed list items on the home page</comment>
+  </data>
+  <data name="EditFeedButton.ToolTipService.ToolTip" xml:space="preserve">
+    <value>Edit</value>
+    <comment>Tooltip text for the edit button on feed list items on the home page</comment>
+  </data>
+  <data name="DeleteFeedButton.ToolTipService.ToolTip" xml:space="preserve">
+    <value>Delete</value>
+    <comment>Tooltip text for the delete button on feed list items on the home page</comment>
+  </data>
+  <data name="DeleteFeedButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Delete</value>
+    <comment>Screen reader text for the delete button on feed list items on the home page</comment>
+  </data>
+  <data name="EnableProviderFail" xml:space="preserve">
+    <value>Enable Failed</value>
+    <comment>Title of the pop-up dialog when enabling the feed fails</comment>
+  </data>
+  <data name="SomethingErrorsOccurred" xml:space="preserve">
+    <value>Some errors occurred</value>
+    <comment>General error pop-up content - Some errors occurred</comment>
+  </data>
+  <data name="DeveloperModeDisabled" xml:space="preserve">
+    <value>Developer mode is not enabled. Please follow the app's help instructions to enable Developer Mode in Windows Settings.</value>
+    <comment>Detailed error message for when Developer Mode is not enabled</comment>
+  </data>
+  <data name="LanguageTag" xml:space="preserve">
+    <value>en-US</value>
+    <comment>Language identifier used to get the current display language in the app. Set this to the identifier of the language you are translating to.</comment>
+  </data>
+  <data name="AboutVersion.Text" xml:space="preserve">
+    <value>Version</value>
+    <comment>"Version" heading on the About page</comment>
+  </data>
+  <data name="AboutDeveloper.Text" xml:space="preserve">
+    <value>Developer</value>
+    <comment>"Developer" heading on the About page</comment>
+  </data>
+  <data name="AboutOpenSourceLink.Text" xml:space="preserve">
+    <value>Open Source URL</value>
+    <comment>"Open Source URL" heading on the About page</comment>
+  </data>
+  <data name="AboutAppName.Text" xml:space="preserve">
+    <value>Feed Customization Tool</value>
+    <comment>Display text for the app name on the About page</comment>
+  </data>
+  <data name="DialogOK" xml:space="preserve">
+    <value>OK</value>
+  </data>
+  <data name="FirstRunDialog.Title" xml:space="preserve">
+    <value>Warning</value>
+  </data>
+  <data name="FirstRunDialogMessage.Text" xml:space="preserve">
+    <value>Using this application requires enabling Windows Developer Mode, which may put your device at risk. It is recommended to enable it only temporarily when editing feed configurations or turning custom feed on/off. For more details, please refer to the help documentation.</value>
+  </data>
+  <data name="FirstRunDialog.CloseButtonText" xml:space="preserve">
+    <value>Got it</value>
+  </data>
+  <data name="ExternalOpenDialog.Title" xml:space="preserve">
+    <value>This app is trying to open an external application</value>
+  </data>
+  <data name="ExternalOpenDialog.PrimaryButtonText" xml:space="preserve">
+    <value>Yes</value>
+  </data>
+  <data name="ExternalOpenDialog.SecondaryButtonText" xml:space="preserve">
+    <value>No</value>
+  </data>
+  <data name="DialogMessage.Text" xml:space="preserve">
+    <value>Do you allow it?</value>
+  </data>
+  <data name="StartupFailureDialog.Title" xml:space="preserve">
+    <value>Startup failed</value>
+  </data>
+  <data name="StartupFailureDialog.SecondaryButtonText" xml:space="preserve">
+    <value>Copy error</value>
+  </data>
+  <data name="StartupFailureDialog.CloseButtonText" xml:space="preserve">
+    <value>Close</value>
+  </data>
+  <data name="WebsiteIconRadioButton.Content" xml:space="preserve">
+    <value>Get website icon</value>
+  </data>
+  <data name="CustomIconRadioButton.Content" xml:space="preserve">
+    <value>Use custom icon</value>
+  </data>
+  <data name="WebIconFetchErrorDialog.Title" xml:space="preserve">
+    <value>Couldn't get the website icon</value>
+  </data>
+  <data name="WebIconFetchErrorDialog.CloseButtonText" xml:space="preserve">
+    <value>Close</value>
+  </data>
+  <data name="ProviderPackageDisplayName" xml:space="preserve">
+    <value>Feed Customization Container</value>
+    <comment>Display name of the automatically registered feed provider package</comment>
+  </data>
+</root>

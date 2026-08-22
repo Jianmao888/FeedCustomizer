@@ -1,0 +1,99 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<OutputType>WinExe</OutputType>
+		<TargetFramework>net10.0-windows10.0.26100.0</TargetFramework>
+		<TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
+		<RootNamespace>FeedCustomizer</RootNamespace>
+		<ApplicationManifest>app.manifest</ApplicationManifest>
+		<Platforms>x64;ARM64</Platforms>
+		<RuntimeIdentifiers>win-x64;win-arm64</RuntimeIdentifiers>
+		<RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == ''">win-$(Platform.ToLower())</RuntimeIdentifier>
+		<PublishProfile>win-$(Platform).pubxml</PublishProfile>
+		<UseWinUI>true</UseWinUI>
+		<WinUISDKReferences>false</WinUISDKReferences>
+		<EnableMsixTooling>true</EnableMsixTooling>
+		<Nullable>enable</Nullable>
+		<PublishAot>true</PublishAot>
+		<SelfContained>true</SelfContained>
+		<WindowsAppSDKSelfContained>false</WindowsAppSDKSelfContained>
+		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+	</PropertyGroup>
+
+	<Target Name="PublishFeedProviderToResources" BeforeTargets="BeforeBuild">
+		<Error
+			Condition="'$(RuntimeIdentifier)' != 'win-x64' And '$(RuntimeIdentifier)' != 'win-arm64'"
+			Text="Unsupported FeedProvider RuntimeIdentifier: $(RuntimeIdentifier)" />
+		<PropertyGroup>
+			<_FeedProviderPath>$(ProjectDir)Resources\FeedProvider\</_FeedProviderPath>
+		</PropertyGroup>
+		<!-- Publish into a freshly mirrored flat directory so removed dependencies
+		     cannot remain embedded in later MSIX packages. The selected RID still
+		     determines which provider binaries are generated. -->
+		<RemoveDir Directories="$(_FeedProviderPath)" />
+		<MakeDir Directories="$(_FeedProviderPath)" />
+		<MSBuild
+			Projects="$(MSBuildProjectDirectory)\..\FeedProvider\FeedProvider.csproj"
+			Targets="Publish"
+			Properties="Configuration=$(Configuration);Platform=$(Platform);RuntimeIdentifier=$(RuntimeIdentifier);SelfContained=true;PublishAot=true;PublishTrimmed=true;WindowsAppSDKSelfContained=false;PublishDir=$(_FeedProviderPath)"
+			BuildInParallel="false" />
+		<Message Text="FeedProvider publish path = $(_FeedProviderPath)" Importance="High" />
+		<ItemGroup>
+			<Content Include="Resources\FeedProvider\**" />
+		</ItemGroup>
+	</Target>
+
+	<ItemGroup>
+		<Content Include="Resources\**" Exclude="Resources\FeedProvider\**" />
+		<Content Remove="Resources\resources.pri" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<Manifest Include="$(ApplicationManifest)" />
+	</ItemGroup>
+
+	<ItemGroup Condition="'$(DisableMsixProjectCapabilityAddedByProject)'!='true' and '$(EnableMsixTooling)'=='true'">
+		<ProjectCapability Include="Msix" />
+	</ItemGroup>
+	<ItemGroup>
+		<PackageReference Include="CommunityToolkit.WinUI.Controls.SettingsControls" Version="8.3.260402-preview2" />
+		<PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.28000.2526" />
+		<PackageReference Include="Microsoft.WindowsAppSDK.InteractiveExperiences" Version="2.1.6" />
+		<PackageReference Include="Microsoft.WindowsAppSDK.Runtime" Version="2.4.0" />
+		<PackageReference Include="Microsoft.WindowsAppSDK.WinUI" Version="2.3.6" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<Content Update="Assets\AppIcon.ico">
+			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</Content>
+	</ItemGroup>
+
+	<!--
+    Defining the "HasPackageAndPublishMenuAddedByProject" property here allows the Solution
+    Explorer "Package and Publish" context menu entry to be enabled for this project even if
+    the Windows App SDK Nuget package has not yet been restored.
+  -->
+	<PropertyGroup Condition="'$(DisableHasPackageAndPublishMenuAddedByProject)'!='true' and '$(EnableMsixTooling)'=='true'">
+		<HasPackageAndPublishMenu>true</HasPackageAndPublishMenu>
+	</PropertyGroup>
+
+	<!-- Publish Properties -->
+	<PropertyGroup>
+		<PublishReadyToRun Condition="'$(Configuration)' == 'Debug'">False</PublishReadyToRun>
+		<PublishReadyToRun Condition="'$(Configuration)' != 'Debug'">True</PublishReadyToRun>
+		<!-- Native AOT implies trimming; disabling it makes publish fail with NETSDK1102. -->
+		<PublishTrimmed>true</PublishTrimmed>
+		<GenerateTemporaryStoreCertificate>True</GenerateTemporaryStoreCertificate>
+		<PackageCertificateKeyFile>FeedCustomizer_TemporaryKey.pfx</PackageCertificateKeyFile>
+		<AppxPackageSigningEnabled>True</AppxPackageSigningEnabled>
+		<DefaultLanguage>en-US</DefaultLanguage>
+		<SupportedOSPlatformVersion>10.0.22621.0</SupportedOSPlatformVersion>
+		<GenerateAppInstallerFile>False</GenerateAppInstallerFile>
+		<AppxPackageSigningTimestampDigestAlgorithm>SHA256</AppxPackageSigningTimestampDigestAlgorithm>
+		<AppxAutoIncrementPackageRevision>False</AppxAutoIncrementPackageRevision>
+		<AppxSymbolPackageEnabled>False</AppxSymbolPackageEnabled>
+		<GenerateTestArtifacts>False</GenerateTestArtifacts>
+		<AppxBundle>Never</AppxBundle>
+		<HoursBetweenUpdateChecks>0</HoursBetweenUpdateChecks>
+	</PropertyGroup>
+</Project>

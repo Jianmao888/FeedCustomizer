@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="FeedCustomizer.Pages.AboutPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:FeedCustomizer.Pages"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <Grid>
+        <ScrollViewer>
+            <StackPanel
+                Spacing="4"
+                Padding="12,12">
+                <!-- 主卡片 -->
+                <Border
+                    CornerRadius="4" 
+                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    Padding="32">
+                    <Border.Shadow>
+                        <ThemeShadow/>
+                    </Border.Shadow>
+                    <StackPanel
+                        HorizontalAlignment="Center"
+                        Spacing="12">
+                        <!-- 应用图标 -->
+                        <Border
+                            Width="48"
+                            Height="48"
+                            HorizontalAlignment="Center">
+                            <Image
+                                Source="/Assets/StoreLogo.png"
+                                Stretch="Uniform"/>
+                        </Border>
+                        
+                        <!-- 应用名称 -->
+                        <TextBlock
+                            x:Uid="AboutAppName"
+                            FontSize="28"
+                            FontWeight="SemiBold"
+                            HorizontalAlignment="Center"/>
+
+                        
+                    </StackPanel>
+                </Border>
+
+                <!-- 信息卡片 -->
+                <Border
+                    CornerRadius="4" 
+                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    Padding="20,24">
+                    <StackPanel Spacing="18">
+                        <!-- Version -->
+                        <StackPanel>
+                            <TextBlock
+                                x:Uid="AboutVersion"
+                                FontSize="13"
+                                Opacity="0.6"/>
+                            <TextBlock
+                                Text="{x:Bind AboutViewModel.GetCurrentVersion()}"
+                                FontSize="16"/>
+                        </StackPanel>
+                        <!-- Developer -->
+                        <StackPanel>
+                            <TextBlock
+                                x:Uid="AboutDeveloper"
+                                FontSize="13"
+                                Opacity="0.6"/>
+                            <StackPanel
+                                Orientation="Horizontal"
+                                Spacing="8">
+                                <TextBlock
+                                    Text="{x:Bind AboutViewModel.Developer}"
+                                    FontSize="16"
+                                    VerticalAlignment="Center"/>
+                                <HyperlinkButton
+                                    Content="惜忆想睡觉"
+                                    Click="DeveloperStoreLink_Click"
+                                    HorizontalAlignment="Left"
+                                    Padding="0"
+                                    FontSize="16"/>
+                            </StackPanel>
+                        </StackPanel>
+                        <!-- Github -->
+                        <StackPanel>
+                            <TextBlock
+                                x:Uid="AboutOpenSourceLink"
+                                FontSize="13"
+                                Opacity="0.6"/>
+                            <HyperlinkButton
+                                Content="Gitee"
+                                Click="OpenSourceLink_Click"
+                                HorizontalAlignment="Left"
+                                Padding="0"
+                                FontSize="16"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</Page>
