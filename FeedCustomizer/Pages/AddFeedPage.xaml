@@ -170,16 +170,23 @@
                         MinWidth="128"
                         HorizontalAlignment="Right"
                         Click="OnCancelButtonClick">
-                        <TextBlock x:Uid="CancelButton" />
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <SymbolIcon Symbol="Cancel" />
+                            <TextBlock x:Uid="CancelButton" />
+                        </StackPanel>
                     </Button>
                     <Button
                         x:Name="SaveButton"
                         MinWidth="128"
-                        x:Uid="SaveButton"
                         HorizontalAlignment="Right"
                         IsEnabled="{x:Bind FeedViewModel.CanSave.Value, Mode=OneWay}"
                         Style="{StaticResource AccentButtonStyle}"
-                        Click="OnSaveButtonClick" />
+                        Click="OnSaveButtonClick">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <SymbolIcon Symbol="Save" />
+                            <TextBlock x:Uid="SaveButton" />
+                        </StackPanel>
+                    </Button>
                 </StackPanel>
             </Grid>
         </Border>
