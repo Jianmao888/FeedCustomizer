@@ -14,7 +14,7 @@
         <Grid x:Name="WindowTitleBar"
               Height="32"
               VerticalAlignment="Top"
-              Canvas.ZIndex="10">
+              Canvas.ZIndex="2">
             <TitleBar x:Name="AppTitleBar"
                 x:Uid="Title"
                 Height="32"
@@ -32,7 +32,7 @@
         </Grid>
 
         <Grid x:Name="SplashOverlay"
-              Canvas.ZIndex="20"
+              Canvas.ZIndex="3"
               Background="{ThemeResource ApplicationPageBackgroundThemeBrush}"
               Visibility="Visible"
               Opacity="1">
@@ -56,7 +56,7 @@
 
         <Grid x:Name="LoadingOverlay"
               Background="#66000000"
-              Canvas.ZIndex="5"
+              Canvas.ZIndex="1"
               Visibility="Collapsed">
             <ProgressRing x:Name="LoadingProgressRing"
                           Width="48"

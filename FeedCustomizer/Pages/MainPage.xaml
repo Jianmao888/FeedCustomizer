@@ -48,20 +48,20 @@
                             VerticalAlignment="Center"/>
 
                         <!-- 3. 右侧按钮区域（StackPanel横向排列） -->
-                        <StackPanel 
+                <StackPanel
                             Grid.Column="2" 
-                            Orientation="Horizontal" 
+                    Orientation="Horizontal"
                             VerticalAlignment="Center"
                             Margin="0,0,8,0"
                             Spacing="4" >
                             <!-- 编辑与删除按钮 -->
                             <HyperlinkButton Padding="6" x:Uid="EditFeedButton" Click="OnEditFeedButtonClicked" DataContext="{x:Bind}">
-                                <FontIcon Glyph="&#xE70F;" FontSize="12"/>
-                            </HyperlinkButton>
+                        <FontIcon Glyph="&#xE70F;" FontSize="12"/>
+                    </HyperlinkButton>
                             <HyperlinkButton Padding="6" x:Uid="DeleteFeedButton" Click="OnDeleteFeedButtonClicked" DataContext="{x:Bind}">
-                                <FontIcon Glyph="&#xE74D;" FontSize="12"/>
-                            </HyperlinkButton>
-                        </StackPanel>
+                        <FontIcon Glyph="&#xE74D;" FontSize="12"/>
+                    </HyperlinkButton>
+                </StackPanel>
                     </Grid>
                 </Border>
             </ItemContainer>
@@ -84,6 +84,7 @@
             Spacing="4"
             VerticalAlignment="Top">
             <controls:SettingsCard
+                Grid.Row="0"
                 x:Uid="EnableCustomizerCard"
                 MinHeight="64"
                 Padding="16,0"
@@ -99,20 +100,21 @@
             </controls:SettingsCard>
 
             <!-- 源列表设置展开器，列表内容由嵌套 SettingsCard 承载 -->
-            <controls:SettingsExpander
-                x:Uid="FeedListExpander"
-                IsExpanded="True"
-                HorizontalAlignment="Stretch"
+                <controls:SettingsExpander
+                    x:Name="FeedSettingsExpander"
+                    x:Uid="FeedListExpander"
+                    IsExpanded="True"
+                    HorizontalAlignment="Stretch"
                 VerticalAlignment="Top">
-                <controls:SettingsExpander.Content>
-                    <Button
-                        x:Uid="FeedListAddButton"
+                    <controls:SettingsExpander.Content>
+                        <Button
+                            x:Uid="FeedListAddButton"
                         Padding="0"
-                        Height="32"
+                            Height="32"
                         Margin="0,0,16,0"
-                        Style="{StaticResource AccentButtonStyle}"
-                        IsEnabled="{x:Bind MainPageViewModel.IsButtonsEnabled.Value, Mode=OneWay}"
-                        Click="AddFeedButton_Click">
+                            Style="{StaticResource AccentButtonStyle}"
+                            IsEnabled="{x:Bind MainPageViewModel.IsButtonsEnabled.Value, Mode=OneWay}"
+                            Click="AddFeedButton_Click">
                         <Button.Content>
                             <StackPanel Orientation="Horizontal" Spacing="6" Padding="11,0">
                                 <FontIcon
@@ -125,29 +127,9 @@
                                     Padding="0,5,0,6"/>
                             </StackPanel>
                         </Button.Content>
-                    </Button>
-                </controls:SettingsExpander.Content>
-                <controls:SettingsExpander.Items>
-                    <controls:SettingsCard
-                        x:Load="{x:Bind MainPageViewModel.HasFeeds.Value, Mode=OneWay}"
-                        Padding="0"
-                        MinHeight="0"
-                        ContentAlignment="Vertical"
-                        HorizontalAlignment="Stretch"
-                        HorizontalContentAlignment="Stretch">
-                        <ScrollViewer
-                            VerticalScrollBarVisibility="Auto"
-                            VerticalScrollMode="Enabled"
-                            BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
-                            BorderThickness="0,1,0,0">
-                            <ItemsRepeater
-                                x:Name="FeedListView"
-                                ItemTemplate="{StaticResource FeedItemTemplate}"
-                                ItemsSource="{x:Bind MainPageViewModel.Feeds}"/>
-                        </ScrollViewer>
-                    </controls:SettingsCard>
-                </controls:SettingsExpander.Items>
-            </controls:SettingsExpander>
+                        </Button>
+                    </controls:SettingsExpander.Content>
+                </controls:SettingsExpander>
         </StackPanel>
 
         <!-- 底部按钮部分 -->

@@ -147,31 +147,42 @@
             </Border>
         </ScrollViewer>
 
-        <!-- 底部按钮区域 (保存和取消) -->
-        <StackPanel Grid.Row="2" 
-                    Orientation="Horizontal" 
-                    HorizontalAlignment="Right"
+        <!-- 底部操作栏与主页保持一致，添加页只保留右侧两个按钮。 -->
+        <Border
+            Grid.Row="2"
+            Background="{ThemeResource ControlFillColorSecondaryBrush}"
+            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+            BorderThickness="0,1,0,0"
+            Padding="16,12,12,12">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel
+                    Grid.Column="1"
                     Spacing="12"
-                    Padding="20,0,20,20">
-            <Button x:Name="CancelButton" 
-                    MinWidth="100"
-                    Click="OnCancelButtonClick">
-                <StackPanel Orientation="Horizontal" Spacing="8">
-                    <SymbolIcon Symbol="Cancel"/>
-                    <TextBlock x:Uid="CancelButton"/>
+                    Orientation="Horizontal"
+                    HorizontalAlignment="Right">
+                    <Button
+                        x:Name="CancelButton"
+                        MinWidth="128"
+                        HorizontalAlignment="Right"
+                        Click="OnCancelButtonClick">
+                        <TextBlock x:Uid="CancelButton" />
+                    </Button>
+                    <Button
+                        x:Name="SaveButton"
+                        MinWidth="128"
+                        x:Uid="SaveButton"
+                        HorizontalAlignment="Right"
+                        IsEnabled="{x:Bind FeedViewModel.CanSave.Value, Mode=OneWay}"
+                        Style="{StaticResource AccentButtonStyle}"
+                        Click="OnSaveButtonClick" />
                 </StackPanel>
-            </Button>
-            <Button x:Name="SaveButton" 
-                    Style="{StaticResource AccentButtonStyle}"
-                    MinWidth="100"
-                    Click="OnSaveButtonClick"
-                    IsEnabled="{x:Bind FeedViewModel.CanSave.Value, Mode=OneWay}">
-                <StackPanel Orientation="Horizontal" Spacing="8">
-                    <SymbolIcon Symbol="Save"/>
-                    <TextBlock x:Uid="SaveButton"/>
-                </StackPanel>
-            </Button>
-        </StackPanel>
+            </Grid>
+        </Border>
 
         <!-- 顶部标题 (可选) -->
         <TextBlock Grid.Row="0" 
