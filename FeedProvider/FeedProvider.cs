@@ -3,6 +3,11 @@ using System.Runtime.InteropServices;
 
 namespace FeedProvider
 {
+    // The provider is returned across the WinRT ABI from the native-AOT COM
+    // class factory.  Explicitly opt this implementation into CsWinRT's
+    // generated CCW/vtable path; without it only IClassFactory is generated
+    // and MarshalInspectable<IFeedProvider>.FromManaged(...) fails at runtime.
+    [WinRT.GeneratedWinRTExposedType]
     [ComVisible(true)]
     [ComDefaultInterface(typeof(IFeedProvider))]
     [Guid("53FCE339-5BFD-4911-BCAF-21302DE5CD75")]

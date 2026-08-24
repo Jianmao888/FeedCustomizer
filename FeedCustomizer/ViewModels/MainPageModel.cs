@@ -81,16 +81,17 @@ namespace FeedCustomizer.ViewModels
                 bool isUpToDate = await ResourcesCopier.IsResourceUpToDate();
                 if (!isUpToDate)
                 {
-                    if (IsFeedProviderEnabled)
+                    // The provider executable can be locked by Widgets while
+                    // it is registered.  Unregister it before replacing the
+                    // AOT binary.  Installation is performed once below;
+                    // keeping it out of this branch avoids a second
+                    // uninstall/register cycle during startup.
+                    if (IsFeedProviderEnabled.Value && await PackageInstaller.IsFeedProviderInstalled())
                     {
                         await PackageInstaller.UninstallFeedProvider();
-                        await ResourcesCopier.ResourcesCopyAsync();
-                        await PackageInstaller.InstallFeedProvider();
                     }
-                    else
-                    {
-                        await ResourcesCopier.ResourcesCopyAsync();
-                    }
+
+                    await ResourcesCopier.ResourcesCopyAsync();
                 }
                 // 加载源列表
                 await LoadFeedsFromXml();
@@ -103,9 +104,14 @@ namespace FeedCustomizer.ViewModels
                 AddOrEditFeedDataService.Feed = null;
             }
 
-            if (IsFeedProviderEnabled.Value && !ResourcesCopier.IsRegisteredProviderCurrent())
+            // Do not rewrite/re-register the provider on every page startup.
+            // Widgets may still hold the COM server open; only refresh the
+            // registration when the package is missing or its staged files
+            // no longer match the current resources.
+            if (IsFeedProviderEnabled.Value &&
+                (!await PackageInstaller.IsFeedProviderInstalled() ||
+                 !ResourcesCopier.IsRegisteredProviderCurrent()))
             {
-                await PackageInstaller.UninstallFeedProvider();
                 if (!await PackageInstaller.InstallFeedProvider())
                 {
                     IsFeedProviderEnabled.Value = false;

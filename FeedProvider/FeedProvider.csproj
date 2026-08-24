@@ -10,13 +10,18 @@
 		<RuntimeIdentifier Condition="'$(Platform)' == 'x64'">win-x64</RuntimeIdentifier>
 		<RuntimeIdentifier Condition="'$(Platform)' == 'ARM64'">win-arm64</RuntimeIdentifier>
     <SupportedOSPlatformVersion>10.0.22621.0</SupportedOSPlatformVersion>
-    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 		<PublishAot>true</PublishAot>
 		<SelfContained>true</SelfContained>
 		<WindowsAppSDKSelfContained>false</WindowsAppSDKSelfContained>
 		<BuiltInComInteropSupport>true</BuiltInComInteropSupport>
-		<WinUISDKReferences>false</WinUISDKReferences>
-		<PublishTrimmed>true</PublishTrimmed>
+			<WinUISDKReferences>false</WinUISDKReferences>
+			<PublishTrimmed>true</PublishTrimmed>
+			<!-- Generate the WinRT authoring/CCW metadata consumed by the native-AOT
+			     provider when Widgets asks for IFeedProvider. -->
+			<CsWinRTComponent>true</CsWinRTComponent>
+			<CsWinRTAotOptimizerEnabled>true</CsWinRTAotOptimizerEnabled>
+			<CsWinRTAotExportsEnabled>true</CsWinRTAotExportsEnabled>
+			<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
 	<ItemGroup>

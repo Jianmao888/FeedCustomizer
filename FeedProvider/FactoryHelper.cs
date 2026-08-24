@@ -1,88 +1,198 @@
-﻿using Microsoft.Windows.Widgets.Feeds.Providers;
+using Microsoft.Windows.Widgets.Feeds.Providers;
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using System.Runtime.InteropServices.Marshalling;
 using WinRT;
 
 namespace FeedProvider
 {
-    namespace Com
+    internal static class ComGuids
     {
-        static class Guids
-        {
-            public const string IClassFactory = "00000001-0000-0000-C000-000000000046";
-            public const string IUnknown = "00000000-0000-0000-C000-000000000046";
-        }
+        internal static readonly Guid IUnknown = new("00000000-0000-0000-C000-000000000046");
+        internal static readonly Guid IClassFactory = new("00000001-0000-0000-C000-000000000046");
+        internal static readonly Guid IFeedProvider = new("7293A12B-0329-458D-AC25-5332BE478FDE");
+    }
 
-        [ComImport(), InterfaceType(ComInterfaceType.InterfaceIsIUnknown), Guid(Guids.IClassFactory)]
-        internal interface IClassFactory
-        {
-            [PreserveSig]
-            int CreateInstance(IntPtr pUnkOuter, ref Guid riid, out IntPtr ppvObject);
-            [PreserveSig]
-            int LockServer(bool fLock);
-        }
+    internal sealed class FeedProviderClassFactory
+    {
+        // Keep the provider alive for the complete lifetime of the registered
+        // class factory. Widgets can activate it long after registration.
+        private static readonly FeedProvider Provider = new();
 
-        static class ClassObject
+        public int CreateInstance(nint pUnkOuter, ref Guid riid, out nint ppvObject)
         {
-            public static void Register(Guid clsid, object pUnk, out uint cookie)
+            ppvObject = nint.Zero;
+            if (pUnkOuter != nint.Zero)
             {
-                [DllImport("ole32.dll")]
-                static extern int CoRegisterClassObject(
-                    [MarshalAs(UnmanagedType.LPStruct)] Guid rclsid,
-                    [MarshalAs(UnmanagedType.IUnknown)] object pUnk,
-                    uint dwClsContext,
-                    uint flags,
-                    out uint lpdwRegister);
+                return HResults.ClassENoAggregation;
+            }
 
-                int result = CoRegisterClassObject(clsid, pUnk, 0x4, 0x1, out cookie);
-                if (result != 0)
+            try
+            {
+                if (riid == ComGuids.IUnknown || riid == ComGuids.IFeedProvider)
                 {
-                    Marshal.ThrowExceptionForHR(result);
+                    // IClassFactory must return the interface requested in
+                    // riid. For this Native AOT CCW, MarshalInspectable creates
+                    // an IInspectable pointer whose QueryInterface reports
+                    // REGDB_E_IIDNOTREG for IFeedProvider even though GetIids
+                    // advertises it. Returning the generated IFeedProvider
+                    // interface pointer also provides the three IUnknown slots
+                    // and keeps QueryInterface(IFeedProvider) functional.
+                    ppvObject = MarshalInterface<IFeedProvider>.FromManaged(Provider);
+                    return HResults.SOk;
                 }
-            }
 
-            public static int Revoke(uint cookie)
+                return HResults.ENoInterface;
+            }
+            catch (Exception ex)
             {
-                [DllImport("ole32.dll")]
-                static extern int CoRevokeClassObject(uint dwRegister);
-
-                return CoRevokeClassObject(cookie);
+                Console.Error.WriteLine($"FeedProvider COM activation failed: {ex}");
+                ppvObject = nint.Zero;
+                return ex.HResult;
             }
+        }
+
+        public int LockServer(int fLock) => HResults.SOk;
+    }
+
+    internal static class ComClassObject
+    {
+        private const uint CLSCTX_LOCAL_SERVER = 0x4;
+        private const uint REGCLS_MULTIPLEUSE = 0x1;
+
+        [DllImport("ole32.dll", ExactSpelling = true)]
+        private static extern int CoRegisterClassObject(
+            in Guid rclsid,
+            nint pUnk,
+            uint dwClsContext,
+            uint flags,
+            out uint registrationCookie);
+
+        [DllImport("ole32.dll", ExactSpelling = true)]
+        private static extern int CoRevokeClassObject(uint registrationCookie);
+
+        internal static void Register(Guid clsid, nint classFactory, out uint cookie)
+        {
+            int hr = CoRegisterClassObject(
+                in clsid,
+                classFactory,
+                CLSCTX_LOCAL_SERVER,
+                REGCLS_MULTIPLEUSE,
+                out cookie);
+            if (hr < 0)
+            {
+                Marshal.ThrowExceptionForHR(hr);
+            }
+        }
+
+        internal static int Revoke(uint cookie) => CoRevokeClassObject(cookie);
+    }
+
+    // A hand-written COM vtable avoids the Native AOT generated IClassFactory
+    // ABI thunk that was failing during Widgets activation.
+    internal sealed unsafe class FactoryComWrappers : ComWrappers
+    {
+        private static readonly FactoryVtable Vtable = CreateVtable();
+        internal static FeedProviderClassFactory Factory { get; } = new();
+
+        protected override ComInterfaceEntry* ComputeVtables(
+            object obj,
+            CreateComInterfaceFlags flags,
+            out int count)
+        {
+            count = 1;
+            ComInterfaceEntry* entries = (ComInterfaceEntry*)RuntimeHelpers.AllocateTypeAssociatedMemory(
+                typeof(FactoryComWrappers),
+                sizeof(ComInterfaceEntry));
+            entries[0] = new ComInterfaceEntry
+            {
+                IID = ComGuids.IClassFactory,
+                Vtable = (nint)Unsafe.AsPointer(ref Unsafe.AsRef(in Vtable))
+            };
+            return entries;
+        }
+
+        protected override object CreateObject(IntPtr externalComObject, CreateObjectFlags flags) =>
+            throw new NotSupportedException();
+
+        protected override void ReleaseObjects(IEnumerable objects)
+        {
+        }
+
+        private static FactoryVtable CreateVtable()
+        {
+            ComWrappers.GetIUnknownImpl(
+                out nint queryInterface,
+                out nint addRef,
+                out nint release);
+            return new FactoryVtable
+            {
+                QueryInterface = queryInterface,
+                AddRef = addRef,
+                Release = release,
+                CreateInstance = (nint)(delegate* unmanaged[MemberFunction]<
+                    ComInterfaceDispatch*, nint, Guid*, nint*, int>)&CreateInstanceAbi,
+                LockServer = (nint)(delegate* unmanaged[MemberFunction]<
+                    ComInterfaceDispatch*, int, int>)&LockServerAbi
+            };
+        }
+
+        [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvMemberFunction) })]
+        private static int CreateInstanceAbi(
+            ComInterfaceDispatch* dispatch,
+            nint outer,
+            Guid* riid,
+            nint* result)
+        {
+            if (riid is null || result is null)
+            {
+                return HResults.EPointer;
+            }
+
+            try
+            {
+                Guid requestedIid = *riid;
+                return Factory.CreateInstance(outer, ref requestedIid, out *result);
+            }
+            catch (Exception ex)
+            {
+                *result = nint.Zero;
+                return ex.HResult;
+            }
+        }
+
+        [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvMemberFunction) })]
+        private static int LockServerAbi(ComInterfaceDispatch* dispatch, int lockServer)
+        {
+            try
+            {
+                return Factory.LockServer(lockServer);
+            }
+            catch (Exception ex)
+            {
+                return ex.HResult;
+            }
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct FactoryVtable
+        {
+            public nint QueryInterface;
+            public nint AddRef;
+            public nint Release;
+            public nint CreateInstance;
+            public nint LockServer;
         }
     }
 
-    internal class FeedProviderFactory<T> : Com.IClassFactory
-            where T : IFeedProvider, new()
+    internal static class HResults
     {
-        public int CreateInstance(IntPtr pUnkOuter, ref Guid riid, out IntPtr ppvObject)
-        {
-            ppvObject = IntPtr.Zero;
-
-            if (pUnkOuter != IntPtr.Zero)
-            {
-                Marshal.ThrowExceptionForHR(CLASS_E_NOAGGREGATION);
-            }
-
-            if (riid == typeof(T).GUID || riid == Guid.Parse(Com.Guids.IUnknown))
-            {
-                // Create the instance of the .NET object
-                ppvObject = MarshalInspectable<IFeedProvider>.FromManaged(new T());
-            }
-            else
-            {
-                // The object that ppvObject points to does not support the
-                // interface identified by riid.
-                Marshal.ThrowExceptionForHR(E_NOINTERFACE);
-            }
-
-            return 0;
-        }
-
-        int Com.IClassFactory.LockServer(bool fLock)
-        {
-            return 0;
-        }
-
-        private const int CLASS_E_NOAGGREGATION = -2147221232;
-        private const int E_NOINTERFACE = -2147467262;
+        internal const int SOk = 0;
+        internal const int EPointer = unchecked((int)0x80004003);
+        internal const int ENoInterface = unchecked((int)0x80004002);
+        internal const int ClassENoAggregation = unchecked((int)0x80040110);
     }
 }

@@ -1,58 +1,67 @@
-﻿using Microsoft.Windows.Widgets.Feeds.Providers;
-using Microsoft.Windows.Widgets.Providers;
+using System;
+using System.Runtime.InteropServices;
 using System.Threading;
 
 namespace FeedProvider
 {
-
     public static class Program
     {
+        // Keep the custom ComWrappers and class-factory CCW rooted until the
+        // local-server registration is revoked.
+        private static readonly FactoryComWrappers ComWrappers = new();
+        private static nint _factoryPointer;
+
         [MTAThread]
-        static void Main(string[] args)
+        private static void Main(string[] args)
         {
             Console.WriteLine("FeedProvider Starting...");
-            if (args.Length > 0 && args[0] == "-RegisterProcessAsComServer")
+            if (args.Length == 0 || args[0] != "-RegisterProcessAsComServer")
             {
-                WinRT.ComWrappersSupport.InitializeComWrappers();
+                Console.WriteLine("Not being launched to service Feed Provider... exiting.");
+                return;
+            }
 
-                uint registrationHandle;
-                var factory = new FeedProviderFactory<FeedProvider>();
-                Com.ClassObject.Register(typeof(FeedProvider).GUID, factory, out registrationHandle);
+            // Initialize CsWinRT before MarshalInspectable<IFeedProvider> is
+            // called from IClassFactory::CreateInstance.
+            WinRT.ComWrappersSupport.InitializeComWrappers();
+
+            uint registrationHandle = 0;
+            _factoryPointer = ComWrappers.GetOrCreateComInterfaceForObject(
+                FactoryComWrappers.Factory,
+                CreateComInterfaceFlags.None);
+
+            try
+            {
+                ComClassObject.Register(
+                    typeof(FeedProvider).GUID,
+                    _factoryPointer,
+                    out registrationHandle);
 
                 Console.WriteLine("Feed Provider registered.");
 
-                var existingFeedProviders = FeedManager.GetDefault().GetEnabledFeedProviders();
-                if (existingFeedProviders != null)
-                {
-                    Console.WriteLine($"There are {existingFeedProviders.Length} FeedProviders currently outstanding:");
-                    foreach (var feedProvider in existingFeedProviders)
-                    {
-                        Console.WriteLine($"  ProviderId: {feedProvider.FeedProviderDefinitionId}, DefinitionIds: ");
-                        var m = WidgetManager.GetDefault().GetWidgetIds();
-                        if (feedProvider.EnabledFeedDefinitionIds != null)
-                        {
-                            foreach (var enabledFeedId in feedProvider.EnabledFeedDefinitionIds)
-                            {
-                                Console.WriteLine($" {enabledFeedId} ");
-                            }
-                        }
-                    }
-                }
-                // Keep the local COM server alive after registering the class
-                // factory. Exiting here immediately revokes the factory.
+                // Do not query FeedManager or WidgetManager here. Those calls
+                // race Widgets activation and are unnecessary for registration.
                 using var exitEvent = new ManualResetEvent(false);
                 AppDomain.CurrentDomain.ProcessExit += (_, _) => exitEvent.Set();
-                Console.CancelKeyPress += (_, args) =>
+                Console.CancelKeyPress += (_, eventArgs) =>
                 {
-                    args.Cancel = true;
+                    eventArgs.Cancel = true;
                     exitEvent.Set();
                 };
                 exitEvent.WaitOne();
-                Com.ClassObject.Revoke(registrationHandle);
             }
-            else
+            finally
             {
-                Console.WriteLine("Not being launched to service Feed Provider... exiting.");
+                if (registrationHandle != 0)
+                {
+                    ComClassObject.Revoke(registrationHandle);
+                }
+
+                if (_factoryPointer != nint.Zero)
+                {
+                    Marshal.Release(_factoryPointer);
+                    _factoryPointer = nint.Zero;
+                }
             }
         }
     }

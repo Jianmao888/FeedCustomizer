@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Diagnostics;
 using System.IO;
+using System.Threading;
 using System.Threading.Tasks;
 using Windows.Storage;
 
@@ -9,6 +10,13 @@ namespace FeedCustomizer.Core.Tools
     public class PackageInstaller
     {
         private static string ManifestXmlPath => AppDataPaths.ManifestPath;
+        // Registration is an external AppX operation.  Serialize it so a
+        // startup refresh, an Apply operation and a toggle cannot overlap and
+        // issue competing Remove/Add-AppxPackage commands.
+        private static readonly SemaphoreSlim RegistrationGate = new(1, 1);
+        private static readonly TimeSpan UninstallPollInterval = TimeSpan.FromMilliseconds(100);
+        private const int UninstallPollAttempts = 50;
+        private static readonly TimeSpan ProviderProcessExitTimeout = TimeSpan.FromSeconds(3);
 
 
         /// <summary>
@@ -16,6 +24,19 @@ namespace FeedCustomizer.Core.Tools
         /// </summary>
         /// <returns></returns>
         public static async Task<bool> InstallFeedProvider()
+        {
+            await RegistrationGate.WaitAsync();
+            try
+            {
+                return await InstallFeedProviderCoreAsync();
+            }
+            finally
+            {
+                RegistrationGate.Release();
+            }
+        }
+
+        private static async Task<bool> InstallFeedProviderCoreAsync()
         {
             try
             {
@@ -31,16 +52,34 @@ namespace FeedCustomizer.Core.Tools
                         return true;
                     }
 
-                    await UninstallFeedProvider();
+                    // InstallFeedProvider already owns RegistrationGate, so call
+                    // the gate-free core method instead of recursively waiting
+                    // on the same semaphore.
+                    await UninstallFeedProviderCoreAsync();
                 }
 
                 string escapedSourceFolder = AppDataPaths.FeedProviderFolder.Replace("'", "''");
                 string escapedRegistrationFolder = AppDataPaths.RegistrationFolder.Replace("'", "''");
                 string escapedRegistrationManifestPath = AppDataPaths.RegistrationManifestPath.Replace("'", "''");
+                string escapedSourceProviderFolder = Path.Combine(
+                    AppDataPaths.FeedProviderFolder,
+                    "FeedProvider").Replace("'", "''");
+                string escapedRegistrationProviderFolder = Path.Combine(
+                    AppDataPaths.RegistrationFolder,
+                    "FeedProvider").Replace("'", "''");
+                await StopProviderProcessesAsync();
                 var result = await RunPowerShellViaProcess(
                     $"$source = '{escapedSourceFolder}'; " +
                     $"$target = '{escapedRegistrationFolder}'; " +
+                    $"$providerSource = '{escapedSourceProviderFolder}'; " +
+                    $"$providerTarget = '{escapedRegistrationProviderFolder}'; " +
                     "New-Item -ItemType Directory -Force -Path $target -ErrorAction Stop | Out-Null; " +
+                    // Mirror only FeedProvider. The root also contains the
+                    // manifest, definitions and downloaded images, which must
+                    // never be deleted during a provider refresh.
+                    "& robocopy.exe $providerSource $providerTarget /MIR /COPY:DT /DCOPY:T /R:1 /W:1 /NFL /NDL /NJH /NJS /NP | Out-Null; " +
+                    "$providerCopyExitCode = $LASTEXITCODE; " +
+                    "if ($providerCopyExitCode -gt 7) { throw \"源提供程序同步失败，Robocopy ExitCode: $providerCopyExitCode\" }; " +
                     "& robocopy.exe $source $target /E /COPY:DT /DCOPY:T /R:1 /W:1 /NFL /NDL /NJH /NJS /NP | Out-Null; " +
                     "$copyExitCode = $LASTEXITCODE; " +
                     "if ($copyExitCode -gt 7) { throw \"资源同步失败，Robocopy ExitCode: $copyExitCode\" }; " +
@@ -70,13 +109,136 @@ namespace FeedCustomizer.Core.Tools
         /// <returns></returns>
         public static async Task UninstallFeedProvider()
         {
-            if (await IsFeedProviderInstalled())
+            await RegistrationGate.WaitAsync();
+            try
             {
-                var result = await RunPowerShellViaProcess(
-                    "Get-AppxPackage -Name '*D454B137.Jianmao.FeedCustomizerContainer*' | Remove-AppxPackage");
-                if (result.ExitCode != 0)
+                await UninstallFeedProviderCoreAsync();
+            }
+            finally
+            {
+                RegistrationGate.Release();
+            }
+        }
+
+        private static async Task UninstallFeedProviderCoreAsync()
+        {
+            // Remove-AppxPackage does not reliably terminate a classic COM
+            // local server.  If the old FeedProvider.exe remains registered,
+            // the next Add-AppxPackage can succeed while Widgets still talks
+            // to the stale process, which presents as a switch with no feeds
+            // after the first toggle.
+            await StopProviderProcessesAsync();
+
+            if (!await IsFeedProviderInstalled())
+            {
+                return;
+            }
+
+            var result = await RunPowerShellViaProcess(
+                "Get-AppxPackage -Name '*D454B137.Jianmao.FeedCustomizerContainer*' | Remove-AppxPackage");
+            if (result.ExitCode != 0)
+            {
+                Debug.WriteLine($"Feed provider removal failed ({result.ExitCode}): {result.Error}");
+            }
+
+            // Remove-AppxPackage can return before package registration is fully
+            // gone. Do not let a subsequent Add-AppxPackage race that cleanup;
+            // it can leave stale registration state and repeated deployment
+            // cleanup events.
+            for (int attempt = 0; attempt < UninstallPollAttempts; attempt++)
+            {
+                if (!await IsFeedProviderInstalled())
                 {
-                    Debug.WriteLine($"Feed provider removal failed ({result.ExitCode}): {result.Error}");
+                    // Widgets can reactivate the local server in the small
+                    // window between the first process stop and package
+                    // removal. Once registration is gone, terminate that last
+                    // stale instance so the next registration cannot bind to
+                    // the previous binary.
+                    await StopProviderProcessesAsync();
+                    return;
+                }
+
+                await Task.Delay(UninstallPollInterval);
+            }
+
+            Debug.WriteLine("Feed provider removal did not disappear from Get-AppxPackage within the wait window.");
+            await StopProviderProcessesAsync();
+        }
+
+        private static async Task StopProviderProcessesAsync()
+        {
+            string sourceProviderRoot = Path.GetFullPath(Path.Combine(
+                AppDataPaths.FeedProviderFolder,
+                "FeedProvider"));
+            string registrationProviderRoot = Path.GetFullPath(Path.Combine(
+                AppDataPaths.RegistrationFolder,
+                "FeedProvider"));
+
+            foreach (Process process in Process.GetProcessesByName("FeedProvider"))
+            {
+                string? executablePath = null;
+                try
+                {
+                    executablePath = process.MainModule?.FileName;
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"无法读取 FeedProvider 进程 {process.Id} 的路径：{ex.Message}");
+                }
+
+                if (string.IsNullOrWhiteSpace(executablePath))
+                {
+                    process.Dispose();
+                    continue;
+                }
+
+                string fullPath;
+                try
+                {
+                    fullPath = Path.GetFullPath(executablePath);
+                }
+                catch
+                {
+                    process.Dispose();
+                    continue;
+                }
+
+                bool isOurProvider =
+                    fullPath.StartsWith(sourceProviderRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) ||
+                    fullPath.StartsWith(registrationProviderRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
+                if (!isOurProvider)
+                {
+                    process.Dispose();
+                    continue;
+                }
+
+                try
+                {
+                    if (!process.HasExited)
+                    {
+                        // FeedProvider is a single-process COM local server and
+                        // does not spawn children. Kill(entireProcessTree: true)
+                        // asks Process to inspect every process while building a
+                        // descendant tree; protected system processes can make
+                        // that scan throw Win32Exception (access denied), even
+                        // though this FeedProvider process is terminable.
+                        process.Kill();
+                        // WaitForExitAsync enables exit events after Kill. If
+                        // the process exits in that small window, it throws
+                        // InvalidOperationException while reopening the handle.
+                        // The synchronous overload deliberately tolerates an
+                        // already-exited process and still gives us a timeout.
+                        await Task.Run(() =>
+                            process.WaitForExit((int)ProviderProcessExitTimeout.TotalMilliseconds));
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"停止旧 FeedProvider 进程 {process.Id} 失败：{ex.Message}");
+                }
+                finally
+                {
+                    process.Dispose();
                 }
             }
         }
