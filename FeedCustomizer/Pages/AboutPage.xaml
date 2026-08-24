@@ -68,19 +68,19 @@
                             <StackPanel Grid.Column="1" Margin="21,0,0,0" VerticalAlignment="Center">
                                 <TextBlock x:Name="TxtAppName" FontSize="14.4"/>
                                 <StackPanel Orientation="Horizontal" Spacing="0">
-                                    <TextBlock x:Name="TxtCopyrightPrefix" FontSize="11" Opacity="0.7"/>
+                                    <TextBlock x:Name="TxtCopyrightPrefix" FontSize="12" Opacity="0.8"/>
                                     <HyperlinkButton
                                         Content="{x:Bind AboutViewModel.DeveloperStoreDisplayName}"
                                         Click="DeveloperStoreLink_Click"
                                         Padding="0"
-                                        FontSize="11"
+                                        FontSize="12"
                                         Opacity="0.7">
                                         <HyperlinkButton.RenderTransform>
                                             <TranslateTransform Y="-1" />
                                         </HyperlinkButton.RenderTransform>
                                     </HyperlinkButton>
-                                    <TextBlock x:Uid="AboutCopyrightSeparator" FontSize="11" Opacity="0.7"/>
-                                    <TextBlock x:Uid="AboutCopyrightAllRights" FontSize="11" Opacity="0.7"/>
+                                    <TextBlock x:Uid="AboutCopyrightSeparator" FontSize="12" Opacity="0.8"/>
+                                    <TextBlock x:Uid="AboutCopyrightAllRights" FontSize="12" Opacity="0.8"/>
                                 </StackPanel>
                             </StackPanel>
                             <TextBlock x:Name="TxtVersion" Grid.Column="2" FontSize="14.4" Opacity="0.7" VerticalAlignment="Center"/>
