@@ -93,7 +93,7 @@ namespace FeedCustomizer.Core.Tools
             return result.ExitCode == 0 && !string.IsNullOrWhiteSpace(result.Output);
         }
 
-        private static async Task ShowInstallErrorAsync(string? error, int? exitCode, string output)
+        private static Task ShowInstallErrorAsync(string? error, int? exitCode, string output)
         {
             var resourceLoader = new Microsoft.Windows.ApplicationModel.Resources.ResourceLoader();
             string content = resourceLoader.GetString("SomethingErrorsOccurred");
@@ -114,10 +114,12 @@ namespace FeedCustomizer.Core.Tools
 
             if (App.MainWindow is MainWindow window)
             {
-                await window.ShowStartupFailureDialogAsync(
+                _ = window.ShowStartupFailureDialogAsync(
                     resourceLoader.GetString("EnableProviderFail"),
                     $"{content}{Environment.NewLine}{Environment.NewLine}{details}");
             }
+
+            return Task.CompletedTask;
         }
 
         private sealed record PowerShellResult(int ExitCode, string Output, string Error);

@@ -18,63 +18,13 @@ namespace FeedCustomizer.Pages
     public sealed partial class MainPage : Page, IWindowCloseAware
     {
         private readonly MainPageModel MainPageViewModel = new();
-        private CommunityToolkit.WinUI.Controls.SettingsCard? _feedListContentCard;
         private bool _startupFailureShown;
         private bool _isChangingProviderState;
 
         public MainPage()
         {
             InitializeComponent();
-            MainPageViewModel.HasFeeds.PropertyChanged += OnHasFeedsChanged;
-            OnHasFeedsChanged(null, null);
             NavigationCacheMode = NavigationCacheMode.Enabled;
-        }
-
-        private void OnHasFeedsChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs? e)
-        {
-            _ = sender;
-            _ = e;
-
-            if (!MainPageViewModel.HasFeeds.Value)
-            {
-                if (_feedListContentCard is not null)
-                {
-                    FeedSettingsExpander.Items.Remove(_feedListContentCard);
-                    _feedListContentCard = null;
-                }
-
-                return;
-            }
-
-            if (_feedListContentCard is not null)
-            {
-                return;
-            }
-
-            var feedListView = new ItemsRepeater
-            {
-                ItemTemplate = (DataTemplate)Resources["FeedItemTemplate"],
-                ItemsSource = MainPageViewModel.Feeds
-            };
-
-            var scrollViewer = new ScrollViewer
-            {
-                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-                VerticalScrollMode = ScrollMode.Enabled,
-                Content = feedListView
-            };
-
-            _feedListContentCard = new CommunityToolkit.WinUI.Controls.SettingsCard
-            {
-                Padding = new Thickness(0),
-                MinHeight = 0,
-                ContentAlignment = CommunityToolkit.WinUI.Controls.ContentAlignment.Vertical,
-                HorizontalAlignment = HorizontalAlignment.Stretch,
-                HorizontalContentAlignment = HorizontalAlignment.Stretch,
-                Content = scrollViewer
-            };
-
-            FeedSettingsExpander.Items.Add(_feedListContentCard);
         }
 
         protected override void OnNavigatedTo(NavigationEventArgs e)

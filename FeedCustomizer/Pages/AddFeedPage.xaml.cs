@@ -166,7 +166,15 @@ namespace FeedCustomizer.Pages
                     window.SetLoadingOverlayVisible(false);
                     overlayVisible = false;
                 }
-                Frame.GoBack();
+                // 添加页始终返回主页；在无返回栈的情况下补导航，避免保存后停留在当前页。
+                if (Frame.CanGoBack)
+                {
+                    Frame.GoBack();
+                }
+                else
+                {
+                    Frame.Navigate(typeof(MainPage));
+                }
             }
             catch (Exception ex)
             {

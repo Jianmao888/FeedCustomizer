@@ -13,60 +13,37 @@
     Loaded="MainPage_Loaded">
 
     <Page.Resources>
-        <!-- ↓ Add this. ↓ -->
-        <DataTemplate x:Key="FeedItemTemplate" 
-                  x:DataType="view_models:FeedViewModel">
-            <ItemContainer CornerRadius="0" >
-                <Border 
-                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                    BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
-                    BorderThickness="0,0,0,1">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-
-                        <Border
-                            Grid.Column="0"
-                            Width="40"
-                            Height="40"
-                            Margin="12,6,0,6"
+        <DataTemplate x:Key="FeedItemTemplate" x:DataType="view_models:FeedViewModel">
+            <controls:SettingsCard
+                Header="{x:Bind Name, Mode=OneWay}"
+                Description="{x:Bind Url, Mode=OneWay}"
+                Padding="12,0"
+                ContentAlignment="Right"
+                HorizontalAlignment="Stretch"
+                HorizontalContentAlignment="Right">
+                <controls:SettingsCard.HeaderIcon>
+                    <ImageIcon Source="{x:Bind BitmapImage, Mode=OneTime}" />
+                </controls:SettingsCard.HeaderIcon>
+                <controls:SettingsCard.Content>
+                    <StackPanel Orientation="Horizontal" Spacing="4">
+                        <HyperlinkButton
                             Padding="6"
-                            CornerRadius="4"
-                            Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
-                            <Image
-                                Source="{x:Bind BitmapImage, Mode=OneTime}"
-                                Stretch="Uniform" />
-                        </Border>
-
-                        <TextBlock 
-                            Grid.Column="1" 
-                            Text="{x:Bind Name}"
-                            Padding="12,10"
-                            VerticalAlignment="Center"/>
-
-                        <!-- 3. 右侧按钮区域（StackPanel横向排列） -->
-                <StackPanel
-                            Grid.Column="2" 
-                    Orientation="Horizontal"
-                            VerticalAlignment="Center"
-                            Margin="0,0,8,0"
-                            Spacing="4" >
-                            <!-- 编辑与删除按钮 -->
-                            <HyperlinkButton Padding="6" x:Uid="EditFeedButton" Click="OnEditFeedButtonClicked" DataContext="{x:Bind}">
-                        <FontIcon Glyph="&#xE70F;" FontSize="12"/>
-                    </HyperlinkButton>
-                            <HyperlinkButton Padding="6" x:Uid="DeleteFeedButton" Click="OnDeleteFeedButtonClicked" DataContext="{x:Bind}">
-                        <FontIcon Glyph="&#xE74D;" FontSize="12"/>
-                    </HyperlinkButton>
-                </StackPanel>
-                    </Grid>
-                </Border>
-            </ItemContainer>
+                            x:Uid="EditFeedButton"
+                            Click="OnEditFeedButtonClicked"
+                            DataContext="{x:Bind}">
+                            <FontIcon Glyph="&#xE70F;" FontSize="12" />
+                        </HyperlinkButton>
+                        <HyperlinkButton
+                            Padding="6"
+                            x:Uid="DeleteFeedButton"
+                            Click="OnDeleteFeedButtonClicked"
+                            DataContext="{x:Bind}">
+                            <FontIcon Glyph="&#xE74D;" FontSize="12" />
+                        </HyperlinkButton>
+                    </StackPanel>
+                </controls:SettingsCard.Content>
+            </controls:SettingsCard>
         </DataTemplate>
-        <!-- ↑ Add this. ↑ -->
     </Page.Resources>
 
     <Grid>
@@ -104,29 +81,31 @@
                     x:Name="FeedSettingsExpander"
                     x:Uid="FeedListExpander"
                     IsExpanded="True"
+                    ItemsSource="{x:Bind MainPageViewModel.Feeds}"
+                    ItemTemplate="{StaticResource FeedItemTemplate}"
                     HorizontalAlignment="Stretch"
                 VerticalAlignment="Top">
                     <controls:SettingsExpander.Content>
                         <Button
                             x:Uid="FeedListAddButton"
-                        Padding="0"
+                            Padding="0"
                             Height="32"
-                        Margin="0,0,16,0"
+                            Margin="0,0,16,0"
                             Style="{StaticResource AccentButtonStyle}"
                             IsEnabled="{x:Bind MainPageViewModel.IsButtonsEnabled.Value, Mode=OneWay}"
                             Click="AddFeedButton_Click">
-                        <Button.Content>
-                            <StackPanel Orientation="Horizontal" Spacing="6" Padding="11,0">
-                                <FontIcon
-                                    FontFamily="Segoe Fluent Icons"
-                                    Glyph="&#xE710;"
-                                    FontSize="16" />
-                                <TextBlock
-                                    x:Uid="AddFeedButton"
-                                    FontSize="14"
-                                    Padding="0,5,0,6"/>
-                            </StackPanel>
-                        </Button.Content>
+                            <Button.Content>
+                                <StackPanel Orientation="Horizontal" Spacing="6" Padding="11,0">
+                                    <FontIcon
+                                        FontFamily="Segoe Fluent Icons"
+                                        Glyph="&#xE710;"
+                                        FontSize="16" />
+                                    <TextBlock
+                                        x:Uid="AddFeedButton"
+                                        FontSize="14"
+                                        Padding="0,5,0,6"/>
+                                </StackPanel>
+                            </Button.Content>
                         </Button>
                     </controls:SettingsExpander.Content>
                 </controls:SettingsExpander>

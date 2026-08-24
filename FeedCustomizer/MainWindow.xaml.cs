@@ -26,6 +26,8 @@ namespace FeedCustomizer
     [System.Diagnostics.CodeAnalysis.SuppressMessage("Interoperability", "CA1416:验证平台兼容性", Justification = "<挂起>")]
     public partial class MainWindow : Window
     {
+        public static MainWindow? Instance { get; private set; }
+        private readonly ApplicationDataContainer _localSettings = ApplicationData.Current.LocalSettings;
         private const int GwlWndProc = -4;
         private const uint WmGetMinMaxInfo = 0x0024;
 
@@ -42,6 +44,13 @@ namespace FeedCustomizer
         public MainWindow()
         {
             InitializeComponent();
+            Instance = this;
+
+            if (Content is FrameworkElement root)
+            {
+                root.RequestedTheme = AppThemeManager.CurrentTheme;
+                root.Loaded += Root_Loaded;
+            }
 
             // 获取窗口信息
             IntPtr hWnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
@@ -68,7 +77,15 @@ namespace FeedCustomizer
 
             // 订阅窗口关闭事件
             AppWindow.Closing += OnAppWindowClosing;
+        }
 
+        private void Root_Loaded(object sender, RoutedEventArgs e)
+        {
+            if (Content is FrameworkElement root)
+            {
+                root.ActualThemeChanged -= AppThemeManager.OnActualThemeChanged;
+                root.ActualThemeChanged += AppThemeManager.OnActualThemeChanged;
+            }
         }
 
         /// <summary>
@@ -96,14 +113,7 @@ namespace FeedCustomizer
 
         public void ApplyMaterial()
         {
-            try
-            {
-                SystemBackdrop = new MicaBackdrop { Kind = MicaKind.BaseAlt };
-            }
-            catch
-            {
-                SystemBackdrop = null;
-            }
+            AppThemeManager.ApplyMaterial();
         }
 
         /// <summary>
@@ -112,25 +122,20 @@ namespace FeedCustomizer
         public async Task FinishLoadingAndHideSplashAsync()
         {
             await Task.Delay(500);
-
-            var animationCompleted = new TaskCompletionSource<bool>(
-                TaskCreationOptions.RunContinuationsAsynchronously);
-            SplashFadeOut.Completed += (_, _) => animationCompleted.TrySetResult(true);
-
-            try
-            {
-                SplashFadeOut.Begin();
-                await animationCompleted.Task;
-            }
-            finally
+            SplashFadeOut.Completed += (_, _) =>
             {
                 SplashOverlay.Visibility = Visibility.Collapsed;
                 _splashHidden.TrySetResult(true);
-            }
+                bool sound = _localSettings.Values["EnableSound"] is bool value ? value : true;
+                ElementSoundPlayer.State = sound ? ElementSoundPlayerState.On : ElementSoundPlayerState.Off;
+            };
+            SplashFadeOut.Begin();
         }
 
         public async Task ShowMessageDialogAsync(string title, string content, string closeButtonText)
         {
+            await WaitForSplashHiddenAsync();
+
             if (!DispatcherQueue.HasThreadAccess)
             {
                 var completion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -177,6 +182,8 @@ namespace FeedCustomizer
 
         public async Task ShowStartupFailureDialogAsync(string title, string details)
         {
+            await WaitForSplashHiddenAsync();
+
             if (!DispatcherQueue.HasThreadAccess)
             {
                 var completion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -223,6 +230,8 @@ namespace FeedCustomizer
 
         public async Task ShowWebIconFetchErrorDialogAsync(string details)
         {
+            await WaitForSplashHiddenAsync();
+
             if (!DispatcherQueue.HasThreadAccess)
             {
                 var completion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -269,6 +278,8 @@ namespace FeedCustomizer
 
         public async Task<bool> OpenExternalLinkAsync(string url)
         {
+            await WaitForSplashHiddenAsync();
+
             if (!Uri.TryCreate(url, UriKind.Absolute, out var uri))
             {
                 return false;
@@ -307,6 +318,8 @@ namespace FeedCustomizer
 
         public async Task<bool> OpenExternalFileAsync(StorageFile file)
         {
+            await WaitForSplashHiddenAsync();
+
             var xamlRoot = GetCurrentPage()?.XamlRoot ?? (Content as FrameworkElement)?.XamlRoot;
             if (xamlRoot is null)
             {

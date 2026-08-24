@@ -261,6 +261,18 @@
     <value>开发者</value>
     <comment>关于页面”开发者“标题</comment>
   </data>
+  <data name="AboutCopyrightPrefix" xml:space="preserve">
+    <value>© {0} {1}</value>
+    <comment>关于页面封面版权信息前缀</comment>
+  </data>
+  <data name="AboutCopyrightSeparator.Text" xml:space="preserve">
+    <value>。</value>
+    <comment>关于页面版权作者与权利声明之间的标点</comment>
+  </data>
+  <data name="AboutCopyrightAllRights.Text" xml:space="preserve">
+    <value>保留所有权利。</value>
+    <comment>关于页面版权权利声明</comment>
+  </data>
   <data name="AboutOpenSourceLink.Text" xml:space="preserve">
     <value>开源地址</value>
     <comment>关于页面”开源地址“标题</comment>
@@ -322,4 +334,17 @@
     <value>源自定义容器</value>
     <comment>自动注册的源提供程序包外显名</comment>
   </data>
+  <data name="AppearanceGroup.Text" xml:space="preserve"><value>外观</value></data>
+  <data name="ThemeTitle.Text" xml:space="preserve"><value>应用主题</value></data>
+  <data name="ThemeSubtitle.Text" xml:space="preserve"><value>选择要显示的应用主题</value></data>
+  <data name="ThemeSystem.Content" xml:space="preserve"><value>跟随系统</value></data>
+  <data name="ThemeLight.Content" xml:space="preserve"><value>浅色</value></data>
+  <data name="ThemeDark.Content" xml:space="preserve"><value>深色</value></data>
+  <data name="MaterialTitle.Text" xml:space="preserve"><value>背景材质</value></data>
+  <data name="MaterialSubtitle.Text" xml:space="preserve"><value>选择要显示的应用材质</value></data>
+  <data name="SoundGroup.Text" xml:space="preserve"><value>声音</value></data>
+  <data name="SoundToggle.Header" xml:space="preserve"><value>启用控件声音</value></data>
+  <data name="AboutGroup.Text" xml:space="preserve"><value>关于</value></data>
+  <data name="Settings_SoundCard.Description" xml:space="preserve"><value>控制应用中的交互提示音</value></data>
+  <data name="Settings_SoundCard.Header" xml:space="preserve"><value>控件声音</value></data>
 </root>

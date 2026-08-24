@@ -7,25 +7,17 @@
 		<ApplicationManifest>app.manifest</ApplicationManifest>
 		<Platforms>x64;ARM64</Platforms>
 		<RuntimeIdentifiers>win-x64;win-arm64</RuntimeIdentifiers>
-		<RuntimeIdentifier Condition="'$(Platform)' == 'x64'">win-x64</RuntimeIdentifier>
-		<RuntimeIdentifier Condition="'$(Platform)' == 'ARM64'">win-arm64</RuntimeIdentifier>
+		<RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == ''">win-$(Platform.ToLower())</RuntimeIdentifier>
+		<PublishProfile>win-$(Platform).pubxml</PublishProfile>
 		<UseWinUI>true</UseWinUI>
 		<WinUISDKReferences>false</WinUISDKReferences>
 		<EnableMsixTooling>true</EnableMsixTooling>
 		<Nullable>enable</Nullable>
 		<PublishAot>true</PublishAot>
-		<SelfContained>false</SelfContained>
+		<SelfContained>true</SelfContained>
 		<WindowsAppSDKSelfContained>false</WindowsAppSDKSelfContained>
 		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 	</PropertyGroup>
-	
-	<ItemGroup>
-		<ProjectReference Include="..\FeedProvider\FeedProvider.csproj">
-			<Private>false</Private>
-			<ExcludeAssets>runtime</ExcludeAssets>
-			<ReferenceOutputAssembly>false</ReferenceOutputAssembly>
-		</ProjectReference>
-	</ItemGroup>
 
 	<Target Name="CopyFeedProviderToAssets" BeforeTargets="BeforeBuild">
 		<MSBuild Projects="$(MSBuildProjectDirectory)\..\FeedProvider\FeedProvider.csproj" Targets="Build" Properties="Configuration=$(Configuration);Platform=$(Platform);RuntimeIdentifier=$(RuntimeIdentifier)" BuildInParallel="false" />
@@ -57,7 +49,10 @@
 	<ItemGroup>
 		<PackageReference Include="CommunityToolkit.WinUI.Controls.SettingsControls" Version="8.3.260402-preview2" />
 		<PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.28000.2526" />
-		<PackageReference Include="Microsoft.WindowsAppSDK" Version="2.4.0" />
+		<PackageReference Include="Microsoft.WindowsAppSDK.Widgets" Version="2.0.5" />
+		<PackageReference Include="Microsoft.WindowsAppSDK.WinUI" Version="2.3.6" />
+		<PackageReference Include="Microsoft.WindowsAppSDK.InteractiveExperiences" Version="2.1.6" />
+		<PackageReference Include="Microsoft.WindowsAppSDK.Runtime" Version="2.4.0" />
 	</ItemGroup>
 	
 	<ItemGroup>
@@ -79,7 +74,6 @@
 	<PropertyGroup>
 		<PublishReadyToRun Condition="'$(Configuration)' == 'Debug'">True</PublishReadyToRun>
 		<PublishReadyToRun Condition="'$(Configuration)' != 'Debug'">True</PublishReadyToRun>
-		<!-- Native AOT implies trimming; disabling it makes publish fail with NETSDK1102. -->
 		<PublishTrimmed>true</PublishTrimmed>
 		<DefaultLanguage>en-US</DefaultLanguage>
 		<SupportedOSPlatformVersion>10.0.22621.0</SupportedOSPlatformVersion>

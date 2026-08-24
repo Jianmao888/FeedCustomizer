@@ -261,6 +261,18 @@
     <value>Developer</value>
     <comment>"Developer" heading on the About page</comment>
   </data>
+  <data name="AboutCopyrightPrefix" xml:space="preserve">
+    <value>© {0} {1}</value>
+    <comment>Copyright information prefix shown on the about-page cover</comment>
+  </data>
+  <data name="AboutCopyrightSeparator.Text" xml:space="preserve">
+    <value>. </value>
+    <comment>Punctuation between the copyright author and rights statement</comment>
+  </data>
+  <data name="AboutCopyrightAllRights.Text" xml:space="preserve">
+    <value>All rights reserved.</value>
+    <comment>Copyright rights statement</comment>
+  </data>
   <data name="AboutOpenSourceLink.Text" xml:space="preserve">
     <value>Open Source URL</value>
     <comment>"Open Source URL" heading on the About page</comment>
@@ -318,4 +330,17 @@
     <value>Feed Customization Container</value>
     <comment>Display name of the automatically registered feed provider package</comment>
   </data>
+  <data name="AppearanceGroup.Text" xml:space="preserve"><value>Appearance</value></data>
+  <data name="ThemeTitle.Text" xml:space="preserve"><value>App Theme</value></data>
+  <data name="ThemeSubtitle.Text" xml:space="preserve"><value>Select the app theme to display</value></data>
+  <data name="ThemeSystem.Content" xml:space="preserve"><value>System Default</value></data>
+  <data name="ThemeLight.Content" xml:space="preserve"><value>Light</value></data>
+  <data name="ThemeDark.Content" xml:space="preserve"><value>Dark</value></data>
+  <data name="MaterialTitle.Text" xml:space="preserve"><value>Background Material</value></data>
+  <data name="MaterialSubtitle.Text" xml:space="preserve"><value>Select the app material to display</value></data>
+  <data name="SoundGroup.Text" xml:space="preserve"><value>Sound</value></data>
+  <data name="SoundToggle.Header" xml:space="preserve"><value>Enable Control Sounds</value></data>
+  <data name="AboutGroup.Text" xml:space="preserve"><value>About</value></data>
+  <data name="Settings_SoundCard.Description" xml:space="preserve"><value>Control interaction sounds in the app</value></data>
+  <data name="Settings_SoundCard.Header" xml:space="preserve"><value>Control sound</value></data>
 </root>

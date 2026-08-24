@@ -1,192 +1,152 @@
-﻿using Microsoft.UI.Xaml;
-using FeedCustomizer.Core.Tools;
+using Microsoft.UI;
+using Microsoft.UI.Composition.SystemBackdrops;
+using Microsoft.UI.Windowing;
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
+using Microsoft.Windows.AppLifecycle;
+using Microsoft.Windows.ApplicationModel.Resources;
 using System;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
-using System.Threading;
 using System.Threading.Tasks;
-
-// To learn more about WinUI, the WinUI project structure,
-// and more about our project templates, see: http://aka.ms/winui-project-info.
+using Windows.Storage;
+using Windows.UI;
+using Microsoft.UI.Xaml.Media;
 
 namespace FeedCustomizer
 {
-    /// <summary>
-    /// Provides application-specific behavior to supplement the default Application class.
-    /// </summary>
     public partial class App : Application
     {
         public static Window? MainWindow { get; private set; }
-        private static Mutex? _mutex;
 
-        /// <summary>
-        /// Initializes the singleton application object.  This is the first line of authored code
-        /// executed, and as such is the logical equivalent of main() or WinMain().
-        /// </summary>
-        public App()
-        {
-            InitializeComponent();
-            UnhandledException += OnUnhandledException;
-        }
+        public App() => InitializeComponent();
 
-        private async void OnUnhandledException(object sender, Microsoft.UI.Xaml.UnhandledExceptionEventArgs args)
+        protected override void OnLaunched(LaunchActivatedEventArgs args)
         {
-            args.Handled = true;
-            if (MainWindow is MainWindow window)
+            var mainInstance = AppInstance.FindOrRegisterForKey("main-instance");
+            if (!mainInstance.IsCurrent)
             {
-                try
-                {
-                    await window.ShowStartupFailureDialogAsync("启动失败", args.Exception.ToString());
-                }
-                catch
-                {
-                    // The window may already be closing; keep the process alive for diagnostics.
-                }
-            }
-        }
-
-        /// <summary>
-        /// Invoked when the application is launched.
-        /// </summary>
-        /// <param name="args">Details about the launch request and process.</param>
-        protected override void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)
-        {
-            // 检查是否已有实例在运行
-            if (!IsSingleInstance())
-            {
-                // 已有实例在运行，激活已有窗口并退出
-                ActivateExistingWindow();
+                mainInstance.RedirectActivationToAsync(AppInstance.GetCurrent().GetActivatedEventArgs())
+                    .GetAwaiter().GetResult();
                 Environment.Exit(0);
                 return;
             }
 
-            MainWindow = new MainWindow();
-            MainWindow.Activate();
+            mainInstance.Activated += (_, _) => MainWindow?.DispatcherQueue.TryEnqueue(() =>
+            {
+                var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(MainWindow);
+                BringWindowToFront(hwnd);
+            });
 
-            // 先显示带 Splash 的窗口，再异步加载主页面，避免首帧卡顿。
+            AppThemeManager.LoadSettings();
+            MainWindow = new MainWindow();
+            AppThemeManager.SetupTitleBar();
+            MainWindow.Activate();
             _ = InitializeAppAfterSplashAsync();
         }
 
-        private static async Task InitializeAppAfterSplashAsync()
+        private async Task InitializeAppAfterSplashAsync()
         {
-            // 让窗口先完成首帧渲染，确保 Splash 遮罩可见。
             await Task.Delay(50);
-
-            if (MainWindow is not MainWindow window)
-            {
-                return;
-            }
-
-            try
-            {
-                // Make provider files available before the page exposes the toggle.
-                await ResourcesCopier.EnsureResourcesReadyAsync();
-            }
-            catch (Exception ex)
-            {
-                window.NotifyInitialContentReady();
-                await window.FinishLoadingAndHideSplashAsync();
-                await window.ShowStartupFailureDialogAsync("启动失败", ex.ToString());
-                return;
-            }
+            if (MainWindow is not MainWindow window) return;
 
             window.DispatcherQueue.TryEnqueue(() =>
             {
-                try
-                {
-                    window.AppWindow.SetIcon("Assets/AppIcon.ico");
-                }
-                catch
-                {
-                    // The packaged icon is optional during unpackaged development.
-                }
-
-                window.ApplyMaterial();
-
-                try
-                {
-                    var loader = new Microsoft.Windows.ApplicationModel.Resources.ResourceLoader();
-                    window.AppWindow.Title = loader.GetString("Title/Title");
-                }
-                catch
-                {
-                    // 资源加载失败时保留 XAML 中的窗口标题。
-                }
-
+                try { window.AppWindow.SetIcon("Assets/AppIcon.ico"); } catch { }
+                AppThemeManager.ApplyMaterial();
+                try { window.AppWindow.Title = new ResourceLoader().GetString("Title/Title"); } catch { }
                 window.StartLoadingContent();
             });
 
-            // Keep the startup overlay visible until MainPage initialization is
-            // complete. Dialogs are shown only after this fade-out finishes.
+            // 主页面会在数据源初始化完成（或失败）后通知这里。
+            // 在此之前保持 Splash，避免用户看到尚未准备好的禁用控件。
             await window.WaitForInitialContentReadyAsync();
             await window.FinishLoadingAndHideSplashAsync();
         }
 
-        /// <summary>
-        /// 检查应用程序是否已在运行（使用全局互斥体实现单实例）
-        /// </summary>
-        private static bool IsSingleInstance()
+        [DllImport("user32.dll")] private static extern bool IsIconic(IntPtr hWnd);
+        [DllImport("user32.dll")] private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+        [DllImport("user32.dll")] private static extern bool SetForegroundWindow(IntPtr hWnd);
+
+        private static void BringWindowToFront(IntPtr hwnd)
         {
-            // 使用程序集名称创建唯一的互斥体名称
-            string mutexName = "Global\\FeedCustomizer_SingleInstance_Mutex";
-
-            try
-            {
-                // 尝试创建互斥体，如果已存在则返回false
-                _mutex = new Mutex(true, mutexName, out bool createdNew);
-                return createdNew;
-            }
-            catch
-            {
-                // 如果创建失败，允许应用继续运行（降级策略）
-                return true;
-            }
+            if (IsIconic(hwnd)) ShowWindow(hwnd, 9);
+            SetForegroundWindow(hwnd);
         }
-
-        /// <summary>
-        /// 激活已存在的窗口实例
-        /// </summary>
-        private static void ActivateExistingWindow()
-        {
-            try
-            {
-                // 获取窗口标题
-                var resourceLoader = new Microsoft.Windows.ApplicationModel.Resources.ResourceLoader();
-                var windowTitle = resourceLoader.GetString("Title/Title");
-                // 通过窗口标题查找并激活已有窗口
-                var windowHandle = FindWindow(null, windowTitle); // 替换为你的实际窗口标题
-                if (windowHandle != IntPtr.Zero)
-                {
-                    // 如果窗口被最小化，先恢复
-                    if (IsIconic(windowHandle))
-                    {
-                        ShowWindow(windowHandle, SW_RESTORE);
-                    }
-                    // 将窗口置前
-                    SetForegroundWindow(windowHandle);
-                }
-            }
-            catch
-            {
-                // 如果激活失败，静默处理
-            }
-        }
-
-        // P/Invoke 导入 Win32 API 函数
-        [LibraryImport("user32.dll", SetLastError = true, StringMarshalling = StringMarshalling.Utf16)]
-        private static partial IntPtr FindWindow(string? lpClassName, string lpWindowName);
-
-        [LibraryImport("user32.dll")]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        private static partial bool SetForegroundWindow(IntPtr hWnd);
-
-        [LibraryImport("user32.dll")]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        private static partial bool ShowWindow(IntPtr hWnd, int nCmdShow);
-
-        [LibraryImport("user32.dll")]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        private static partial bool IsIconic(IntPtr hWnd);
-
-        private const int SW_RESTORE = 9;
     }
+
+    public static class AppThemeManager
+    {
+        public static ElementTheme CurrentTheme = ElementTheme.Default;
+        public static BackgroundMaterial CurrentMaterial = BackgroundMaterial.Mica;
+
+        public static void LoadSettings()
+        {
+            var settings = ApplicationData.Current.LocalSettings;
+            try { CurrentTheme = (settings.Values["AppTheme"] as string) switch { "Light" => ElementTheme.Light, "Dark" => ElementTheme.Dark, _ => ElementTheme.Default }; }
+            catch { CurrentTheme = ElementTheme.Default; }
+            try { CurrentMaterial = (settings.Values["AppMaterial"] as string ?? "MicaAlt") switch { "MicaAlt" => BackgroundMaterial.MicaAlt, "Acrylic" => BackgroundMaterial.Acrylic, _ => BackgroundMaterial.Mica }; }
+            catch { CurrentMaterial = BackgroundMaterial.Mica; }
+            try
+            {
+                bool sound = settings.Values["EnableSound"] is bool value ? value : true;
+                settings.Values["EnableSound"] ??= true;
+                ElementSoundPlayer.State = sound ? ElementSoundPlayerState.On : ElementSoundPlayerState.Off;
+            }
+            catch { ElementSoundPlayer.State = ElementSoundPlayerState.On; }
+        }
+
+        public static void ApplyMaterial()
+        {
+            if (App.MainWindow is null) return;
+            try { App.MainWindow.SystemBackdrop = CurrentMaterial switch { BackgroundMaterial.MicaAlt => new MicaBackdrop { Kind = MicaKind.BaseAlt }, BackgroundMaterial.Acrylic => new DesktopAcrylicBackdrop(), _ => new MicaBackdrop { Kind = MicaKind.Base } }; }
+            catch (Exception ex) { Debug.WriteLine($"ApplyMaterial failed: {ex.Message}"); App.MainWindow.SystemBackdrop = null; }
+        }
+
+        public static void SetupTitleBar()
+        {
+            if (App.MainWindow is null) return;
+            try
+            {
+                if (!AppWindowTitleBar.IsCustomizationSupported()) return;
+                var titleBar = App.MainWindow.AppWindow.TitleBar;
+                titleBar.ExtendsContentIntoTitleBar = true;
+                titleBar.ButtonBackgroundColor = Colors.Transparent;
+                titleBar.ButtonInactiveBackgroundColor = Colors.Transparent;
+                UpdateTitleBarColors();
+            }
+            catch (Exception ex) { Debug.WriteLine($"SetupTitleBar failed: {ex.Message}"); }
+        }
+
+        public static void UpdateTitleBarColors()
+        {
+            if (App.MainWindow is null || !AppWindowTitleBar.IsCustomizationSupported()) return;
+            try
+            {
+                var titleBar = App.MainWindow.AppWindow.TitleBar;
+                bool dark = GetIsDarkTheme();
+                var foreground = dark ? Colors.White : Colors.Black;
+                var inactive = dark ? Color.FromArgb(255, 128, 128, 128) : Color.FromArgb(255, 160, 160, 160);
+                var hover = dark ? Color.FromArgb(20, 255, 255, 255) : Color.FromArgb(20, 0, 0, 0);
+                titleBar.ButtonForegroundColor = foreground;
+                titleBar.ButtonInactiveForegroundColor = inactive;
+                titleBar.ButtonHoverBackgroundColor = hover;
+                titleBar.ButtonHoverForegroundColor = foreground;
+                titleBar.ButtonPressedBackgroundColor = Color.FromArgb(30, hover.R, hover.G, hover.B);
+                titleBar.ButtonPressedForegroundColor = foreground;
+            }
+            catch (Exception ex) { Debug.WriteLine($"UpdateTitleBarColors failed: {ex.Message}"); }
+        }
+
+        public static void OnActualThemeChanged(FrameworkElement sender, object args) => UpdateTitleBarColors();
+
+        public static bool GetIsDarkTheme()
+        {
+            if (App.MainWindow?.Content is FrameworkElement root && root.ActualTheme != ElementTheme.Default)
+                return root.ActualTheme == ElementTheme.Dark;
+            return CurrentTheme == ElementTheme.Default ? Application.Current.RequestedTheme == ApplicationTheme.Dark : CurrentTheme == ElementTheme.Dark;
+        }
+    }
+
+    public enum BackgroundMaterial { Mica, MicaAlt, Acrylic }
 }
