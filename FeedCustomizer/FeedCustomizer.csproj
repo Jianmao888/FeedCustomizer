@@ -19,19 +19,34 @@
 		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 	</PropertyGroup>
 
-	<Target Name="CopyFeedProviderToAssets" BeforeTargets="BeforeBuild">
-		<MSBuild Projects="$(MSBuildProjectDirectory)\..\FeedProvider\FeedProvider.csproj" Targets="Build" Properties="Configuration=$(Configuration);Platform=$(Platform);RuntimeIdentifier=$(RuntimeIdentifier)" BuildInParallel="false" />
+	<Target Name="CopyFeedProviderToAssets" BeforeTargets="BeforeBuild;AssignTargetPaths">
 		<PropertyGroup>
-			<_FeedProviderPath>$(MSBuildProjectDirectory)\..\FeedProvider\bin\$(Platform)\$(Configuration)\$(TargetFramework)\$(RuntimeIdentifier)\</_FeedProviderPath>
+			<_FeedProviderPublishDir>$(MSBuildProjectDirectory)\..\FeedProvider\bin\$(Platform)\$(Configuration)\$(TargetFramework)\$(RuntimeIdentifier)\publish\</_FeedProviderPublishDir>
+		</PropertyGroup>
+		<MSBuild Projects="$(MSBuildProjectDirectory)\..\FeedProvider\FeedProvider.csproj"
+		         Targets="Publish"
+		         Properties="Configuration=$(Configuration);Platform=$(Platform);RuntimeIdentifier=$(RuntimeIdentifier);PublishProfile=;SelfContained=true;PublishAot=true;PublishTrimmed=true;PublishReadyToRun=false;PublishDir=$(_FeedProviderPublishDir)"
+		         BuildInParallel="false" />
+		<PropertyGroup>
+			<_FeedProviderPath>$(_FeedProviderPublishDir)</_FeedProviderPath>
 		</PropertyGroup>
 		<Message Text="FeedProvider path = $(_FeedProviderPath)" Importance="High" />
-		<MakeDir Directories="$(ProjectDir)Resources\FeedProvider" />
+		<RemoveDir Directories="$(ProjectDir)Resources\FeedProvider\$(RuntimeIdentifier)" />
+		<MakeDir Directories="$(ProjectDir)Resources\FeedProvider\$(RuntimeIdentifier)" />
 		<ItemGroup>
 			<FeedProviderFiles Include="$(_FeedProviderPath)**\*.*" />
-			<!-- This item is created after the provider build, so it also works on a clean build. -->
-			<Content Include="Resources\FeedProvider\$(RuntimeIdentifier)\**" />
 		</ItemGroup>
 		<Copy SourceFiles="@(FeedProviderFiles)" DestinationFolder="$(ProjectDir)Resources\FeedProvider\$(RuntimeIdentifier)\%(RecursiveDir)" SkipUnchangedFiles="true" />
+		<!-- Add the generated provider files after they exist so MSIX packaging also includes them on a clean build. -->
+		<ItemGroup>
+			<Content Include="$(ProjectDir)Resources\FeedProvider\$(RuntimeIdentifier)\**\*.*">
+				<!-- Native AOT can produce a same-sized executable on a fixed
+				     package version. Always refresh the loose AppX layout so F5
+				     deployment cannot keep an older COM server by timestamp. -->
+				<CopyToOutputDirectory>Always</CopyToOutputDirectory>
+				<CopyToPublishDirectory>Always</CopyToPublishDirectory>
+			</Content>
+		</ItemGroup>
 	</Target>
 
 	<ItemGroup>
@@ -86,7 +101,6 @@
 		<AppxBundle>Never</AppxBundle>
 		<AppxBundlePlatforms>$(Platform)</AppxBundlePlatforms>
 		<HoursBetweenUpdateChecks>0</HoursBetweenUpdateChecks>
-		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 		<GenerateTemporaryStoreCertificate>True</GenerateTemporaryStoreCertificate>
 		<PackageCertificateKeyFile>FeedCustomizer_TemporaryKey.pfx</PackageCertificateKeyFile>
 	</PropertyGroup>

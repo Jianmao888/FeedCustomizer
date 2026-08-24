@@ -3,8 +3,6 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using System.Security.Cryptography;
-using System.Text;
 using System.Threading.Tasks;
 using System.Xml.Linq;
 using System.Xml.XPath;
@@ -16,6 +14,10 @@ namespace FeedCustomizer.Core.Tools
         // XML命名空间定义（对应文件中的xmlns声明）
         private static readonly XNamespace DefaultNs = "http://schemas.microsoft.com/appx/manifest/foundation/windows10";
         private static readonly XNamespace Uap3Ns = "http://schemas.microsoft.com/appx/manifest/uap/windows10/3";
+        // A package exposes one feed provider implementation. The provider can
+        // contain any number of feed Definitions. Keep this ID stable across
+        // edits so Widgets does not interpret every save as a new provider.
+        private const string FeedProviderId = "feedcustomizer";
 
         private static string DefauleXmlFilePath => AppDataPaths.ManifestPath;
 
@@ -86,6 +88,32 @@ namespace FeedCustomizer.Core.Tools
         }
 
         /// <summary>
+        /// Migrates manifests produced by older builds. Older builds emitted
+        /// one AppExtension/FeedProvider for every feed, but Widgets treats the
+        /// package as one provider whose Definitions collection contains all
+        /// feeds. This migration is intentionally synchronous so it can run
+        /// while the registration manifest is being refreshed at startup.
+        /// </summary>
+        internal static void NormalizeProviderManifest(XDocument document)
+        {
+            if (!document.Descendants(Uap3Ns + "AppExtension").Any(element =>
+                    string.Equals(
+                        element.Attribute("Name")?.Value,
+                        "com.microsoft.windows.widgets.feeds",
+                        StringComparison.Ordinal)))
+            {
+                return;
+            }
+
+            var feeds = ParseDefinitions(document)
+                .GroupBy(feed => feed.Id, StringComparer.OrdinalIgnoreCase)
+                .Select(group => group.First())
+                .ToList();
+
+            UpdateDefinitions(document, feeds);
+        }
+
+        /// <summary>
         /// 从XML文档解析Definition节点
         /// </summary>
         private static List<Feed> ParseDefinitions(XDocument doc)
@@ -145,19 +173,14 @@ namespace FeedCustomizer.Core.Tools
                 extensionElement.Remove();
             }
 
-            if (feedItems.Count == 0)
-            {
-                extensionContainer.Add(CreateEmptyProviderExtension(extensionTemplate));
-                return;
-            }
-
-            foreach (var feed in feedItems)
-            {
-                extensionContainer.Add(CreateProviderExtension(extensionTemplate, feed));
-            }
+            // The Widgets manifest schema models one FeedProvider containing a
+            // Definitions collection. Creating one AppExtension per feed makes
+            // the board keep only one registration (usually the last one) and
+            // causes the provider to disappear after a toggle/re-registration.
+            extensionContainer.Add(CreateProviderExtension(extensionTemplate, feedItems));
         }
 
-        private static XElement CreateProviderExtension(XElement template, Feed feed)
+        private static XElement CreateProviderExtension(XElement template, IReadOnlyCollection<Feed> feedItems)
         {
             var extension = new XElement(template);
             var appExtension = extension.Element(Uap3Ns + "AppExtension")
@@ -167,48 +190,22 @@ namespace FeedCustomizer.Core.Tools
             var definitions = provider.Element(DefaultNs + "Definitions")
                 ?? throw new InvalidOperationException("FeedProvider扩展缺少Definitions节点");
 
-            Uri contentUri = NormalizeHttpUri(feed.Url);
-            string providerId = CreateProviderId(feed.Id);
-            string description = GetDescription(feed);
-            string icon = feed.ImagePath ?? string.Empty;
+            string providerDisplayName = ResourcesCopier.ProviderPackageDisplayName;
+            const string providerIcon = "Assets\\StoreLogo.scale-200.png";
 
-            appExtension.SetAttributeValue("Id", providerId);
-            appExtension.SetAttributeValue("DisplayName", contentUri.AbsoluteUri);
-            provider.SetAttributeValue("Id", providerId);
-            provider.SetAttributeValue("DisplayName", contentUri.AbsoluteUri);
-            provider.SetAttributeValue("Description", description);
-            provider.SetAttributeValue("Icon", icon);
-            provider.SetAttributeValue("SettingsUri", contentUri.AbsoluteUri);
+            appExtension.SetAttributeValue("Id", FeedProviderId);
+            appExtension.SetAttributeValue("DisplayName", providerDisplayName);
+            provider.SetAttributeValue("Id", FeedProviderId);
+            provider.SetAttributeValue("DisplayName", providerDisplayName);
+            provider.SetAttributeValue("Description", providerDisplayName);
+            provider.SetAttributeValue("Icon", providerIcon);
 
             definitions.RemoveNodes();
-            definitions.Add(CreateDefinitionElement(feed));
+            foreach (Feed feed in feedItems)
+            {
+                definitions.Add(CreateDefinitionElement(feed));
+            }
             return extension;
-        }
-
-        private static XElement CreateEmptyProviderExtension(XElement template)
-        {
-            var extension = new XElement(template);
-            var appExtension = extension.Element(Uap3Ns + "AppExtension")
-                ?? throw new InvalidOperationException("FeedProvider扩展缺少AppExtension节点");
-            var provider = appExtension.Descendants(DefaultNs + "FeedProvider").FirstOrDefault()
-                ?? throw new InvalidOperationException("FeedProvider扩展缺少FeedProvider节点");
-            var definitions = provider.Element(DefaultNs + "Definitions")
-                ?? throw new InvalidOperationException("FeedProvider扩展缺少Definitions节点");
-
-            appExtension.SetAttributeValue("Id", "feedcustomizer");
-            appExtension.SetAttributeValue("DisplayName", ResourcesCopier.ProviderPackageDisplayName);
-            provider.SetAttributeValue("Id", "feedcustomizer");
-            provider.SetAttributeValue("DisplayName", ResourcesCopier.ProviderPackageDisplayName);
-            provider.SetAttributeValue("Description", ResourcesCopier.ProviderPackageDisplayName);
-            provider.SetAttributeValue("Icon", "Assets\\StoreLogo.scale-200.png");
-            definitions.RemoveNodes();
-            return extension;
-        }
-
-        private static string CreateProviderId(string feedId)
-        {
-            byte[] hash = SHA256.HashData(Encoding.UTF8.GetBytes(feedId ?? string.Empty));
-            return $"feed{Convert.ToHexString(hash.AsSpan(0, 12)).ToLowerInvariant()}";
         }
 
         private static string GetDescription(Feed feed)

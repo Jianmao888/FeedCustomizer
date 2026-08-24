@@ -63,7 +63,7 @@
             <controls:SettingsCard
                 Grid.Row="0"
                 x:Uid="EnableCustomizerCard"
-                MinHeight="64"
+                MinHeight="70"
                 Padding="16,0"
                 HorizontalAlignment="Stretch"
                 HorizontalContentAlignment="Stretch">
