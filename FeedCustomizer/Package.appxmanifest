@@ -10,9 +10,9 @@
   IgnorableNamespaces="uap uap5 rescap">
 
   <Identity
-    Name="D454B137.Jianmao.FeedCustomizer.Test"
+    Name="D454B137.Jianmao.FeedCustomizer"
     Publisher="CN=8CB38C3F-7EA3-4B56-82F9-A2018B33EF3F"
-    Version="1.0.0.0" />
+    Version="1.0.1.0" />
 
   <Properties>
     <DisplayName>ms-resource:AppName</DisplayName>
