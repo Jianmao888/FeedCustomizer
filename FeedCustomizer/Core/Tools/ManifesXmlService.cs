@@ -2,10 +2,13 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using System.Xml.Linq;
 using System.Xml.XPath;
+using Windows.ApplicationModel;
 
 namespace FeedCustomizer.Core.Tools
 {
@@ -18,8 +21,53 @@ namespace FeedCustomizer.Core.Tools
         // contain any number of feed Definitions. Keep this ID stable across
         // edits so Widgets does not interpret every save as a new provider.
         private const string FeedProviderId = "feedcustomizer";
+        private static readonly XNamespace UapNs = "http://schemas.microsoft.com/appx/manifest/uap/windows10";
+        private static readonly XNamespace ComNs = "http://schemas.microsoft.com/appx/manifest/com/windows10";
 
         private static string DefauleXmlFilePath => AppDataPaths.ManifestPath;
+
+        private static string ProviderPackageDisplayName
+        {
+            get
+            {
+                try
+                {
+                    var resourceLoader = new Microsoft.Windows.ApplicationModel.Resources.ResourceLoader();
+                    string displayName = resourceLoader.GetString("ProviderPackageDisplayName");
+                    if (!string.IsNullOrWhiteSpace(displayName))
+                    {
+                        return displayName;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Failed to load provider package display name: {ex.Message}");
+                }
+
+                return "Feed Customization Container";
+            }
+        }
+
+        private static string ProviderPublisherDisplayName
+        {
+            get
+            {
+                try
+                {
+                    string publisherDisplayName = Package.Current.PublisherDisplayName;
+                    if (!string.IsNullOrWhiteSpace(publisherDisplayName))
+                    {
+                        return publisherDisplayName;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Failed to read publisher display name: {ex.Message}");
+                }
+
+                return "窗边的贱猫";
+            }
+        }
 
         /// <summary>
         /// 从XML文件读取所有FeedItem
@@ -114,6 +162,166 @@ namespace FeedCustomizer.Core.Tools
         }
 
         /// <summary>
+        /// Rewrites presentation metadata (architecture, display names, logos
+        /// and executable path) in the staged provider manifest so it matches
+        /// the current package before registration.
+        /// </summary>
+        internal static void SynchronizePresentation()
+        {
+            string processorArchitecture = RuntimeInformation.ProcessArchitecture.ToString().ToLowerInvariant();
+            string displayName = ProviderPackageDisplayName;
+            string relativeExecutablePath = Path.Combine(
+                "FeedProvider",
+                "FeedProvider.exe").Replace(Path.DirectorySeparatorChar, '\\');
+
+            var document = XDocument.Load(AppDataPaths.ManifestPath);
+            var root = document.Root
+                ?? throw new InvalidDataException("源提供程序清单缺少 Package 根节点。");
+            var identity = root.Element(DefaultNs + "Identity")
+                ?? throw new InvalidDataException("源提供程序清单中缺少 Identity 节点。");
+            identity.SetAttributeValue("ProcessorArchitecture", processorArchitecture);
+
+            var properties = root.Element(DefaultNs + "Properties")
+                ?? throw new InvalidDataException("源提供程序清单中缺少 Properties 节点。");
+            SetElementValue(properties, DefaultNs + "DisplayName", displayName);
+            SetElementValue(properties, DefaultNs + "PublisherDisplayName", ProviderPublisherDisplayName);
+            SetElementValue(properties, DefaultNs + "Logo", "Assets\\StoreLogo.scale-200.png");
+
+            var application = root.Element(DefaultNs + "Applications")?.Element(DefaultNs + "Application")
+                ?? throw new InvalidDataException("源提供程序清单中缺少 Application 节点。");
+
+            application.SetAttributeValue("Executable", relativeExecutablePath);
+            var visualElements = application.Elements().FirstOrDefault(element =>
+                    element.Name.LocalName == "VisualElements")
+                ?? throw new InvalidDataException("源提供程序清单中缺少 VisualElements 节点。");
+
+            // uap3:VisualElements exposes AppListEntry, which keeps this COM/feed
+            // host package out of Start while retaining its package identity.
+            visualElements.Name = Uap3Ns + "VisualElements";
+            visualElements.SetAttributeValue("DisplayName", displayName);
+            visualElements.SetAttributeValue("Description", displayName);
+            visualElements.SetAttributeValue("Square150x150Logo", "Assets\\Square150x150Logo.scale-200.png");
+            visualElements.SetAttributeValue("Square44x44Logo", "Assets\\Square44x44Logo.scale-200.png");
+            visualElements.SetAttributeValue("AppListEntry", "none");
+
+            var defaultTile = visualElements.Elements().FirstOrDefault(element =>
+                element.Name.LocalName == "DefaultTile");
+            if (defaultTile is not null)
+            {
+                defaultTile.Name = UapNs + "DefaultTile";
+                defaultTile.SetAttributeValue("Square71x71Logo", "Assets\\SmallTile.scale-200.png");
+                defaultTile.SetAttributeValue("Wide310x150Logo", "Assets\\WideTile.scale-200.png");
+                defaultTile.SetAttributeValue("Square310x310Logo", "Assets\\LargeTile.scale-200.png");
+            }
+
+            var splashScreen = visualElements.Elements().FirstOrDefault(element =>
+                element.Name.LocalName == "SplashScreen");
+            if (splashScreen is not null)
+            {
+                splashScreen.Name = UapNs + "SplashScreen";
+                splashScreen.SetAttributeValue("Image", "Assets\\SplashScreen.scale-200.png");
+            }
+
+            foreach (var exeServer in application.Descendants(ComNs + "ExeServer"))
+            {
+                exeServer.SetAttributeValue("Executable", relativeExecutablePath);
+                exeServer.SetAttributeValue("DisplayName", displayName);
+                foreach (var comClass in exeServer.Elements(ComNs + "Class"))
+                {
+                    comClass.SetAttributeValue("DisplayName", displayName);
+                }
+            }
+
+            foreach (var appExtension in application
+                .Descendants(Uap3Ns + "AppExtension")
+                .Where(element => element.Attribute("Id")?.Value == "feedcustomizer"))
+            {
+                appExtension.SetAttributeValue("DisplayName", displayName);
+                var provider = appExtension
+                    .Descendants(DefaultNs + "FeedProvider")
+                    .FirstOrDefault();
+                if (provider is not null)
+                {
+                    provider.SetAttributeValue("DisplayName", displayName);
+                    provider.SetAttributeValue("Description", displayName);
+                    provider.SetAttributeValue("Icon", "Assets\\StoreLogo.scale-200.png");
+                }
+            }
+
+            // Migrate manifests written by pre-fix builds before registering
+            // the package again. Without this, an existing multi-provider
+            // manifest remains in place until the user edits/saves feeds, so
+            // toggling the provider can still leave only the switch visible.
+            NormalizeProviderManifest(document);
+
+            document.Save(AppDataPaths.ManifestPath);
+        }
+
+        /// <summary>
+        /// Checks whether the staged manifest's presentation metadata still
+        /// matches the current package.
+        /// </summary>
+        internal static bool IsPresentationCurrent(string manifestPath)
+        {
+            try
+            {
+                var document = XDocument.Load(manifestPath);
+                var root = document.Root;
+                var properties = root?.Element(DefaultNs + "Properties");
+                var application = root?
+                    .Element(DefaultNs + "Applications")?
+                    .Element(DefaultNs + "Application");
+                var visualElements = application?.Element(Uap3Ns + "VisualElements");
+                if (properties is null || visualElements is null)
+                {
+                    return false;
+                }
+
+                var feedExtensions = application?
+                    .Descendants(Uap3Ns + "AppExtension")
+                    .Where(element => string.Equals(
+                        element.Attribute("Name")?.Value,
+                        "com.microsoft.windows.widgets.feeds",
+                        StringComparison.Ordinal))
+                    .ToList();
+
+                if (feedExtensions is not { Count: 1 } ||
+                    feedExtensions[0].Attribute("Id")?.Value != "feedcustomizer")
+                {
+                    return false;
+                }
+
+                var feedProvider = feedExtensions[0]
+                    .Descendants(DefaultNs + "FeedProvider")
+                    .SingleOrDefault();
+                if (feedProvider?.Attribute("Id")?.Value != "feedcustomizer")
+                {
+                    return false;
+                }
+
+                return properties.Element(DefaultNs + "DisplayName")?.Value == ProviderPackageDisplayName &&
+                    properties.Element(DefaultNs + "PublisherDisplayName")?.Value == ProviderPublisherDisplayName &&
+                    properties.Element(DefaultNs + "Logo")?.Value == "Assets\\StoreLogo.scale-200.png" &&
+                    visualElements.Attribute("DisplayName")?.Value == ProviderPackageDisplayName &&
+                    visualElements.Attribute("AppListEntry")?.Value == "none" &&
+                    visualElements.Attribute("Square150x150Logo")?.Value == "Assets\\Square150x150Logo.scale-200.png" &&
+                    visualElements.Attribute("Square44x44Logo")?.Value == "Assets\\Square44x44Logo.scale-200.png";
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Failed to inspect provider package manifest presentation: {ex.Message}");
+                return false;
+            }
+        }
+
+        private static void SetElementValue(XElement parent, XName elementName, string value)
+        {
+            var element = parent.Element(elementName)
+                ?? throw new InvalidDataException($"源提供程序清单中缺少 {elementName.LocalName} 节点。");
+            element.Value = value;
+        }
+
+        /// <summary>
         /// 从XML文档解析Definition节点
         /// </summary>
         private static List<Feed> ParseDefinitions(XDocument doc)
@@ -190,7 +398,7 @@ namespace FeedCustomizer.Core.Tools
             var definitions = provider.Element(DefaultNs + "Definitions")
                 ?? throw new InvalidOperationException("FeedProvider扩展缺少Definitions节点");
 
-            string providerDisplayName = ResourcesCopier.ProviderPackageDisplayName;
+            string providerDisplayName = ProviderPackageDisplayName;
             const string providerIcon = "Assets\\StoreLogo.scale-200.png";
 
             appExtension.SetAttributeValue("Id", FeedProviderId);

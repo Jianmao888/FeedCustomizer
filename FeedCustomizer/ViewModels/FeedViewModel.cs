@@ -192,6 +192,23 @@ namespace FeedCustomizer.ViewModels
             CheckCanSave();
         }
 
+        public Uri NormalizeUrl()
+        {
+            Uri websiteUri = ManifestXmlService.NormalizeHttpUri(Url);
+            Url = websiteUri.AbsoluteUri;
+            return websiteUri;
+        }
+
+        public async Task<BitmapImage> PrepareWebsiteIconAsync(Uri requestedUri)
+        {
+            WebsiteIconResult iconResult = await WebsiteIconDownloader.DownloadAsync(requestedUri);
+            Url = iconResult.PageUri.AbsoluteUri;
+            SetDownloadedImage(iconResult.RelativeIconPath);
+            return await ImageHelper.LoadImageFromPathAsync(
+                ImageHelper.GetImageFullPathFromXmlRelativePath(iconResult.RelativeIconPath))
+                ?? throw new InvalidDataException("网页图标已保存，但无法加载预览。");
+        }
+
         public void CommitChanges()
         {
             // 缓存旧的图片路径，当外部列表应用后再删除旧图片
