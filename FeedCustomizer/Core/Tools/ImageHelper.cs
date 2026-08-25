@@ -32,6 +32,7 @@ namespace FeedCustomizer.Core.Tools
                 picker.FileTypeFilter.Add(".bmp");
                 picker.FileTypeFilter.Add(".gif");
                 picker.FileTypeFilter.Add(".webp");
+                picker.FileTypeFilter.Add(".ico");
 
                 // 获取窗口句柄（WinUI 3 需要）
                 var mainWindow = App.MainWindow; // 需要在 App.xaml.cs 中公开

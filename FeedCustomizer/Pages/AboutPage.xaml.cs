@@ -44,7 +44,7 @@ namespace FeedCustomizer.Pages
                 _ => 0
             };
 
-            string material = _localSettings.Values["AppMaterial"] as string ?? "MicaAlt";
+            string material = _localSettings.Values["AppMaterial"] as string ?? "Mica";
             RbMaterial.SelectedIndex = material switch
             {
                 "MicaAlt" => 1,

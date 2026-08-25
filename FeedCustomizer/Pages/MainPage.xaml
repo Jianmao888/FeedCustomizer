@@ -17,6 +17,8 @@
             <controls:SettingsCard
                 Header="{x:Bind Name, Mode=OneWay}"
                 Description="{x:Bind Url, Mode=OneWay}"
+                CornerRadius="0"
+                BorderThickness="0"
                 Padding="12,0"
                 ContentAlignment="Right"
                 HorizontalAlignment="Stretch"
@@ -55,11 +57,13 @@
         </Grid.RowDefinitions>
 
         <!-- 整体内容区域 -->
-        <StackPanel
+        <Grid
             Grid.Row="0"
-            Padding="12,12"
-            Spacing="4"
-            VerticalAlignment="Top">
+            Padding="12,12">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
             <controls:SettingsCard
                 Grid.Row="0"
                 x:Uid="EnableCustomizerCard"
@@ -76,40 +80,67 @@
                     IsOn="{x:Bind MainPageViewModel.IsFeedProviderEnabled.Value, Mode=TwoWay}"/>
             </controls:SettingsCard>
 
-            <!-- 源列表设置展开器，列表内容由嵌套 SettingsCard 承载 -->
-                <controls:SettingsExpander
-                    x:Name="FeedSettingsExpander"
-                    x:Uid="FeedListExpander"
-                    IsExpanded="True"
-                    ItemsSource="{x:Bind MainPageViewModel.Feeds}"
-                    ItemTemplate="{StaticResource FeedItemTemplate}"
-                    HorizontalAlignment="Stretch"
-                VerticalAlignment="Top">
-                    <controls:SettingsExpander.Content>
-                        <Button
-                            x:Uid="FeedListAddButton"
-                            Padding="0"
-                            Height="32"
-                            Margin="0,0,16,0"
-                            Style="{StaticResource AccentButtonStyle}"
-                            IsEnabled="{x:Bind MainPageViewModel.IsButtonsEnabled.Value, Mode=OneWay}"
-                            Click="AddFeedButton_Click">
-                            <Button.Content>
-                                <StackPanel Orientation="Horizontal" Spacing="6" Padding="11,0">
-                                    <FontIcon
-                                        FontFamily="Segoe Fluent Icons"
-                                        Glyph="&#xE710;"
-                                        FontSize="16" />
-                                    <TextBlock
-                                        x:Uid="AddFeedButton"
-                                        FontSize="14"
-                                        Padding="0,5,0,6"/>
-                                </StackPanel>
-                            </Button.Content>
-                        </Button>
-                    </controls:SettingsExpander.Content>
-                </controls:SettingsExpander>
-        </StackPanel>
+            <!-- 源列表卡片 -->
+            <Border 
+                Grid.Row="1"
+                CornerRadius="4"
+                Margin="0,4,0,0"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="1">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <!-- 列表标题 -->
+                        <RowDefinition Height="Auto" />
+                        <!-- 列表内容 -->
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <Border Grid.Row="0" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock 
+                                Grid.Row="0" 
+                                x:Uid="FeedListTitle"
+                                Padding="16,20"/>
+                            <Button 
+                                Grid.Column="1"
+                                x:Uid="FeedListAddButton"
+                                Padding="0"
+                                Height="32"
+                                Margin="0,0,16,0"
+                                Style="{StaticResource AccentButtonStyle}"
+                                IsEnabled="{x:Bind MainPageViewModel.IsButtonsEnabled.Value, Mode=OneWay}"
+                                Click="AddFeedButton_Click">
+                                <Button.Content>
+                                    <StackPanel Orientation="Horizontal" Spacing="6" Padding="11,0">
+                                        <FontIcon 
+                                            FontFamily="Segoe Fluent Icons" 
+                                            Glyph="&#xE710;" FontSize="16" />
+                                        <TextBlock 
+                                            x:Uid="AddFeedButton"
+                                            FontSize="14" 
+                                            Padding="0,5,0,6"/>
+                                    </StackPanel>
+                                </Button.Content>
+                            </Button>
+                        </Grid>
+                    </Border>
+                    <ScrollViewer 
+                        Grid.Row="1"
+                        VerticalScrollBarVisibility="Auto"
+                        VerticalScrollMode="Auto"
+                        BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
+                        BorderThickness="0,1,0,0">
+                        <ItemsRepeater  
+                            x:Name="FeedListView"
+                            ItemTemplate="{StaticResource FeedItemTemplate}"
+                            ItemsSource="{x:Bind MainPageViewModel.Feeds}"/>
+                    </ScrollViewer>
+                </Grid>
+            </Border>
+        </Grid>
 
         <!-- 底部按钮部分 -->
         <Border 
