@@ -14,10 +14,16 @@ namespace FeedCustomizer.Core.Tools
 {
     public static partial class WebsiteIconDownloader
     {
+        // 该类负责从网页下载网站图标（favicon / <link rel="icon"> 指定的图标），并按原始格式保存。
+
+        // 最大允许解析的 HTML 字节长度（2 MB）
         private const int MaxHtmlLength = 2 * 1024 * 1024;
+        // 最大允许的图标文件大小（5 MB）
         private const int MaxIconBytes = 5 * 1024 * 1024;
+        // 复用的 HttpClient 实例，使用 CreateWebsiteClient 进行统一配置
         private static readonly HttpClient WebsiteClient = CreateWebsiteClient();
 
+        // DownloadAsync: 主入口，给定页面 URI，返回下载并按原始格式保存后的相对路径与页面最终 URI。
         public static async Task<WebsiteIconResult> DownloadAsync(Uri requestedUri)
         {
             using var pageRequest = new HttpRequestMessage(HttpMethod.Get, requestedUri);
@@ -46,7 +52,7 @@ namespace FeedCustomizer.Core.Tools
                 try
                 {
                     byte[] iconBytes = await DownloadIconBytesAsync(candidate);
-                    string relativeIconPath = await SaveIconAsPngAsync(iconBytes);
+                    string relativeIconPath = await SaveIconAsync(iconBytes);
                     return new WebsiteIconResult(relativeIconPath, pageUri);
                 }
                 catch (Exception ex)
@@ -59,6 +65,7 @@ namespace FeedCustomizer.Core.Tools
                 "网页没有可用的图标。" + Environment.NewLine + string.Join(Environment.NewLine, errors));
         }
 
+        // CreateWebsiteClient: 创建并配置 HttpClient 用于请求网页与图标。
         private static HttpClient CreateWebsiteClient()
         {
             var handler = new HttpClientHandler
@@ -76,6 +83,7 @@ namespace FeedCustomizer.Core.Tools
             return client;
         }
 
+        // GetIconCandidates: 从页面 HTML 中提取可能的图标 URL 列表。
         private static List<Uri> GetIconCandidates(string html, Uri pageUri)
         {
             var candidates = new List<Uri>();
@@ -120,6 +128,10 @@ namespace FeedCustomizer.Core.Tools
             return candidates;
         }
 
+        // DownloadIconBytesAsync: 以流式方式下载图标二进制，并在下载前后检查大小限制。
+        // - 使用 ResponseHeadersRead 只读取头部并延迟读取主体，便于在检查 Content-Length 后决定是否继续。
+        // - 如果 Content-Length 提示大于 MaxIconBytes 则提前抛出异常。
+        // - 读取字节数组后再次校验实际长度，防止服务器未提供 Content-Length 或返回更大数据。
         private static async Task<byte[]> DownloadIconBytesAsync(Uri iconUri)
         {
             using var request = new HttpRequestMessage(HttpMethod.Get, iconUri);
@@ -142,7 +154,13 @@ namespace FeedCustomizer.Core.Tools
             return bytes;
         }
 
-        private static async Task<string> SaveIconAsPngAsync(byte[] iconBytes)
+        // SaveIconAsync: 校验图标字节并以其原始格式保存，返回保存的相对路径。
+        // 注意点：
+        // - 使用 InMemoryRandomAccessStream 与 BitmapDecoder 进行解码校验，支持 ICO、PNG、JPEG、WEBP 等格式。
+        // - 校验解码后宽高有效且在合理范围内（防止非常大的图像导致内存爆炸或安全问题）。
+        // - 保存时直接写入原始字节，不缩放、不重新编码，因此扩展名与解码器识别出的格式保持一致。
+        // - 调用方应捕获异常并记录失败原因。
+        private static async Task<string> SaveIconAsync(byte[] iconBytes)
         {
             using var input = new InMemoryRandomAccessStream();
             await input.WriteAsync(iconBytes.AsBuffer());
@@ -160,38 +178,13 @@ namespace FeedCustomizer.Core.Tools
                 throw new InvalidDataException("网页图标尺寸超过安全限制。");
             }
 
-            double scale = Math.Min(1d, 256d / Math.Max(sourceWidth, sourceHeight));
-            uint targetWidth = (uint)Math.Max(1, (int)Math.Round(sourceWidth * scale));
-            uint targetHeight = (uint)Math.Max(1, (int)Math.Round(sourceHeight * scale));
-            var transform = new BitmapTransform
-            {
-                ScaledWidth = targetWidth,
-                ScaledHeight = targetHeight
-            };
-            PixelDataProvider pixelData = await decoder.GetPixelDataAsync(
-                BitmapPixelFormat.Bgra8,
-                BitmapAlphaMode.Premultiplied,
-                transform,
-                ExifOrientationMode.RespectExifOrientation,
-                ColorManagementMode.ColorManageToSRgb);
-
+            string extension = GetIconFileExtension(decoder);
             Directory.CreateDirectory(AppDataPaths.ImagesFolder);
-            string fileName = $"web-{Guid.NewGuid():N}.png";
+            string fileName = $"web-{Guid.NewGuid():N}{extension}";
             string fullPath = Path.Combine(AppDataPaths.ImagesFolder, fileName);
             try
             {
-                using FileStream fileStream = File.Create(fullPath);
-                using IRandomAccessStream output = fileStream.AsRandomAccessStream();
-                BitmapEncoder encoder = await BitmapEncoder.CreateAsync(BitmapEncoder.PngEncoderId, output);
-                encoder.SetPixelData(
-                    BitmapPixelFormat.Bgra8,
-                    BitmapAlphaMode.Premultiplied,
-                    targetWidth,
-                    targetHeight,
-                    decoder.DpiX > 0 ? decoder.DpiX : 96,
-                    decoder.DpiY > 0 ? decoder.DpiY : 96,
-                    pixelData.DetachPixelData());
-                await encoder.FlushAsync();
+                await File.WriteAllBytesAsync(fullPath, iconBytes);
             }
             catch
             {
@@ -200,6 +193,19 @@ namespace FeedCustomizer.Core.Tools
             }
 
             return $"Images\\{fileName}";
+        }
+
+        // GetIconFileExtension: 根据解码器识别出的真实格式返回对应扩展名（含前导 "."）。
+        // 若解码器未提供扩展名，则回退为 .png。
+        private static string GetIconFileExtension(BitmapDecoder decoder)
+        {
+            string? extension = decoder.DecoderInformation.FileExtensions.FirstOrDefault();
+            if (!string.IsNullOrWhiteSpace(extension))
+            {
+                return extension.StartsWith('.') ? extension : "." + extension;
+            }
+
+            return ".png";
         }
 
         [GeneratedRegex(@"<link\b[^>]*>", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]

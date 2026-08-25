@@ -85,7 +85,7 @@ namespace FeedCustomizer
             var settings = ApplicationData.Current.LocalSettings;
             try { CurrentTheme = (settings.Values["AppTheme"] as string) switch { "Light" => ElementTheme.Light, "Dark" => ElementTheme.Dark, _ => ElementTheme.Default }; }
             catch { CurrentTheme = ElementTheme.Default; }
-            try { CurrentMaterial = (settings.Values["AppMaterial"] as string ?? "MicaAlt") switch { "MicaAlt" => BackgroundMaterial.MicaAlt, "Acrylic" => BackgroundMaterial.Acrylic, _ => BackgroundMaterial.Mica }; }
+            try { CurrentMaterial = (settings.Values["AppMaterial"] as string ?? "Mica") switch { "MicaAlt" => BackgroundMaterial.MicaAlt, "Acrylic" => BackgroundMaterial.Acrylic, _ => BackgroundMaterial.Mica }; }
             catch { CurrentMaterial = BackgroundMaterial.Mica; }
             try
             {
