@@ -14,14 +14,14 @@
 		<SelfContained>true</SelfContained>
 		<WindowsAppSDKSelfContained>false</WindowsAppSDKSelfContained>
 		<BuiltInComInteropSupport>true</BuiltInComInteropSupport>
-			<WinUISDKReferences>false</WinUISDKReferences>
-			<PublishTrimmed>true</PublishTrimmed>
-			<!-- Generate the WinRT authoring/CCW metadata consumed by the native-AOT
+		<WinUISDKReferences>false</WinUISDKReferences>
+		<PublishTrimmed>true</PublishTrimmed>
+		<!-- Generate the WinRT authoring/CCW metadata consumed by the native-AOT
 			     provider when Widgets asks for IFeedProvider. -->
-			<CsWinRTComponent>true</CsWinRTComponent>
-			<CsWinRTAotOptimizerEnabled>true</CsWinRTAotOptimizerEnabled>
-			<CsWinRTAotExportsEnabled>true</CsWinRTAotExportsEnabled>
-			<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+		<CsWinRTComponent>true</CsWinRTComponent>
+		<CsWinRTAotOptimizerEnabled>true</CsWinRTAotOptimizerEnabled>
+		<CsWinRTAotExportsEnabled>true</CsWinRTAotExportsEnabled>
+		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
 	<ItemGroup>

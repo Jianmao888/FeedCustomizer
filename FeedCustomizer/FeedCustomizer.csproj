@@ -8,7 +8,6 @@
 		<Platforms>x64;ARM64</Platforms>
 		<RuntimeIdentifiers>win-x64;win-arm64</RuntimeIdentifiers>
 		<RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == ''">win-$(Platform.ToLower())</RuntimeIdentifier>
-		<PublishProfile>win-$(Platform).pubxml</PublishProfile>
 		<UseWinUI>true</UseWinUI>
 		<WinUISDKReferences>false</WinUISDKReferences>
 		<EnableMsixTooling>true</EnableMsixTooling>
@@ -19,39 +18,22 @@
 		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 	</PropertyGroup>
 
-	<Target Name="CopyFeedProviderToAssets" BeforeTargets="BeforeBuild;AssignTargetPaths">
+	<Target Name="CopyFeedProviderToAssets" BeforeTargets="BeforeBuild">
 		<PropertyGroup>
-			<_FeedProviderPublishDir>$(MSBuildProjectDirectory)\..\FeedProvider\bin\$(Platform)\$(Configuration)\$(TargetFramework)\$(RuntimeIdentifier)\publish\</_FeedProviderPublishDir>
+			<_FeedProviderPath>$(ProjectDir)Resources\FeedProvider\</_FeedProviderPath>
 		</PropertyGroup>
+
+		<RemoveDir Directories="$(ProjectDir)Resources\FeedProvider" />
+		<MakeDir Directories="$(ProjectDir)Resources\FeedProvider" />
+		
 		<MSBuild Projects="$(MSBuildProjectDirectory)\..\FeedProvider\FeedProvider.csproj"
 		         Targets="Publish"
-		         Properties="Configuration=$(Configuration);Platform=$(Platform);RuntimeIdentifier=$(RuntimeIdentifier);PublishProfile=;SelfContained=true;PublishAot=true;PublishTrimmed=true;PublishReadyToRun=false;PublishDir=$(_FeedProviderPublishDir)"
+		         Properties="Configuration=$(Configuration);Platform=$(Platform);RuntimeIdentifier=$(RuntimeIdentifier);SelfContained=true;PublishAot=true;PublishTrimmed=true;PublishReadyToRun=false;PublishDir=$(_FeedProviderPath)"
 		         BuildInParallel="false" />
-		<PropertyGroup>
-			<_FeedProviderPath>$(_FeedProviderPublishDir)</_FeedProviderPath>
-		</PropertyGroup>
-		<Message Text="FeedProvider path = $(_FeedProviderPath)" Importance="High" />
-		<RemoveDir Directories="$(ProjectDir)Resources\FeedProvider\$(RuntimeIdentifier)" />
-		<MakeDir Directories="$(ProjectDir)Resources\FeedProvider\$(RuntimeIdentifier)" />
-		<ItemGroup>
-			<FeedProviderFiles Include="$(_FeedProviderPath)**\*.*" />
-		</ItemGroup>
-		<Copy SourceFiles="@(FeedProviderFiles)" DestinationFolder="$(ProjectDir)Resources\FeedProvider\$(RuntimeIdentifier)\%(RecursiveDir)" SkipUnchangedFiles="true" />
-		<!-- Add the generated provider files after they exist so MSIX packaging also includes them on a clean build. -->
-		<ItemGroup>
-			<Content Include="$(ProjectDir)Resources\FeedProvider\$(RuntimeIdentifier)\**\*.*">
-				<!-- Native AOT can produce a same-sized executable on a fixed
-				     package version. Always refresh the loose AppX layout so F5
-				     deployment cannot keep an older COM server by timestamp. -->
-				<CopyToOutputDirectory>Always</CopyToOutputDirectory>
-				<CopyToPublishDirectory>Always</CopyToPublishDirectory>
-			</Content>
-		</ItemGroup>
 	</Target>
 
 	<ItemGroup>
-		<Content Include="Resources\**" Exclude="Resources\FeedProvider\**" />
-		<Content Remove="Resources\resources.pri" />
+		<Content Include="Resources\**"/>
 	</ItemGroup>
 
 	<ItemGroup>

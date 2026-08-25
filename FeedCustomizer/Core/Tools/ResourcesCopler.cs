@@ -113,7 +113,6 @@ namespace FeedCustomizer.Core.Tools
                 string sourceProviderPath = Path.Combine(
                     resourcesFolderPath,
                     "FeedProvider",
-                    AppDataPaths.ProviderArchitectureFolder,
                     "FeedProvider.exe");
                 if (!File.Exists(sourceManifestPath) || !File.Exists(sourceProviderPath))
                 {
@@ -131,8 +130,8 @@ namespace FeedCustomizer.Core.Tools
                 // Only that directory is replaced; the manifest, definitions
                 // and downloaded assets are user data and must remain intact.
                 await ReplaceDirectoryContentsAsync(
-                    Path.Combine(resourcesFolderPath, "FeedProvider", AppDataPaths.ProviderArchitectureFolder),
-                    Path.Combine(UserAppFolder, "FeedProvider", AppDataPaths.ProviderArchitectureFolder));
+                    Path.Combine(resourcesFolderPath, "FeedProvider"),
+                    Path.Combine(UserAppFolder, "FeedProvider"));
                 await CopyDirectoryAsync(assetsFolderPath, Path.Combine(UserAppFolder, "Assets"));
                 SynchronizeManifestExecutablePath();
                 if (existingFeeds is { Count: > 0 })
@@ -171,7 +170,6 @@ namespace FeedCustomizer.Core.Tools
             string displayName = ProviderPackageDisplayName;
             string relativeExecutablePath = Path.Combine(
                 "FeedProvider",
-                AppDataPaths.ProviderArchitectureFolder,
                 "FeedProvider.exe").Replace(Path.DirectorySeparatorChar, '\\');
 
             var document = XDocument.Load(AppDataPaths.ManifestPath);
@@ -285,7 +283,6 @@ namespace FeedCustomizer.Core.Tools
                 string packagedProviderPath = Path.Combine(
                     GetResourcesFolderPath(),
                     "FeedProvider",
-                    AppDataPaths.ProviderArchitectureFolder,
                     "FeedProvider.exe");
 
                 // During local development and fixed-version MSIX rebuilds the
@@ -336,8 +333,7 @@ namespace FeedCustomizer.Core.Tools
             {
                 string sourceProviderFolder = Path.Combine(
                     GetResourcesFolderPath(),
-                    "FeedProvider",
-                    AppDataPaths.ProviderArchitectureFolder);
+                    "FeedProvider");
                 if (!Directory.Exists(sourceProviderFolder))
                 {
                     throw new DirectoryNotFoundException(
@@ -346,8 +342,7 @@ namespace FeedCustomizer.Core.Tools
 
                 string destinationProviderFolder = Path.Combine(
                     UserAppFolder,
-                    "FeedProvider",
-                    AppDataPaths.ProviderArchitectureFolder);
+                    "FeedProvider");
                 await ReplaceDirectoryContentsAsync(sourceProviderFolder, destinationProviderFolder);
 
                 string sourceAssetsFolder = GetAssetsFolderPath();
@@ -372,12 +367,10 @@ namespace FeedCustomizer.Core.Tools
         {
             string sourceProviderFolder = Path.Combine(
                 GetResourcesFolderPath(),
-                "FeedProvider",
-                AppDataPaths.ProviderArchitectureFolder);
+                "FeedProvider");
             string registeredProviderFolder = Path.Combine(
                 AppDataPaths.RegistrationFolder,
-                "FeedProvider",
-                AppDataPaths.ProviderArchitectureFolder);
+                "FeedProvider");
 
             bool providerFilesAreCurrent = RequiredProviderFiles.All(fileName => FilesHaveSameContent(
                 Path.Combine(sourceProviderFolder, fileName),

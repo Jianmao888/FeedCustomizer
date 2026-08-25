@@ -1,2 +1,0 @@
-[console_scripts]
-minidump = minidump.__main__:run

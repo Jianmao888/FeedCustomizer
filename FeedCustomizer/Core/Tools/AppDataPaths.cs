@@ -60,7 +60,6 @@ namespace FeedCustomizer.Core.Tools
         internal static string ProviderExecutablePath => Path.Combine(
             FeedProviderFolder,
             "FeedProvider",
-            ProviderArchitectureFolder,
             "FeedProvider.exe");
 
         internal static string ImagesFolder => Path.Combine(
