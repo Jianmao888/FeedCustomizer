@@ -29,10 +29,13 @@ namespace FeedCustomizer
         private const uint WmGetMinMaxInfo = 0x0024;
 
         private readonly SemaphoreSlim _dialogGate = new(1, 1);
+        private readonly TaskCompletionSource<bool> _firstRunDialogFinished =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
         private readonly TaskCompletionSource<bool> _initialContentReady =
             new(TaskCreationOptions.RunContinuationsAsynchronously);
         private readonly TaskCompletionSource<bool> _splashHidden =
             new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private bool _firstRunDialogPending;
         private WindowProcDelegate? _windowProcDelegate;
         private IntPtr _originalWindowProc;
         private int _minimumWindowWidth;
@@ -101,6 +104,15 @@ namespace FeedCustomizer
         public void NotifyInitialContentReady() => _initialContentReady.TrySetResult(true);
 
         public Task WaitForSplashHiddenAsync() => _splashHidden.Task;
+
+        public void SetFirstRunDialogPending(bool pending)
+        {
+            _firstRunDialogPending = pending;
+            if (!pending)
+            {
+                _firstRunDialogFinished.TrySetResult(true);
+            }
+        }
 
         public void SetLoadingOverlayVisible(bool isVisible)
         {
@@ -180,6 +192,7 @@ namespace FeedCustomizer
         public async Task ShowStartupFailureDialogAsync(string title, string details)
         {
             await WaitForSplashHiddenAsync();
+            await _firstRunDialogFinished.Task;
 
             if (!DispatcherQueue.HasThreadAccess)
             {
@@ -221,6 +234,44 @@ namespace FeedCustomizer
             }
             finally
             {
+                _dialogGate.Release();
+            }
+        }
+
+        public async Task ShowFirstRunDialogAsync()
+        {
+            await WaitForSplashHiddenAsync();
+
+            if (!_firstRunDialogPending)
+            {
+                _firstRunDialogFinished.TrySetResult(true);
+                return;
+            }
+
+            await _dialogGate.WaitAsync();
+            try
+            {
+                if (!_firstRunDialogPending)
+                {
+                    return;
+                }
+
+                var xamlRoot = GetCurrentPage()?.XamlRoot ?? (Content as FrameworkElement)?.XamlRoot;
+                if (xamlRoot is null)
+                {
+                    return;
+                }
+
+                var dialog = new FirstRunDialog
+                {
+                    XamlRoot = xamlRoot
+                };
+                await dialog.ShowAsync();
+            }
+            finally
+            {
+                _firstRunDialogPending = false;
+                _firstRunDialogFinished.TrySetResult(true);
                 _dialogGate.Release();
             }
         }

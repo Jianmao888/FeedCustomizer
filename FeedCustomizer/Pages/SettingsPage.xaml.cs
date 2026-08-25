@@ -1,8 +1,11 @@
 using FeedCustomizer.ViewModels;
+using Microsoft.UI.Composition.SystemBackdrops;
+using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media.Imaging;
 using System;
+using System.Diagnostics;
 using Windows.ApplicationModel;
 using Windows.Storage;
 
@@ -14,28 +17,28 @@ namespace FeedCustomizer.Pages
     /// <summary>
     /// An empty page that can be used on its own or navigated to within a Frame.
     /// </summary>
-    public sealed partial class AboutPage : Page
+    public sealed partial class SettingsPage : Page
     {
         public AboutViewModel AboutViewModel { get; } = new();
-        private readonly ApplicationDataContainer _localSettings = ApplicationData.Current.LocalSettings;
+        private ApplicationDataContainer localSettings = ApplicationData.Current.LocalSettings;
         private bool _isInitializing = true;
 
-        public AboutPage()
+        public SettingsPage()
         {
-            InitializeComponent();
-            Loaded += AboutPage_Loaded;
+            this.InitializeComponent();
+            this.Loaded += SettingsPage_Loaded;
         }
 
-        private void AboutPage_Loaded(object sender, RoutedEventArgs e)
+        private void SettingsPage_Loaded(object sender, RoutedEventArgs e)
         {
-            LoadSettings();
+            LoadUI();
             LoadAppInfo();
             _isInitializing = false;
         }
 
-        private void LoadSettings()
+        private void LoadUI()
         {
-            string theme = _localSettings.Values["AppTheme"] as string ?? "System";
+            string theme = localSettings.Values["AppTheme"] as string ?? "System";
             RbTheme.SelectedIndex = theme switch
             {
                 "Light" => 1,
@@ -43,7 +46,7 @@ namespace FeedCustomizer.Pages
                 _ => 0
             };
 
-            string material = _localSettings.Values["AppMaterial"] as string ?? "Mica";
+            string material = localSettings.Values["AppMaterial"] as string ?? "MicaAlt";
             RbMaterial.SelectedIndex = material switch
             {
                 "MicaAlt" => 1,
@@ -51,12 +54,13 @@ namespace FeedCustomizer.Pages
                 _ => 0
             };
 
-            bool sound = _localSettings.Values["EnableSound"] is bool value ? value : true;
-            _localSettings.Values["EnableSound"] ??= true;
+            bool sound = localSettings.Values["EnableSound"] is bool b ? b : true;
+            if (localSettings.Values["EnableSound"] == null)
+                localSettings.Values["EnableSound"] = true;
             SoundToggle.IsOn = sound;
         }
 
-        private void LoadAppInfo()
+        public void LoadAppInfo()
         {
             try
             {
@@ -67,7 +71,7 @@ namespace FeedCustomizer.Pages
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"LoadAppInfo 错误: {ex.Message}");
+                Debug.WriteLine($"LoadAppInfo 错误: {ex.Message}");
             }
         }
 
@@ -88,7 +92,7 @@ namespace FeedCustomizer.Pages
                 _ => ElementTheme.Default
             };
 
-            _localSettings.Values["AppTheme"] = value;
+            localSettings.Values["AppTheme"] = value;
             AppThemeManager.CurrentTheme = theme;
             if (App.MainWindow?.Content is FrameworkElement root)
                 root.RequestedTheme = theme;
@@ -105,7 +109,7 @@ namespace FeedCustomizer.Pages
                 2 => "Acrylic",
                 _ => "Mica"
             };
-            _localSettings.Values["AppMaterial"] = value;
+            localSettings.Values["AppMaterial"] = value;
             AppThemeManager.CurrentMaterial = value switch
             {
                 "MicaAlt" => BackgroundMaterial.MicaAlt,
@@ -119,7 +123,7 @@ namespace FeedCustomizer.Pages
         {
             if (_isInitializing) return;
             bool isOn = SoundToggle.IsOn;
-            _localSettings.Values["EnableSound"] = isOn;
+            localSettings.Values["EnableSound"] = isOn;
             ElementSoundPlayer.State = isOn ? ElementSoundPlayerState.On : ElementSoundPlayerState.Off;
         }
 

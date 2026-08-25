@@ -15,6 +15,7 @@ namespace FeedCustomizer.Pages
     /// </summary>
     public sealed partial class MainPage : Page
     {
+        private readonly bool _showFirstRunDialog = MainPageModel.CheckFirstRunDialog();
         private readonly MainPageModel MainPageViewModel = new();
         private bool _startupFailureShown;
         private bool _isChangingProviderState;
@@ -23,6 +24,10 @@ namespace FeedCustomizer.Pages
         {
             InitializeComponent();
             NavigationCacheMode = NavigationCacheMode.Enabled;
+            if (App.MainWindow is MainWindow window)
+            {
+                window.SetFirstRunDialogPending(_showFirstRunDialog);
+            }
         }
 
         protected override void OnNavigatedTo(NavigationEventArgs e)
@@ -58,7 +63,7 @@ namespace FeedCustomizer.Pages
             _ = e;
 
             MainPageViewModel.SaveListToDataService();
-            Frame.Navigate(typeof(AboutPage));
+            Frame.Navigate(typeof(SettingsPage));
         }
 
         private void OnAnyControlActivated()
@@ -170,22 +175,16 @@ namespace FeedCustomizer.Pages
                 return;
             }
 
+            Exception? initializationException = null;
             try
             {
                 await MainPageViewModel.InitializationTask;
             }
-            catch (Exception ex) when (!_startupFailureShown)
+            catch (Exception ex)
             {
-                _startupFailureShown = true;
-                window.NotifyInitialContentReady();
-                await window.WaitForSplashHiddenAsync();
-                await window.ShowStartupFailureDialogAsync(
-                    "启动失败",
-                    ex.ToString());
-                return;
+                initializationException = ex;
             }
 
-            bool showFirstRunDialog = MainPageModel.CheckFirstRunDialog();
             window.NotifyInitialContentReady();
 
             // 数据已加载完成，主页即将展示。后台清理孤儿图片，避免阻塞启动流程。
@@ -193,14 +192,18 @@ namespace FeedCustomizer.Pages
 
             await window.WaitForSplashHiddenAsync();
 
-            if (showFirstRunDialog)
+            if (_showFirstRunDialog)
             {
-                var dialog = new FirstRunDialog
-                {
-                    XamlRoot = XamlRoot
-                };
-                await dialog.ShowAsync();
+                await window.ShowFirstRunDialogAsync();
                 MainPageModel.SetFirstRunFalg();
+            }
+
+            if (initializationException is not null && !_startupFailureShown)
+            {
+                _startupFailureShown = true;
+                await window.ShowStartupFailureDialogAsync(
+                    "启动失败",
+                    initializationException.ToString());
             }
         }
     }
