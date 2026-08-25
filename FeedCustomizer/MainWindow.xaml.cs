@@ -1,11 +1,8 @@
 using FeedCustomizer.Core.Interface;
-using FeedCustomizer.Core.Tools;
 using FeedCustomizer.Dialogs;
-using Microsoft.UI.Composition.SystemBackdrops;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using Microsoft.UI.Xaml.Media;
 using System;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
@@ -62,7 +59,7 @@ namespace FeedCustomizer
             int width = (int)(560 * scale);
             int height = (int)(800 * scale);
             int X = (int)(520 * scale);
-            int Y = (int)(150 * scale);
+            int Y = (int)(75 * scale);
 
             SetMinimumWindowSize(hWnd, (int)(560 * scale), (int)(500 * scale));
 

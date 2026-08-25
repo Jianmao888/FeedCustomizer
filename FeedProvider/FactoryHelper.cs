@@ -1,10 +1,7 @@
 using Microsoft.Windows.Widgets.Feeds.Providers;
-using System;
 using System.Collections;
-using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using System.Runtime.InteropServices.Marshalling;
 using WinRT;
 
 namespace FeedProvider

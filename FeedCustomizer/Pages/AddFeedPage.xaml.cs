@@ -1,5 +1,5 @@
-using FeedCustomizer.Core.Interface;
 using FeedCustomizer.Core.Constants;
+using FeedCustomizer.Core.Interface;
 using FeedCustomizer.ViewModels;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -224,5 +224,5 @@ namespace FeedCustomizer.Pages
             FeedViewModel.CancelChanges();
         }
 
-        }
+    }
 }

@@ -1,5 +1,4 @@
 using FeedCustomizer.Core.Interface;
-using FeedCustomizer.Core.Tools;
 using FeedCustomizer.Dialogs;
 using FeedCustomizer.ViewModels;
 using Microsoft.UI.Xaml;
