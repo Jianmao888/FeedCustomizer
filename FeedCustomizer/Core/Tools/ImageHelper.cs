@@ -1,5 +1,6 @@
 ﻿using Microsoft.UI.Xaml.Media.Imaging;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Threading.Tasks;
@@ -12,7 +13,7 @@ namespace FeedCustomizer.Core.Tools
         /// <summary>
         /// 选择图片并保存到指定目录
         /// </summary>
-        /// <returns>包含图片路径和BitmapImage的元组</returns>
+        /// <returns>保存后的文件名；用户取消时返回空字符串</returns>
         public static async Task<string> PickAndSaveImageAsync()
         {
             try
@@ -60,13 +61,6 @@ namespace FeedCustomizer.Core.Tools
                 using (var destinationStream = File.OpenWrite(imagePath))
                 {
                     await sourceStream.AsStream().CopyToAsync(destinationStream);
-                }
-
-                // 加载图片预览
-                var bitmapImage = new BitmapImage();
-                using (var stream = await file.OpenReadAsync())
-                {
-                    await bitmapImage.SetSourceAsync(stream);
                 }
 
                 return fileName;
@@ -124,6 +118,45 @@ namespace FeedCustomizer.Core.Tools
                 {
                     // 删除失败时忽略
                 }
+            }
+        }
+
+        /// <summary>
+        /// 删除图片目录中不再被引用的图片（默认图片除外）。
+        /// 启动时调用，仅保留传入路径集合中的图片。
+        /// </summary>
+        /// <param name="referencedImagePaths">当前仍被引用的图片相对路径集合</param>
+        public static void DeleteUnreferencedImages(IEnumerable<string> referencedImagePaths)
+        {
+            string imageFolder = AppDataPaths.ImagesFolder;
+            if (!Directory.Exists(imageFolder))
+            {
+                return;
+            }
+
+            var referencedFileNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (string path in referencedImagePaths)
+            {
+                string? fileName = Path.GetFileName(path);
+                if (!string.IsNullOrEmpty(fileName))
+                {
+                    referencedFileNames.Add(fileName);
+                }
+            }
+
+            try
+            {
+                foreach (string imagePath in Directory.EnumerateFiles(imageFolder))
+                {
+                    if (!referencedFileNames.Contains(Path.GetFileName(imagePath)))
+                    {
+                        DeleteImage(imagePath);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"清理图片缓存失败: {ex.Message}");
             }
         }
 

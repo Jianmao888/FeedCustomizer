@@ -1,4 +1,3 @@
-using FeedCustomizer.Core.Interface;
 using FeedCustomizer.Dialogs;
 using FeedCustomizer.ViewModels;
 using Microsoft.UI.Xaml;
@@ -14,7 +13,7 @@ namespace FeedCustomizer.Pages
     /// <summary>
     /// An empty page that can be used on its own or navigated to within a Frame.
     /// </summary>
-    public sealed partial class MainPage : Page, IWindowCloseAware
+    public sealed partial class MainPage : Page
     {
         private readonly MainPageModel MainPageViewModel = new();
         private bool _startupFailureShown;
@@ -159,14 +158,6 @@ namespace FeedCustomizer.Pages
         }
 
         /// <summary>
-        /// 在窗口关闭时调用，删除新缓存的图片
-        /// </summary>
-        public void OnWindowClosing()
-        {
-            _ = MainPageViewModel.DeleteNewCacheImages();
-        }
-
-        /// <summary>
         /// Called when the Page is navigated to.
         /// </summary>
         /// <param name="e"></param>
@@ -196,6 +187,10 @@ namespace FeedCustomizer.Pages
 
             bool showFirstRunDialog = MainPageModel.CheckFirstRunDialog();
             window.NotifyInitialContentReady();
+
+            // 数据已加载完成，主页即将展示。后台清理孤儿图片，避免阻塞启动流程。
+            _ = MainPageViewModel.CleanUpUnusedImagesAsync();
+
             await window.WaitForSplashHiddenAsync();
 
             if (showFirstRunDialog)

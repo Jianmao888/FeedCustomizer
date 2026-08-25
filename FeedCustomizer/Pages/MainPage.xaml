@@ -48,15 +48,33 @@
 
     <Grid>
         <Grid.RowDefinitions>
+            <!-- 设备设置区域提示横幅：自动高度 -->
+            <RowDefinition Height="Auto" />
             <!-- 设置列表区域：占据剩余所有空间 -->
             <RowDefinition Height="*" />
             <!-- 底部按钮栏：自动高度，带分隔线 -->
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
+        <!-- 设备设置区域非欧盟成员国时的提示横幅 -->
+        <InfoBar
+            x:Name="RegionWarningInfoBar"
+            Grid.Row="0"
+            x:Uid="RegionWarningInfoBar"
+            Margin="12,12,12,0"
+            IsClosable="True"
+            IsOpen="{x:Bind MainPageViewModel.IsRegionWarningVisible.Value, Mode=TwoWay}"
+            Severity="Warning">
+            <InfoBar.ActionButton>
+                <HyperlinkButton
+                    x:Uid="RegionWarningLearnMoreButton"
+                    Click="OnGetHelpButtonClicked" />
+            </InfoBar.ActionButton>
+        </InfoBar>
+
         <!-- 整体内容区域 -->
         <Border
-            Grid.Row="0"
+            Grid.Row="1"
             Padding="12,12">
             <Grid>
                 <Grid.RowDefinitions>
@@ -124,7 +142,7 @@
 
         <!-- 底部按钮部分 -->
         <Border 
-            Grid.Row="1"
+            Grid.Row="2"
             Background="{ThemeResource ControlFillColorSecondaryBrush}"
             BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
             BorderThickness="0,1,0,0"

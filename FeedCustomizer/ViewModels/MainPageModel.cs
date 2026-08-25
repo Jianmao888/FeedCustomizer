@@ -30,6 +30,7 @@ namespace FeedCustomizer.ViewModels
         public ObservableValue<bool> IsLoading { get; set; } = new(true);
         public ObservableValue<bool> IsButtonsEnabled { get; set; } = new(false);
         public ObservableValue<bool> IsApplyButtonEnabled { get; set; } = new(false);
+        public ObservableValue<bool> IsRegionWarningVisible { get; set; } = new(false);
 
 
         // =====================
@@ -44,6 +45,7 @@ namespace FeedCustomizer.ViewModels
         private async Task InitiAllFeeds()
         {
             await Init();
+            IsRegionWarningVisible.Value = DeviceRegionTool.IsNonEuropeanUnionRegion();
             IsLoading.Value = false;
             IsButtonsEnabled.Value = true;
             IsApplyButtonEnabled.Value = CanApplyFeeds;
@@ -259,15 +261,10 @@ namespace FeedCustomizer.ViewModels
                 foreach (var feedViewModel in Feeds)
                 {
                     feedItems.Add(feedViewModel.FeedItem);
-                    await feedViewModel.DeleteOldCacheImage();
                 }
                 await ManifestXmlService.Write(feedItems);
                 if (IsFeedProviderEnabled)
                     await PackageInstaller.InstallFeedProvider();
-                foreach (var item in DeleteFeeds)
-                {
-                    await item.Delete();
-                }
                 DeleteFeeds.Clear();
                 CanApplyFeeds = false;
             }
@@ -287,7 +284,6 @@ namespace FeedCustomizer.ViewModels
         {
             try
             {
-                await DeleteNewCacheImages();
                 Feeds.Clear();
                 DeleteFeeds.Clear();
                 FeedListDataService.FeedList.Clear();
@@ -361,20 +357,40 @@ namespace FeedCustomizer.ViewModels
         }
 
         /// <summary>
-        /// 删除所有新缓存的图片，包括已删除的源和现有源的图片
+        /// 清理图片目录中不再被任何源引用的图片。
+        /// 在 UI 线程快照当前引用，随后将 Xml 读取与文件删除放到后台线程执行，
+        /// 避免阻塞启动流程与界面。
         /// </summary>
-        /// <returns></returns>
-        public async Task DeleteNewCacheImages()
+        public Task CleanUpUnusedImagesAsync()
         {
-            foreach (var item in Feeds)
+            var referencedPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var feed in Feeds)
             {
-                await item.DeleteNewCacheImage();
+                referencedPaths.Add(feed.FeedItem.ImagePath);
             }
 
-            foreach (var item in DeleteFeeds)
+            foreach (var feed in DeleteFeeds)
             {
-                await item.DeleteNewCacheImage();
+                referencedPaths.Add(feed.FeedItem.ImagePath);
             }
+
+            return Task.Run(async () =>
+            {
+                try
+                {
+                    foreach (var item in await ManifestXmlService.Read())
+                    {
+                        referencedPaths.Add(item.ImagePath);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"清理图片缓存时读取 Xml 失败: {ex.Message}");
+                }
+
+                ImageHelper.DeleteUnreferencedImages(referencedPaths);
+            });
         }
 
         /// <summary>

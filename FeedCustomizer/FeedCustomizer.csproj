@@ -27,11 +27,13 @@
 		<MakeDir Directories="$(ProjectDir)Resources\FeedProvider" />
 		
 		<MSBuild Projects="$(MSBuildProjectDirectory)\..\FeedProvider\FeedProvider.csproj" Targets="Publish" Properties="Configuration=$(Configuration);Platform=$(Platform);RuntimeIdentifier=$(RuntimeIdentifier);SelfContained=true;PublishAot=true;PublishTrimmed=true;PublishReadyToRun=false;PublishDir=$(_FeedProviderPath)" BuildInParallel="false" />
-	</Target>
 
-	<ItemGroup>
-		<Content Include="Resources\**" />
-	</ItemGroup>
+		<ItemGroup>
+			<Content Include="Resources\**">
+				<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+			</Content>
+		</ItemGroup>
+	</Target>
 
 	<ItemGroup>
 		<Manifest Include="$(ApplicationManifest)" />

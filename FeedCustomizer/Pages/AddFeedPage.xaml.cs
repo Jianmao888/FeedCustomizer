@@ -1,5 +1,4 @@
 using FeedCustomizer.Core.Constants;
-using FeedCustomizer.Core.Interface;
 using FeedCustomizer.ViewModels;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -17,7 +16,7 @@ namespace FeedCustomizer.Pages
     /// <summary>
     /// An empty page that can be used on its own or navigated to within a Frame.
     /// </summary>
-    public sealed partial class AddFeedPage : Page, IWindowCloseAware
+    public sealed partial class AddFeedPage : Page
     {
         private FeedViewModel FeedViewModel;
         private bool _iconModeInitialized;
@@ -217,12 +216,5 @@ namespace FeedCustomizer.Pages
 
             Frame.GoBack();
         }
-
-        public void OnWindowClosing()
-        {
-            // 撤销更改
-            FeedViewModel.CancelChanges();
-        }
-
     }
 }

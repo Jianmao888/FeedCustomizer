@@ -47,6 +47,7 @@ namespace FeedCustomizer.ViewModels
             _url = FeedItem.Url;
             _imagePath = FeedItem.ImagePath;
         }
+
         public FeedViewModel()
         {
             // 默认构造函数
@@ -80,8 +81,6 @@ namespace FeedCustomizer.ViewModels
         private string _imagePath = Constants.DefaultImageRelativePath; // 存储相对路径
         private bool _iconModeChanged;
 
-        private string CacheImagePath { get; set; } = string.Empty; // 用于缓存图片路径，防止在编辑过程中丢失
-
         public string Name
         {
             get => _name.Equals(FeedItem.Name) ? FeedItem.Name : _name;
@@ -114,13 +113,9 @@ namespace FeedCustomizer.ViewModels
 
         public string ImagePath
         {
-            get => _imagePath.Equals(FeedItem.ImagePath) ? FeedItem.ImagePath : _imagePath;
+            get => _imagePath;
             set
             {
-                if (_imagePath != FeedItem.ImagePath && _imagePath != Constants.DefaultImageRelativePath)
-                {
-                    ImageHelper.DeleteImage(Path.Combine(AppDataPaths.FeedProviderFolder, _imagePath));
-                }
                 _imagePath = value;
                 CheckCanSave();
             }
@@ -153,30 +148,22 @@ namespace FeedCustomizer.ViewModels
         public async Task<BitmapImage?> SelectImage()
         {
             string imageName = await ImageHelper.PickAndSaveImageAsync();
-            if (!string.IsNullOrWhiteSpace(imageName))
+            if (string.IsNullOrWhiteSpace(imageName))
             {
-                if (ImagePath != FeedItem.ImagePath && ImagePath != Constants.DefaultImageRelativePath)
-                {
-
-                }
-                ImagePath = "Images\\" + imageName;
-                CanClearImage.Value = true;
-                CheckCanSave();
-                return new BitmapImage(new Uri(ImageHelper.GetImageFullPathFromXmlRelativePath(ImagePath)));
+                return null;
             }
-            return null;
-        }
 
-        public BitmapImage? ClearImage()
-        {
-            if (ImagePath != Constants.DefaultImageRelativePath)
-            {
-                ImageHelper.DeleteImage(Path.Combine(AppDataPaths.FeedProviderFolder, _imagePath));
-            }
-            ImagePath = "Images\\Default.png";
-            CanClearImage.Value = false;
+            ImagePath = Path.Combine("Images", imageName);
+            CanClearImage.Value = true;
             CheckCanSave();
             return new BitmapImage(new Uri(ImageHelper.GetImageFullPathFromXmlRelativePath(ImagePath)));
+        }
+
+        public void ClearImage()
+        {
+            ImagePath = Constants.DefaultImageRelativePath;
+            CanClearImage.Value = false;
+            CheckCanSave();
         }
 
         public void MarkIconModeChanged()
@@ -211,20 +198,6 @@ namespace FeedCustomizer.ViewModels
 
         public void CommitChanges()
         {
-            // 缓存旧的图片路径，当外部列表应用后再删除旧图片
-            if (string.IsNullOrWhiteSpace(CacheImagePath))
-            {
-                CacheImagePath = FeedItem.ImagePath;
-            }
-            else
-            {
-                // 如果已经缓存过旧图片路径，说明是多次编辑，删除上一次的旧图片
-                if (_imagePath != FeedItem.ImagePath && FeedItem.ImagePath != Constants.DefaultImageRelativePath)
-                {
-                    ImageHelper.DeleteImage(Path.Combine(AppDataPaths.FeedProviderFolder, _imagePath));
-                }
-            }
-
             FeedItem.Name = Name;
             FeedItem.Description = string.IsNullOrWhiteSpace(Description) || Description == "string.Empty"
                 ? Name
@@ -243,11 +216,6 @@ namespace FeedCustomizer.ViewModels
         public void CancelChanges()
         {
             if (IsEdited) return;
-            // 清理图片缓存
-            if (_imagePath != FeedItem.ImagePath && _imagePath != Constants.DefaultImageRelativePath)
-            {
-                ImageHelper.DeleteImage(Path.Combine(AppDataPaths.FeedProviderFolder, _imagePath));
-            }
 
             // 重置临时属性
             _name = FeedItem.Name;
@@ -255,32 +223,6 @@ namespace FeedCustomizer.ViewModels
             _url = FeedItem.Url;
             _imagePath = FeedItem.ImagePath;
             _iconModeChanged = false;
-        }
-
-        public async Task Delete()
-        {
-            if (FeedItem.ImagePath != Constants.DefaultImageRelativePath)
-            {
-                ImageHelper.DeleteImage(Path.Combine(AppDataPaths.FeedProviderFolder, FeedItem.ImagePath));
-            }
-        }
-
-        public async Task DeleteOldCacheImage()
-        {
-            if (!string.IsNullOrWhiteSpace(CacheImagePath) && CacheImagePath != Constants.DefaultImageRelativePath)
-            {
-                ImageHelper.DeleteImage(Path.Combine(AppDataPaths.FeedProviderFolder, CacheImagePath));
-                CacheImagePath = string.Empty;
-            }
-        }
-
-        public async Task DeleteNewCacheImage()
-        {
-            if (!string.IsNullOrWhiteSpace(CacheImagePath) && ImagePath != Constants.DefaultImageRelativePath)
-            {
-                ImageHelper.DeleteImage(Path.Combine(AppDataPaths.FeedProviderFolder, ImagePath));
-                ImagePath = string.Empty;
-            }
         }
     }
 }
