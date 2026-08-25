@@ -24,7 +24,16 @@ namespace FeedCustomizer.Core.Tools
         ];
 
         private static string FlagFilePath => Path.Combine(UserAppFolder, ".first_run_complete");
+        private static string LegacyMigrationFlagFilePath => Path.Combine(UserAppFolder, ".legacy_cache_migrated");
+        private static string LegacyManifestPath => Path.Combine(
+            AppDataPaths.LegacyFeedProviderFolder,
+            "AppxManifest.xml");
+        private static string LegacyImagesFolder => Path.Combine(
+            AppDataPaths.LegacyFeedProviderFolder,
+            "Images");
         private static readonly SemaphoreSlim CopyGate = new(1, 1);
+        private static readonly TimeSpan FileCopyRetryDelay = TimeSpan.FromMilliseconds(150);
+        private const int FileCopyAttempts = 4;
 
         /// <summary>
         /// 检查并复制资源，在 App 启动时调用
@@ -38,16 +47,41 @@ namespace FeedCustomizer.Core.Tools
                 // template and intentionally has an empty Definitions node.
                 // Preserve the user's feeds before copying that template, then
                 // serialize them back after the provider files are refreshed.
+                // A previous build used the registration cache as its data
+                // location. Read that cache once when the current manifest is
+                // empty so an update cannot discard the user's feeds.
                 List<Feed>? existingFeeds = null;
+                bool sourceManifestWasReadable = false;
+                string? sourceManifestBackupPath = null;
                 if (File.Exists(AppDataPaths.ManifestPath))
                 {
                     try
                     {
                         existingFeeds = await ManifestXmlService.Read(AppDataPaths.ManifestPath);
+                        sourceManifestWasReadable = true;
                     }
                     catch (Exception ex)
                     {
                         Debug.WriteLine($"Failed to preserve existing feed definitions: {ex.Message}");
+                        sourceManifestBackupPath = AppDataPaths.ManifestPath + ".backup";
+                        if (!TryCopyFile(AppDataPaths.ManifestPath, sourceManifestBackupPath))
+                        {
+                            throw new IOException(
+                                $"无法创建损坏清单的备份文件：{sourceManifestBackupPath}",
+                                ex);
+                        }
+                    }
+                }
+
+                bool shouldCheckLegacyCache = !File.Exists(LegacyMigrationFlagFilePath) &&
+                    (!sourceManifestWasReadable || existingFeeds is { Count: 0 });
+                if (shouldCheckLegacyCache)
+                {
+                    List<Feed>? legacyFeeds = await TryReadFeedsAsync(LegacyManifestPath);
+                    if (legacyFeeds is { Count: > 0 })
+                    {
+                        existingFeeds = legacyFeeds;
+                        Debug.WriteLine($"Migrating {legacyFeeds.Count} feed definitions from the legacy registration cache.");
                     }
                 }
 
@@ -88,18 +122,42 @@ namespace FeedCustomizer.Core.Tools
                     Path.Combine(resourcesFolderPath, "FeedProvider"),
                     Path.Combine(UserAppFolder, "FeedProvider"));
                 await CopyDirectoryAsync(assetsFolderPath, Path.Combine(UserAppFolder, "Assets"));
-                ManifestXmlService.SynchronizePresentation();
-                if (existingFeeds is { Count: > 0 })
+
+                // User-downloaded icons are data, not package resources. Copy
+                // only files missing from the current cache so an old cache can
+                // supply icons referenced by migrated definitions without
+                // overwriting newer files.
+                await CopyDirectoryIfMissingAsync(LegacyImagesFolder, AppDataPaths.ImagesFolder);
+
+                if (sourceManifestBackupPath is not null && existingFeeds is null)
                 {
-                    // Write() also normalizes older manifests that had one
-                    // AppExtension per feed into one provider with many
-                    // Definitions.
-                    await ManifestXmlService.Write(existingFeeds!, AppDataPaths.ManifestPath);
+                    // Keep an unreadable manifest available instead of silently
+                    // replacing it with the package template. The backup can be
+                    // recovered manually and the next startup will retry.
+                    await CopyFileWithRetryAsync(sourceManifestBackupPath, AppDataPaths.ManifestPath);
+                }
+                else
+                {
+                    ManifestXmlService.SynchronizePresentation();
+                    if (existingFeeds is not null)
+                    {
+                        // Write() also normalizes older manifests that had one
+                        // AppExtension per feed into one provider with many
+                        // Definitions.
+                        await ManifestXmlService.Write(existingFeeds, AppDataPaths.ManifestPath);
+                    }
                 }
                 if (!File.Exists(AppDataPaths.ManifestPath) || !File.Exists(AppDataPaths.ProviderExecutablePath))
                 {
                     throw new FileNotFoundException(
                         $"资源复制完成后找不到 FeedProvider 文件。Manifest={AppDataPaths.ManifestPath}; Executable={AppDataPaths.ProviderExecutablePath}");
+                }
+                if (sourceManifestWasReadable || existingFeeds is not null)
+                {
+                    // This marker prevents a later intentional deletion of all
+                    // feeds from resurrecting stale definitions in the legacy
+                    // registration directory.
+                    File.WriteAllText(LegacyMigrationFlagFilePath, "1");
                 }
                 // 写入标志文件（版本号），表示首次初始化完成
                 File.WriteAllText(FlagFilePath, GetCurrentVersion());
@@ -130,6 +188,25 @@ namespace FeedCustomizer.Core.Tools
                 {
                     return false; // 标志文件不存在，资源未初始化
                 }
+
+                // Treat a malformed manifest as stale instead of replacing it
+                // blindly on the next startup. ResourcesCopyAsync keeps a
+                // backup and can recover from the legacy cache when available.
+                List<Feed>? currentFeeds = await TryReadFeedsAsync(AppDataPaths.ManifestPath);
+                if (currentFeeds is null)
+                {
+                    return false;
+                }
+
+                if (!File.Exists(LegacyMigrationFlagFilePath) && currentFeeds.Count == 0)
+                {
+                    List<Feed>? legacyFeeds = await TryReadFeedsAsync(LegacyManifestPath);
+                    if (legacyFeeds is { Count: > 0 })
+                    {
+                        return false;
+                    }
+                }
+
                 string currentVersion = GetCurrentVersion();
                 string savedVersion = File.ReadAllText(FlagFilePath);
                 string packagedProviderPath = Path.Combine(
@@ -238,7 +315,10 @@ namespace FeedCustomizer.Core.Tools
                 FilesHaveSameContent(AppDataPaths.ManifestPath, AppDataPaths.RegistrationManifestPath) &&
                 DirectoryFilesHaveSameContent(
                     Path.Combine(UserAppFolder, "Assets"),
-                    Path.Combine(AppDataPaths.RegistrationFolder, "Assets"));
+                    Path.Combine(AppDataPaths.RegistrationFolder, "Assets")) &&
+                DirectoryFilesHaveSameContent(
+                    AppDataPaths.ImagesFolder,
+                    Path.Combine(AppDataPaths.RegistrationFolder, "Images"));
         }
 
         private static bool DirectoryFilesHaveSameContent(string sourceFolder, string destinationFolder)
@@ -281,23 +361,34 @@ namespace FeedCustomizer.Core.Tools
 
         private static bool FilesHaveSameContent(string firstPath, string secondPath)
         {
-            if (!File.Exists(firstPath) || !File.Exists(secondPath))
+            try
+            {
+                if (!File.Exists(firstPath) || !File.Exists(secondPath))
+                {
+                    return false;
+                }
+
+                var firstInfo = new FileInfo(firstPath);
+                var secondInfo = new FileInfo(secondPath);
+                if (firstInfo.Length != secondInfo.Length)
+                {
+                    return false;
+                }
+
+                using FileStream firstStream = File.OpenRead(firstPath);
+                using FileStream secondStream = File.OpenRead(secondPath);
+                byte[] firstHash = SHA256.HashData(firstStream);
+                byte[] secondHash = SHA256.HashData(secondStream);
+                return firstHash.AsSpan().SequenceEqual(secondHash);
+            }
+            catch (IOException)
             {
                 return false;
             }
-
-            var firstInfo = new FileInfo(firstPath);
-            var secondInfo = new FileInfo(secondPath);
-            if (firstInfo.Length != secondInfo.Length)
+            catch (UnauthorizedAccessException)
             {
                 return false;
             }
-
-            using FileStream firstStream = File.OpenRead(firstPath);
-            using FileStream secondStream = File.OpenRead(secondPath);
-            byte[] firstHash = SHA256.HashData(firstStream);
-            byte[] secondHash = SHA256.HashData(secondStream);
-            return firstHash.AsSpan().SequenceEqual(secondHash);
         }
 
         /// <summary>
@@ -338,25 +429,77 @@ namespace FeedCustomizer.Core.Tools
         /// <returns></returns>
         private static async Task CopyDirectoryAsync(string sourceDir, string destDir)
         {
-            // 复制所有文件
-            foreach (var filePath in Directory.GetFiles(sourceDir, "*", SearchOption.AllDirectories))
+            if (!Directory.Exists(sourceDir))
             {
-                // 计算相对路径
-                var relativePath = Path.GetRelativePath(sourceDir, filePath);
-                var destFilePath = Path.Combine(destDir, relativePath);
-
-                if (Path.GetDirectoryName(destFilePath) is string path)
-                {
-                    // 确保目标子目录存在
-                    Directory.CreateDirectory(path);
-                }
-
-                // 复制文件（覆盖已存在的）
-                File.Copy(filePath, destFilePath, true);
+                return;
             }
 
-            // 可选：复制文件夹结构（上面已经用 SearchOption.AllDirectories 处理了）
-            await Task.CompletedTask;
+            foreach (string filePath in Directory.GetFiles(sourceDir, "*", SearchOption.AllDirectories))
+            {
+                string relativePath = Path.GetRelativePath(sourceDir, filePath);
+                string destFilePath = Path.Combine(destDir, relativePath);
+                await CopyFileWithRetryAsync(filePath, destFilePath);
+            }
+        }
+
+        private static async Task CopyDirectoryIfMissingAsync(string sourceDir, string destDir)
+        {
+            if (!Directory.Exists(sourceDir))
+            {
+                return;
+            }
+
+            foreach (string filePath in Directory.GetFiles(sourceDir, "*", SearchOption.AllDirectories))
+            {
+                string relativePath = Path.GetRelativePath(sourceDir, filePath);
+                string destFilePath = Path.Combine(destDir, relativePath);
+                if (!File.Exists(destFilePath))
+                {
+                    await CopyFileWithRetryAsync(filePath, destFilePath);
+                }
+            }
+        }
+
+        private static async Task CopyFileWithRetryAsync(string sourcePath, string destinationPath)
+        {
+            if (PathsReferToSameFile(sourcePath, destinationPath) ||
+                (File.Exists(destinationPath) && FilesHaveSameContent(sourcePath, destinationPath)))
+            {
+                return;
+            }
+
+            if (Path.GetDirectoryName(destinationPath) is string destinationDirectory)
+            {
+                Directory.CreateDirectory(destinationDirectory);
+            }
+
+            Exception? lastException = null;
+            for (int attempt = 0; attempt < FileCopyAttempts; attempt++)
+            {
+                try
+                {
+                    if (File.Exists(destinationPath))
+                    {
+                        File.SetAttributes(destinationPath, FileAttributes.Normal);
+                    }
+
+                    File.Copy(sourcePath, destinationPath, overwrite: true);
+                    return;
+                }
+                catch (Exception ex) when (attempt < FileCopyAttempts - 1)
+                {
+                    lastException = ex;
+                    await Task.Delay(FileCopyRetryDelay);
+                }
+                catch (Exception ex)
+                {
+                    lastException = ex;
+                }
+            }
+
+            throw new IOException(
+                $"复制资源失败：{sourcePath} -> {destinationPath}",
+                lastException);
         }
 
         /// <summary>
@@ -380,8 +523,7 @@ namespace FeedCustomizer.Core.Tools
                 string sourceFile = Path.Combine(sourceDir, relativePath);
                 if (!File.Exists(sourceFile))
                 {
-                    File.SetAttributes(destinationFile, FileAttributes.Normal);
-                    File.Delete(destinationFile);
+                    await DeleteFileWithRetryAsync(destinationFile);
                 }
             }
 
@@ -393,11 +535,110 @@ namespace FeedCustomizer.Core.Tools
                 string sourceDirectory = Path.Combine(sourceDir, relativePath);
                 if (!Directory.Exists(sourceDirectory))
                 {
-                    Directory.Delete(destinationDirectory, recursive: true);
+                    await DeleteDirectoryWithRetryAsync(destinationDirectory);
                 }
             }
 
             await CopyDirectoryAsync(sourceDir, destDir);
+        }
+
+        private static async Task DeleteFileWithRetryAsync(string path)
+        {
+            Exception? lastException = null;
+            for (int attempt = 0; attempt < FileCopyAttempts; attempt++)
+            {
+                try
+                {
+                    File.SetAttributes(path, FileAttributes.Normal);
+                    File.Delete(path);
+                    return;
+                }
+                catch (Exception ex) when (attempt < FileCopyAttempts - 1)
+                {
+                    lastException = ex;
+                    await Task.Delay(FileCopyRetryDelay);
+                }
+                catch (Exception ex)
+                {
+                    lastException = ex;
+                }
+            }
+
+            throw new IOException($"删除旧资源失败：{path}", lastException);
+        }
+
+        private static async Task DeleteDirectoryWithRetryAsync(string path)
+        {
+            Exception? lastException = null;
+            for (int attempt = 0; attempt < FileCopyAttempts; attempt++)
+            {
+                try
+                {
+                    Directory.Delete(path, recursive: true);
+                    return;
+                }
+                catch (Exception ex) when (attempt < FileCopyAttempts - 1)
+                {
+                    lastException = ex;
+                    await Task.Delay(FileCopyRetryDelay);
+                }
+                catch (Exception ex)
+                {
+                    lastException = ex;
+                }
+            }
+
+            throw new IOException($"删除旧资源目录失败：{path}", lastException);
+        }
+
+        private static async Task<List<Feed>?> TryReadFeedsAsync(string manifestPath)
+        {
+            if (!File.Exists(manifestPath))
+            {
+                return null;
+            }
+
+            try
+            {
+                return await ManifestXmlService.Read(manifestPath);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Failed to read feed manifest {manifestPath}: {ex.Message}");
+                return null;
+            }
+        }
+
+        private static bool TryCopyFile(string sourcePath, string destinationPath)
+        {
+            try
+            {
+                if (!File.Exists(sourcePath) || PathsReferToSameFile(sourcePath, destinationPath))
+                {
+                    return false;
+                }
+
+                if (Path.GetDirectoryName(destinationPath) is string directory)
+                {
+                    Directory.CreateDirectory(directory);
+                }
+
+                File.Copy(sourcePath, destinationPath, overwrite: true);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Failed to preserve manifest backup: {ex.Message}");
+                return false;
+            }
+        }
+
+        private static bool PathsReferToSameFile(string firstPath, string secondPath)
+        {
+            return string.Equals(
+                Path.GetFullPath(firstPath),
+                Path.GetFullPath(secondPath),
+                StringComparison.OrdinalIgnoreCase);
         }
 
         private static string GetCurrentVersion()

@@ -11,6 +11,14 @@ namespace FeedCustomizer.Core.Tools
             GetPhysicalAppDataFolder(),
             "FeedCustomProvider");
 
+        // Builds before the registration staging split used this ordinary
+        // LocalAppData folder for both user data and AppX registration files.
+        // Keep it as a read-only migration source; never use it as the new
+        // registration target because stale files there can block deployment.
+        internal static string LegacyFeedProviderFolder => Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "FeedCustomProvider");
+
         private static string GetPhysicalAppDataFolder()
         {
             try
@@ -33,11 +41,12 @@ namespace FeedCustomizer.Core.Tools
             "AppxManifest.xml");
 
         // AppX deployment rejects manifests beneath another package's LocalCache
-        // mount point. PowerShell stages the registration copy at this ordinary,
-        // non-virtualized user path before calling Add-AppxPackage.
+        // mount point. Keep the deployment copy in a separate ordinary,
+        // non-virtualized directory so the legacy user-data cache cannot collide
+        // with registration files.
         internal static string RegistrationFolder => Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "FeedCustomProvider");
+            "FeedCustomProviderRegistration");
 
         internal static string RegistrationManifestPath => Path.Combine(
             RegistrationFolder,

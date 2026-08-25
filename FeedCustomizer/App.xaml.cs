@@ -85,7 +85,7 @@ namespace FeedCustomizer
             var settings = ApplicationData.Current.LocalSettings;
             try { CurrentTheme = (settings.Values["AppTheme"] as string) switch { "Light" => ElementTheme.Light, "Dark" => ElementTheme.Dark, _ => ElementTheme.Default }; }
             catch { CurrentTheme = ElementTheme.Default; }
-            try { CurrentMaterial = (settings.Values["AppMaterial"] as string ?? "Mica") switch { "MicaAlt" => BackgroundMaterial.MicaAlt, "Acrylic" => BackgroundMaterial.Acrylic, _ => BackgroundMaterial.Mica }; }
+            try { CurrentMaterial = (settings.Values["AppMaterial"] as string ?? "MicaAlt") switch { "MicaAlt" => BackgroundMaterial.MicaAlt, "Acrylic" => BackgroundMaterial.Acrylic, _ => BackgroundMaterial.Mica }; }
             catch { CurrentMaterial = BackgroundMaterial.Mica; }
             try
             {
@@ -99,7 +99,26 @@ namespace FeedCustomizer
         public static void ApplyMaterial()
         {
             if (App.MainWindow is null) return;
-            try { App.MainWindow.SystemBackdrop = CurrentMaterial switch { BackgroundMaterial.MicaAlt => new MicaBackdrop { Kind = MicaKind.BaseAlt }, BackgroundMaterial.Acrylic => new DesktopAcrylicBackdrop(), _ => new MicaBackdrop { Kind = MicaKind.Base } }; }
+            try
+            {
+                if (App.MainWindow.SystemBackdrop is MicaBackdrop mica)
+                {
+                    if (CurrentMaterial == BackgroundMaterial.Mica && mica.Kind == MicaKind.Base) return;
+                    if (CurrentMaterial == BackgroundMaterial.MicaAlt && mica.Kind == MicaKind.BaseAlt) return;
+                }
+                else if (App.MainWindow.SystemBackdrop is DesktopAcrylicBackdrop &&
+                         CurrentMaterial == BackgroundMaterial.Acrylic)
+                {
+                    return;
+                }
+
+                App.MainWindow.SystemBackdrop = CurrentMaterial switch
+                {
+                    BackgroundMaterial.MicaAlt => new MicaBackdrop { Kind = MicaKind.BaseAlt },
+                    BackgroundMaterial.Acrylic => new DesktopAcrylicBackdrop(),
+                    _ => new MicaBackdrop { Kind = MicaKind.Base }
+                };
+            }
             catch (Exception ex) { Debug.WriteLine($"ApplyMaterial failed: {ex.Message}"); App.MainWindow.SystemBackdrop = null; }
         }
 

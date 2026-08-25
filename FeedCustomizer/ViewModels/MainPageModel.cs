@@ -78,6 +78,9 @@ namespace FeedCustomizer.ViewModels
             {
                 // 如果没有，则进行从磁盘初始化的逻辑
                 // 更新或者复制源提供程序至用户数据目录
+                // Migrate the pre-registration-split cache before loading the
+                // list so recovered feeds are visible in the first startup.
+                await PackageInstaller.MigrateLegacyCacheAsync();
                 bool isUpToDate = await ResourcesCopier.IsResourceUpToDate();
                 if (!isUpToDate)
                 {
