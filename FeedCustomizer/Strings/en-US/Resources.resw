@@ -265,10 +265,6 @@
     <value>© {0}</value>
     <comment>Copyright information prefix shown on the about-page cover (show year only; developers shown via hyperlinks)</comment>
   </data>
-  <data name="AboutCopyrightSeparator.Text" xml:space="preserve">
-    <value>. </value>
-    <comment>Punctuation between the copyright author and rights statement</comment>
-  </data>
   <data name="AboutCopyrightAllRights.Text" xml:space="preserve">
     <value>All rights reserved.</value>
     <comment>Copyright rights statement</comment>
@@ -283,64 +279,118 @@
   </data>
   <data name="DialogOK" xml:space="preserve">
     <value>OK</value>
+    <comment>OK button text for error dialogs</comment>
   </data>
   <data name="FirstRunDialog.Title" xml:space="preserve">
     <value>Warning</value>
+    <comment>Title of the first-run developer mode warning dialog</comment>
   </data>
   <data name="FirstRunDialogMessage.Text" xml:space="preserve">
     <value>Using this application requires enabling Windows Developer Mode, which may put your device at risk. It is recommended to enable it only temporarily when editing feed configurations or turning custom feed on/off. For more details, please refer to the help documentation.</value>
+    <comment>Content of the first-run developer mode warning dialog</comment>
   </data>
   <data name="FirstRunDialog.CloseButtonText" xml:space="preserve">
     <value>Got it</value>
+    <comment>Close button text of the first-run developer mode warning dialog</comment>
   </data>
   <data name="ExternalOpenDialog.Title" xml:space="preserve">
     <value>This app is trying to open an external application</value>
+    <comment>Title of the external application open confirmation dialog</comment>
   </data>
   <data name="ExternalOpenDialog.PrimaryButtonText" xml:space="preserve">
     <value>Yes</value>
+    <comment>Primary button (allow) text of the external application open confirmation dialog</comment>
   </data>
   <data name="ExternalOpenDialog.SecondaryButtonText" xml:space="preserve">
     <value>No</value>
+    <comment>Secondary button (decline) text of the external application open confirmation dialog</comment>
   </data>
   <data name="DialogMessage.Text" xml:space="preserve">
     <value>Do you allow it?</value>
+    <comment>Prompt text of the external application open confirmation dialog</comment>
   </data>
   <data name="StartupFailureDialog.Title" xml:space="preserve">
     <value>Startup failed</value>
+    <comment>Title of the startup failure dialog</comment>
   </data>
   <data name="StartupFailureDialog.SecondaryButtonText" xml:space="preserve">
     <value>Copy error</value>
+    <comment>Secondary button (copy error) text of the startup failure dialog</comment>
   </data>
   <data name="StartupFailureDialog.CloseButtonText" xml:space="preserve">
     <value>Close</value>
+    <comment>Close button text of the startup failure dialog</comment>
   </data>
   <data name="WebsiteIconRadioButton.Content" xml:space="preserve">
     <value>Get website icon</value>
+    <comment>Radio button text for using the website icon on the add/edit feed configuration page</comment>
   </data>
   <data name="CustomIconRadioButton.Content" xml:space="preserve">
     <value>Use custom icon</value>
+    <comment>Radio button text for using a custom icon on the add/edit feed configuration page</comment>
   </data>
   <data name="WebIconFetchErrorDialog.Title" xml:space="preserve">
     <value>Couldn't get the website icon</value>
+    <comment>Title of the website icon fetch error dialog</comment>
   </data>
   <data name="WebIconFetchErrorDialog.CloseButtonText" xml:space="preserve">
     <value>Close</value>
+    <comment>Close button text of the website icon fetch error dialog</comment>
   </data>
   <data name="ProviderPackageDisplayName" xml:space="preserve">
     <value>Feed Customization Container</value>
     <comment>Display name of the automatically registered feed provider package</comment>
   </data>
-  <data name="AppearanceGroup.Text" xml:space="preserve"><value>Appearance</value></data>
-  <data name="ThemeTitle.Text" xml:space="preserve"><value>App Theme</value></data>
-  <data name="ThemeSubtitle.Text" xml:space="preserve"><value>Select the app theme to display</value></data>
-  <data name="ThemeSystem.Content" xml:space="preserve"><value>System Default</value></data>
-  <data name="ThemeLight.Content" xml:space="preserve"><value>Light</value></data>
-  <data name="ThemeDark.Content" xml:space="preserve"><value>Dark</value></data>
-  <data name="MaterialTitle.Text" xml:space="preserve"><value>Background Material</value></data>
-  <data name="MaterialSubtitle.Text" xml:space="preserve"><value>Select the app material to display</value></data>
-  <data name="SoundGroup.Text" xml:space="preserve"><value>Sound</value></data>
-  <data name="SoundToggle.Header" xml:space="preserve"><value>Enable Control Sounds</value></data>
-  <data name="AboutGroup.Text" xml:space="preserve"><value>About</value></data>
-  <data name="Settings_SoundCard.Description" xml:space="preserve"><value>Control interaction sounds in the app</value></data>
-  <data name="Settings_SoundCard.Header" xml:space="preserve"><value>Control sound</value></data>
+  <data name="AppearanceGroup.Text" xml:space="preserve">
+    <value>Appearance</value>
+    <comment>Group heading for appearance settings on the settings page</comment>
+  </data>
+  <data name="ThemeTitle.Text" xml:space="preserve">
+    <value>App Theme</value>
+    <comment>Title of the app theme settings expander on the settings page</comment>
+  </data>
+  <data name="ThemeSubtitle.Text" xml:space="preserve">
+    <value>Select the app theme to display</value>
+    <comment>Subtitle of the app theme settings expander on the settings page</comment>
+  </data>
+  <data name="ThemeSystem.Content" xml:space="preserve">
+    <value>System Default</value>
+    <comment>Radio button text for the system default theme option</comment>
+  </data>
+  <data name="ThemeLight.Content" xml:space="preserve">
+    <value>Light</value>
+    <comment>Radio button text for the light theme option</comment>
+  </data>
+  <data name="ThemeDark.Content" xml:space="preserve">
+    <value>Dark</value>
+    <comment>Radio button text for the dark theme option</comment>
+  </data>
+  <data name="MaterialTitle.Text" xml:space="preserve">
+    <value>Background Material</value>
+    <comment>Title of the background material settings expander on the settings page</comment>
+  </data>
+  <data name="MaterialSubtitle.Text" xml:space="preserve">
+    <value>Select the app material to display</value>
+    <comment>Subtitle of the background material settings expander on the settings page</comment>
+  </data>
+  <data name="SoundGroup.Text" xml:space="preserve">
+    <value>Sound</value>
+    <comment>Group heading for sound settings on the settings page</comment>
+  </data>
+  <data name="SoundToggle.Header" xml:space="preserve">
+    <value>Enable Control Sounds</value>
+    <comment>Header text of the control sounds toggle switch on the settings page</comment>
+  </data>
+  <data name="AboutGroup.Text" xml:space="preserve">
+    <value>About</value>
+    <comment>Group heading for about information on the settings page</comment>
+  </data>
+  <data name="Settings_SoundCard.Description" xml:space="preserve">
+    <value>Control interaction sounds in the app</value>
+    <comment>Description of the control sounds settings card on the settings page</comment>
+  </data>
+  <data name="Settings_SoundCard.Header" xml:space="preserve">
+    <value>Control sound</value>
+    <comment>Header of the control sounds settings card on the settings page</comment>
+  </data>
 </root>

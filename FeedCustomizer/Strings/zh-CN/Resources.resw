@@ -265,10 +265,6 @@
     <value>© {0}</value>
     <comment>关于页面封面版权信息前缀（只显示年份，开发者由超链接显示）</comment>
   </data>
-  <data name="AboutCopyrightSeparator.Text" xml:space="preserve">
-    <value>。</value>
-    <comment>关于页面版权作者与权利声明之间的标点</comment>
-  </data>
   <data name="AboutCopyrightAllRights.Text" xml:space="preserve">
     <value>保留所有权利。</value>
     <comment>关于页面版权权利声明</comment>
@@ -299,52 +295,102 @@
   </data>
   <data name="ExternalOpenDialog.Title" xml:space="preserve">
     <value>此应用尝试打开外部应用</value>
+    <comment>外部应用打开确认弹窗标题</comment>
   </data>
   <data name="ExternalOpenDialog.PrimaryButtonText" xml:space="preserve">
     <value>是</value>
+    <comment>外部应用打开确认弹窗主按钮（允许）文本</comment>
   </data>
   <data name="ExternalOpenDialog.SecondaryButtonText" xml:space="preserve">
     <value>否</value>
+    <comment>外部应用打开确认弹窗辅助按钮（拒绝）文本</comment>
   </data>
   <data name="DialogMessage.Text" xml:space="preserve">
     <value>是否允许？</value>
+    <comment>外部应用打开确认弹窗提示内容</comment>
   </data>
   <data name="StartupFailureDialog.Title" xml:space="preserve">
     <value>启动失败</value>
+    <comment>启动失败弹窗标题</comment>
   </data>
   <data name="StartupFailureDialog.SecondaryButtonText" xml:space="preserve">
     <value>复制错误</value>
+    <comment>启动失败弹窗辅助按钮（复制错误）文本</comment>
   </data>
   <data name="StartupFailureDialog.CloseButtonText" xml:space="preserve">
     <value>关闭</value>
+    <comment>启动失败弹窗关闭按钮文本</comment>
   </data>
   <data name="WebsiteIconRadioButton.Content" xml:space="preserve">
     <value>获取网页图标</value>
+    <comment>添加/修改源配置页面使用网页图标单选按钮文本</comment>
   </data>
   <data name="CustomIconRadioButton.Content" xml:space="preserve">
     <value>使用自定义图标</value>
+    <comment>添加/修改源配置页面使用自定义图标单选按钮文本</comment>
   </data>
   <data name="WebIconFetchErrorDialog.Title" xml:space="preserve">
     <value>无法获取网页图标</value>
+    <comment>网页图标获取失败弹窗标题</comment>
   </data>
   <data name="WebIconFetchErrorDialog.CloseButtonText" xml:space="preserve">
     <value>关闭</value>
+    <comment>网页图标获取失败弹窗关闭按钮文本</comment>
   </data>
   <data name="ProviderPackageDisplayName" xml:space="preserve">
     <value>源自定义容器</value>
     <comment>自动注册的源提供程序包外显名</comment>
   </data>
-  <data name="AppearanceGroup.Text" xml:space="preserve"><value>外观</value></data>
-  <data name="ThemeTitle.Text" xml:space="preserve"><value>应用主题</value></data>
-  <data name="ThemeSubtitle.Text" xml:space="preserve"><value>选择要显示的应用主题</value></data>
-  <data name="ThemeSystem.Content" xml:space="preserve"><value>跟随系统</value></data>
-  <data name="ThemeLight.Content" xml:space="preserve"><value>浅色</value></data>
-  <data name="ThemeDark.Content" xml:space="preserve"><value>深色</value></data>
-  <data name="MaterialTitle.Text" xml:space="preserve"><value>背景材质</value></data>
-  <data name="MaterialSubtitle.Text" xml:space="preserve"><value>选择要显示的应用材质</value></data>
-  <data name="SoundGroup.Text" xml:space="preserve"><value>声音</value></data>
-  <data name="SoundToggle.Header" xml:space="preserve"><value>启用控件声音</value></data>
-  <data name="AboutGroup.Text" xml:space="preserve"><value>关于</value></data>
-  <data name="Settings_SoundCard.Description" xml:space="preserve"><value>控制应用中的交互提示音</value></data>
-  <data name="Settings_SoundCard.Header" xml:space="preserve"><value>控件声音</value></data>
+  <data name="AppearanceGroup.Text" xml:space="preserve">
+    <value>外观</value>
+    <comment>设置页面外观设置分组标题</comment>
+  </data>
+  <data name="ThemeTitle.Text" xml:space="preserve">
+    <value>应用主题</value>
+    <comment>设置页面应用主题设置展开器标题</comment>
+  </data>
+  <data name="ThemeSubtitle.Text" xml:space="preserve">
+    <value>选择要显示的应用主题</value>
+    <comment>设置页面应用主题设置展开器副标题</comment>
+  </data>
+  <data name="ThemeSystem.Content" xml:space="preserve">
+    <value>跟随系统</value>
+    <comment>跟随系统主题单选按钮文本</comment>
+  </data>
+  <data name="ThemeLight.Content" xml:space="preserve">
+    <value>浅色</value>
+    <comment>浅色主题单选按钮文本</comment>
+  </data>
+  <data name="ThemeDark.Content" xml:space="preserve">
+    <value>深色</value>
+    <comment>深色主题单选按钮文本</comment>
+  </data>
+  <data name="MaterialTitle.Text" xml:space="preserve">
+    <value>背景材质</value>
+    <comment>设置页面背景材质设置展开器标题</comment>
+  </data>
+  <data name="MaterialSubtitle.Text" xml:space="preserve">
+    <value>选择要显示的应用材质</value>
+    <comment>设置页面背景材质设置展开器副标题</comment>
+  </data>
+  <data name="SoundGroup.Text" xml:space="preserve">
+    <value>声音</value>
+    <comment>设置页面声音设置分组标题</comment>
+  </data>
+  <data name="SoundToggle.Header" xml:space="preserve">
+    <value>启用控件声音</value>
+    <comment>设置页面控件声音开关标头文本</comment>
+  </data>
+  <data name="AboutGroup.Text" xml:space="preserve">
+    <value>关于</value>
+    <comment>设置页面关于信息分组标题</comment>
+  </data>
+  <data name="Settings_SoundCard.Description" xml:space="preserve">
+    <value>控制应用中的交互提示音</value>
+    <comment>设置页面控件声音设置卡片描述</comment>
+  </data>
+  <data name="Settings_SoundCard.Header" xml:space="preserve">
+    <value>控件声音</value>
+    <comment>设置页面控件声音设置卡片标头</comment>
+  </data>
 </root>
