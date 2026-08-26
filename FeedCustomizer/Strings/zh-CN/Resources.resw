@@ -274,7 +274,7 @@
     <comment>关于页面”开源地址“标题</comment>
   </data>
   <data name="AboutAppName.Text" xml:space="preserve">
-    <value>小组件源自定义工具</value>
+    <value>资讯源自定义工具</value>
     <comment>关于页面”应用名称“显示文本</comment>
   </data>
   <data name="DialogOK" xml:space="preserve">

@@ -214,7 +214,7 @@
     <comment>Text for the select image button</comment>
   </data>
   <data name="Title.Title" xml:space="preserve">
-    <value>Feed Customization Tool</value>
+    <value>Widget Feed Customizer</value>
     <comment>Content displayed in the application window title bar</comment>
   </data>
   <data name="UrlTextBox.Header" xml:space="preserve">
