@@ -1,16 +1,13 @@
 using FeedCustomizer.Core.Interface;
-using FeedCustomizer.Dialogs;
+using FeedCustomizer.Core.Tools;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using System;
 using System.Diagnostics;
-using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Windows.Graphics;
-using Windows.Storage;
-using Windows.System;
 
 // To learn more about WinUI, the WinUI project structure,
 // and more about our project templates, see: http://aka.ms/winui-project-info.
@@ -18,39 +15,33 @@ using Windows.System;
 namespace FeedCustomizer
 {
     /// <summary>
-    /// An empty window that can be used on its own or navigated to within a Frame.
+    /// 应用主窗口：只负责窗口自身的初始化、启动流程与 UI 状态。
+    /// 弹窗与外部打开分别由 DialogService / ExternalLaunchService 处理。
     /// </summary>
     [System.Diagnostics.CodeAnalysis.SuppressMessage("Interoperability", "CA1416:验证平台兼容性", Justification = "<挂起>")]
     public partial class MainWindow : Window
     {
-        public static MainWindow? Instance { get; private set; }
-        private readonly ApplicationDataContainer _localSettings = ApplicationData.Current.LocalSettings;
-        private const int GwlWndProc = -4;
-        private const uint WmGetMinMaxInfo = 0x0024;
-
         private readonly SemaphoreSlim _dialogGate = new(1, 1);
-        private readonly TaskCompletionSource<bool> _firstRunDialogFinished =
-            new(TaskCreationOptions.RunContinuationsAsynchronously);
         private readonly TaskCompletionSource<bool> _initialContentReady =
             new(TaskCreationOptions.RunContinuationsAsynchronously);
         private readonly TaskCompletionSource<bool> _splashHidden =
             new(TaskCreationOptions.RunContinuationsAsynchronously);
-        private bool _firstRunDialogPending;
-        private WindowProcDelegate? _windowProcDelegate;
-        private IntPtr _originalWindowProc;
-        private int _minimumWindowWidth;
-        private int _minimumWindowHeight;
+
+        public DialogService Dialogs { get; }
+        public ExternalLaunchService ExternalLaunch { get; }
 
         public MainWindow()
         {
             InitializeComponent();
-            Instance = this;
 
             if (Content is FrameworkElement root)
             {
                 root.RequestedTheme = AppThemeManager.CurrentTheme;
                 root.Loaded += Root_Loaded;
             }
+
+            Dialogs = new DialogService(DispatcherQueue, GetXamlRoot, WaitForSplashHiddenAsync, _dialogGate);
+            ExternalLaunch = new ExternalLaunchService(DispatcherQueue, GetXamlRoot, WaitForSplashHiddenAsync, _dialogGate);
 
             // 获取窗口信息
             IntPtr hWnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
@@ -69,7 +60,6 @@ namespace FeedCustomizer
             // 调整窗口位置和大小，以屏幕像素为单位
             AppWindow.Resize(new SizeInt32(_Width: width, _Height: height));
             AppWindow.Move(new PointInt32(X, Y));
-
 
             // 自定义标题栏
             ExtendsContentIntoTitleBar = true;
@@ -105,24 +95,10 @@ namespace FeedCustomizer
 
         public Task WaitForSplashHiddenAsync() => _splashHidden.Task;
 
-        public void SetFirstRunDialogPending(bool pending)
-        {
-            _firstRunDialogPending = pending;
-            if (!pending)
-            {
-                _firstRunDialogFinished.TrySetResult(true);
-            }
-        }
-
         public void SetLoadingOverlayVisible(bool isVisible)
         {
             LoadingOverlay.Visibility = isVisible ? Visibility.Visible : Visibility.Collapsed;
             LoadingProgressRing.IsActive = isVisible;
-        }
-
-        public void ApplyMaterial()
-        {
-            AppThemeManager.ApplyMaterial();
         }
 
         /// <summary>
@@ -135,268 +111,10 @@ namespace FeedCustomizer
             {
                 SplashOverlay.Visibility = Visibility.Collapsed;
                 _splashHidden.TrySetResult(true);
-                bool sound = _localSettings.Values["EnableSound"] is bool value ? value : true;
+                bool sound = SettingsLoader.GetEnableSound();
                 ElementSoundPlayer.State = sound ? ElementSoundPlayerState.On : ElementSoundPlayerState.Off;
             };
             SplashFadeOut.Begin();
-        }
-
-        public async Task ShowMessageDialogAsync(string title, string content, string closeButtonText)
-        {
-            await WaitForSplashHiddenAsync();
-
-            if (!DispatcherQueue.HasThreadAccess)
-            {
-                var completion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-                if (!DispatcherQueue.TryEnqueue(async () =>
-                {
-                    try
-                    {
-                        await ShowMessageDialogAsync(title, content, closeButtonText);
-                        completion.TrySetResult(true);
-                    }
-                    catch (Exception ex)
-                    {
-                        completion.TrySetException(ex);
-                    }
-                }))
-                {
-                    completion.TrySetException(new InvalidOperationException("无法切换到窗口 UI 线程。"));
-                }
-                await completion.Task;
-                return;
-            }
-
-            await _dialogGate.WaitAsync();
-            try
-            {
-                var xamlRoot = GetCurrentPage()?.XamlRoot ?? (Content as FrameworkElement)?.XamlRoot;
-                if (xamlRoot is null)
-                {
-                    return;
-                }
-
-                var dialog = new MessageDialog
-                {
-                    XamlRoot = xamlRoot
-                };
-                dialog.Configure(title, content, closeButtonText);
-                await dialog.ShowAsync();
-            }
-            finally
-            {
-                _dialogGate.Release();
-            }
-        }
-
-        public async Task ShowStartupFailureDialogAsync(string title, string details)
-        {
-            await WaitForSplashHiddenAsync();
-            await _firstRunDialogFinished.Task;
-
-            if (!DispatcherQueue.HasThreadAccess)
-            {
-                var completion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-                if (!DispatcherQueue.TryEnqueue(async () =>
-                {
-                    try
-                    {
-                        await ShowStartupFailureDialogAsync(title, details);
-                        completion.TrySetResult(true);
-                    }
-                    catch (Exception ex)
-                    {
-                        completion.TrySetException(ex);
-                    }
-                }))
-                {
-                    completion.TrySetException(new InvalidOperationException("无法切换到窗口 UI 线程。"));
-                }
-                await completion.Task;
-                return;
-            }
-
-            await _dialogGate.WaitAsync();
-            try
-            {
-                var xamlRoot = GetCurrentPage()?.XamlRoot ?? (Content as FrameworkElement)?.XamlRoot;
-                if (xamlRoot is null)
-                {
-                    return;
-                }
-
-                var dialog = new StartupFailureDialog
-                {
-                    XamlRoot = xamlRoot
-                };
-                dialog.Configure(title, details);
-                await dialog.ShowAsync();
-            }
-            finally
-            {
-                _dialogGate.Release();
-            }
-        }
-
-        public async Task ShowFirstRunDialogAsync()
-        {
-            await WaitForSplashHiddenAsync();
-
-            if (!_firstRunDialogPending)
-            {
-                _firstRunDialogFinished.TrySetResult(true);
-                return;
-            }
-
-            await _dialogGate.WaitAsync();
-            try
-            {
-                if (!_firstRunDialogPending)
-                {
-                    return;
-                }
-
-                var xamlRoot = GetCurrentPage()?.XamlRoot ?? (Content as FrameworkElement)?.XamlRoot;
-                if (xamlRoot is null)
-                {
-                    return;
-                }
-
-                var dialog = new FirstRunDialog
-                {
-                    XamlRoot = xamlRoot
-                };
-                await dialog.ShowAsync();
-            }
-            finally
-            {
-                _firstRunDialogPending = false;
-                _firstRunDialogFinished.TrySetResult(true);
-                _dialogGate.Release();
-            }
-        }
-
-        public async Task ShowWebIconFetchErrorDialogAsync(string details)
-        {
-            await WaitForSplashHiddenAsync();
-
-            if (!DispatcherQueue.HasThreadAccess)
-            {
-                var completion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-                if (!DispatcherQueue.TryEnqueue(async () =>
-                {
-                    try
-                    {
-                        await ShowWebIconFetchErrorDialogAsync(details);
-                        completion.TrySetResult(true);
-                    }
-                    catch (Exception ex)
-                    {
-                        completion.TrySetException(ex);
-                    }
-                }))
-                {
-                    completion.TrySetException(new InvalidOperationException("无法切换到窗口 UI 线程。"));
-                }
-                await completion.Task;
-                return;
-            }
-
-            await _dialogGate.WaitAsync();
-            try
-            {
-                var xamlRoot = GetCurrentPage()?.XamlRoot ?? (Content as FrameworkElement)?.XamlRoot;
-                if (xamlRoot is null)
-                {
-                    return;
-                }
-
-                var dialog = new WebIconFetchErrorDialog
-                {
-                    XamlRoot = xamlRoot
-                };
-                dialog.Configure(details);
-                await dialog.ShowAsync();
-            }
-            finally
-            {
-                _dialogGate.Release();
-            }
-        }
-
-        public async Task<bool> OpenExternalLinkAsync(string url)
-        {
-            await WaitForSplashHiddenAsync();
-
-            if (!Uri.TryCreate(url, UriKind.Absolute, out var uri))
-            {
-                return false;
-            }
-
-            var xamlRoot = GetCurrentPage()?.XamlRoot ?? (Content as FrameworkElement)?.XamlRoot;
-            if (xamlRoot is null)
-            {
-                return false;
-            }
-
-            await _dialogGate.WaitAsync();
-            try
-            {
-                var dialog = new ExternalOpenDialog
-                {
-                    XamlRoot = xamlRoot
-                };
-                if (await dialog.ShowAsync() != ContentDialogResult.Primary)
-                {
-                    return false;
-                }
-
-                return await Launcher.LaunchUriAsync(uri);
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Failed to open external link: {ex}");
-                return false;
-            }
-            finally
-            {
-                _dialogGate.Release();
-            }
-        }
-
-        public async Task<bool> OpenExternalFileAsync(StorageFile file)
-        {
-            await WaitForSplashHiddenAsync();
-
-            var xamlRoot = GetCurrentPage()?.XamlRoot ?? (Content as FrameworkElement)?.XamlRoot;
-            if (xamlRoot is null)
-            {
-                return false;
-            }
-
-            await _dialogGate.WaitAsync();
-            try
-            {
-                var dialog = new ExternalOpenDialog
-                {
-                    XamlRoot = xamlRoot
-                };
-                if (await dialog.ShowAsync() != ContentDialogResult.Primary)
-                {
-                    return false;
-                }
-
-                return await Launcher.LaunchFileAsync(file);
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Failed to open external file: {ex}");
-                return false;
-            }
-            finally
-            {
-                _dialogGate.Release();
-            }
         }
 
         private void AppTitleBar_BackRequested(TitleBar sender, object args)
@@ -411,7 +129,6 @@ namespace FeedCustomizer
 
         private void OnAppWindowClosing(AppWindow sender, AppWindowClosingEventArgs args)
         {
-            // 在这里可以阻止窗口关闭
             Debug.WriteLine("窗口再关闭");
             var currentPage = GetCurrentPage();
             if (currentPage is IWindowCloseAware awarePage)
@@ -431,7 +148,6 @@ namespace FeedCustomizer
 
         private Page? GetCurrentPage()
         {
-            // 如果你的页面在 Frame 中
             if (rootFrame is Frame frame && frame.Content is Page page)
             {
                 return page;
@@ -439,70 +155,7 @@ namespace FeedCustomizer
             return null;
         }
 
-        private void SetMinimumWindowSize(IntPtr hWnd, int minimumWidth, int minimumHeight)
-        {
-            _minimumWindowWidth = minimumWidth;
-            _minimumWindowHeight = minimumHeight;
-            _windowProcDelegate = WindowProc;
-            _originalWindowProc = SetWindowLongPtr(
-                hWnd,
-                GwlWndProc,
-                Marshal.GetFunctionPointerForDelegate(_windowProcDelegate));
-        }
-
-        private IntPtr WindowProc(IntPtr hWnd, uint message, IntPtr wParam, IntPtr lParam)
-        {
-            if (message == WmGetMinMaxInfo)
-            {
-                var minMaxInfo = Marshal.PtrToStructure<MinMaxInfo>(lParam);
-                minMaxInfo.ptMinTrackSize.X = _minimumWindowWidth;
-                minMaxInfo.ptMinTrackSize.Y = _minimumWindowHeight;
-                Marshal.StructureToPtr(minMaxInfo, lParam, false);
-                return IntPtr.Zero;
-            }
-
-            return CallWindowProc(_originalWindowProc, hWnd, message, wParam, lParam);
-        }
-
-        [StructLayout(LayoutKind.Sequential)]
-        private struct Point
-        {
-            public int X;
-            public int Y;
-        }
-
-        [StructLayout(LayoutKind.Sequential)]
-        private struct MinMaxInfo
-        {
-            public Point ptReserved;
-            public Point ptMaxSize;
-            public Point ptMaxPosition;
-            public Point ptMinTrackSize;
-            public Point ptMaxTrackSize;
-        }
-
-        [UnmanagedFunctionPointer(CallingConvention.Winapi)]
-        private delegate IntPtr WindowProcDelegate(
-            IntPtr hWnd,
-            uint message,
-            IntPtr wParam,
-            IntPtr lParam);
-
-        [LibraryImport("user32.dll", EntryPoint = "SetWindowLongPtrW", SetLastError = true)]
-        private static partial IntPtr SetWindowLongPtr(
-            IntPtr hWnd,
-            int index,
-            IntPtr newLong);
-
-        [LibraryImport("user32.dll", EntryPoint = "CallWindowProcW")]
-        private static partial IntPtr CallWindowProc(
-            IntPtr windowProc,
-            IntPtr hWnd,
-            uint message,
-            IntPtr wParam,
-            IntPtr lParam);
-
-        [LibraryImport("user32.dll", SetLastError = true)]
-        private static partial uint GetDpiForWindow(IntPtr hwnd);
+        private XamlRoot? GetXamlRoot() =>
+            GetCurrentPage()?.XamlRoot ?? (Content as FrameworkElement)?.XamlRoot;
     }
 }

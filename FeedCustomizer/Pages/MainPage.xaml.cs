@@ -26,7 +26,7 @@ namespace FeedCustomizer.Pages
             NavigationCacheMode = NavigationCacheMode.Enabled;
             if (App.MainWindow is MainWindow window)
             {
-                window.SetFirstRunDialogPending(_showFirstRunDialog);
+                window.Dialogs.SetFirstRunDialogPending(_showFirstRunDialog);
             }
         }
 
@@ -53,7 +53,7 @@ namespace FeedCustomizer.Pages
             var file = await MainPageViewModel.GetHelpFileAsync();
             if (file is not null && App.MainWindow is MainWindow window)
             {
-                await window.OpenExternalFileAsync(file);
+                await window.ExternalLaunch.OpenFileAsync(file);
             }
         }
 
@@ -194,14 +194,14 @@ namespace FeedCustomizer.Pages
 
             if (_showFirstRunDialog)
             {
-                await window.ShowFirstRunDialogAsync();
+                await window.Dialogs.ShowFirstRunAsync();
                 MainPageModel.SetFirstRunFalg();
             }
 
             if (initializationException is not null && !_startupFailureShown)
             {
                 _startupFailureShown = true;
-                await window.ShowStartupFailureDialogAsync(
+                await window.Dialogs.ShowStartupFailureAsync(
                     "启动失败",
                     initializationException.ToString());
             }

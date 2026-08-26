@@ -369,7 +369,7 @@ namespace FeedCustomizer.Core.Tools
 
             if (App.MainWindow is MainWindow window)
             {
-                _ = window.ShowStartupFailureDialogAsync(
+                _ = window.Dialogs.ShowStartupFailureAsync(
                     resourceLoader.GetString("EnableProviderFail"),
                     $"{content}{Environment.NewLine}{Environment.NewLine}{details}");
             }

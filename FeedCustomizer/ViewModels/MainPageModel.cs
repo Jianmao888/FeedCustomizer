@@ -180,13 +180,7 @@ namespace FeedCustomizer.ViewModels
         /// <returns></returns>
         public static bool CheckFirstRunDialog()
         {
-            bool isFirstRun = true; // 默认认为是第一次
-
-            if (SettingsLoader.ContainsKey("IsFirstRun"))
-            {
-                isFirstRun = (bool)SettingsLoader.GetSettingsOption("IsFirstRun");
-            }
-            return isFirstRun;
+            return SettingsLoader.GetIsFirstRun();
         }
 
         /// <summary>
@@ -194,7 +188,7 @@ namespace FeedCustomizer.ViewModels
         /// </summary>
         public static void SetFirstRunFalg()
         {
-            SettingsLoader.SetSettingsOption("IsFirstRun", false);
+            SettingsLoader.SetIsFirstRun(false);
         }
 
         /// <summary>

@@ -10,7 +10,21 @@
         public static readonly int MaxFeedNum = 32;
 
         // 应用信息
+        // 合作者姓名与商店链接统一写入常量，方便维护
         public static readonly string DeveloperStoreLink = "https://apps.microsoft.com/search/publisher?name=%E6%83%9C%E5%BF%86%E6%83%B3%E7%9D%A1%E8%A7%89&";
         public static readonly string OpenSourceLink = "https://gitee.com/jianmao888/FeedCustomizer";
+
+        // 如果有多个合作者，可以在这里添加姓名与对应的商店链接
+        public static readonly string[] DeveloperNames = ["惜忆想睡觉", "窗边的贱猫"];
+        public static readonly string[] DeveloperStoreLinks = [DeveloperStoreLink, "https://apps.microsoft.com/search/publisher?name=jianmao888&"];
+
+        // 设置项默认值
+        public static class SettingDefaults
+        {
+            public const string AppTheme = "System";
+            public const string AppMaterial = "MicaAlt";
+            public const bool EnableSound = true;
+            public const bool IsFirstRun = true;
+        }
     }
 }

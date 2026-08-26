@@ -64,22 +64,34 @@
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
-                            <Image x:Name="ImgAppIcon" Grid.Column="0" Width="20" Height="20" Stretch="Uniform" VerticalAlignment="Center"/>
+                            <Image x:Name="ImgAppIcon" Grid.Column="0" Width="20" Height="20" Stretch="Uniform" VerticalAlignment="Center" Source="{x:Bind AboutViewModel.AppLogoImage}" />
                             <StackPanel Grid.Column="1" Margin="21,0,0,0" VerticalAlignment="Center">
                                 <TextBlock x:Name="TxtAppName" FontSize="14.4"/>
                                 <StackPanel Orientation="Horizontal" Spacing="0">
-                                    <TextBlock x:Name="TxtCopyrightPrefix" FontSize="12" Opacity="0.8"/>
+                                    <TextBlock x:Name="TxtCopyrightPrefix" Padding="0" FontSize="12" Opacity="0.8" Text="{x:Bind AboutViewModel.GetCopyrightPrefix()}" />
                                     <HyperlinkButton
-                                        Content="{x:Bind AboutViewModel.DeveloperStoreDisplayName}"
-                                        Click="DeveloperStoreLink_Click"
-                                        Padding="0"
+                                        Content="{x:Bind AboutViewModel.Developer1Name}"
+                                        Tag="{x:Bind AboutViewModel.Developer1Link}"
+                                        Click="DeveloperLink_Click"
+                                        Padding="5,0,0,0"
                                         FontSize="12"
                                         Opacity="0.7">
                                         <HyperlinkButton.RenderTransform>
                                             <TranslateTransform Y="-1" />
                                         </HyperlinkButton.RenderTransform>
                                     </HyperlinkButton>
-                                    <TextBlock x:Uid="AboutCopyrightSeparator" FontSize="12" Opacity="0.8"/>
+                                    <TextBlock Text=" , " FontSize="12" Opacity="0.7" VerticalAlignment="Center"/>
+                                    <HyperlinkButton
+                                        Content="{x:Bind AboutViewModel.Developer2Name}"
+                                        Tag="{x:Bind AboutViewModel.Developer2Link}"
+                                        Click="DeveloperLink_Click"
+                                        Padding="0,0,2,0"
+                                        FontSize="12"
+                                        Opacity="0.7">
+                                        <HyperlinkButton.RenderTransform>
+                                            <TranslateTransform Y="-1" />
+                                        </HyperlinkButton.RenderTransform>
+                                    </HyperlinkButton>
                                     <TextBlock x:Uid="AboutCopyrightAllRights" FontSize="12" Opacity="0.8"/>
                                 </StackPanel>
                             </StackPanel>

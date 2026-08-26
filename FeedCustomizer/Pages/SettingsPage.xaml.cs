@@ -1,13 +1,12 @@
+using FeedCustomizer.Core.Tools;
 using FeedCustomizer.ViewModels;
 using Microsoft.UI.Composition.SystemBackdrops;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media.Imaging;
 using System;
 using System.Diagnostics;
 using Windows.ApplicationModel;
-using Windows.Storage;
 
 // To learn more about WinUI, the WinUI project structure,
 // and more about our project templates, see: http://aka.ms/winui-project-info.
@@ -20,7 +19,6 @@ namespace FeedCustomizer.Pages
     public sealed partial class SettingsPage : Page
     {
         public AboutViewModel AboutViewModel { get; } = new();
-        private ApplicationDataContainer localSettings = ApplicationData.Current.LocalSettings;
         private bool _isInitializing = true;
 
         public SettingsPage()
@@ -38,26 +36,21 @@ namespace FeedCustomizer.Pages
 
         private void LoadUI()
         {
-            string theme = localSettings.Values["AppTheme"] as string ?? "System";
-            RbTheme.SelectedIndex = theme switch
+            RbTheme.SelectedIndex = SettingsLoader.GetAppTheme() switch
             {
                 "Light" => 1,
                 "Dark" => 2,
                 _ => 0
             };
 
-            string material = localSettings.Values["AppMaterial"] as string ?? "MicaAlt";
-            RbMaterial.SelectedIndex = material switch
+            RbMaterial.SelectedIndex = SettingsLoader.GetAppMaterial() switch
             {
                 "MicaAlt" => 1,
                 "Acrylic" => 2,
                 _ => 0
             };
 
-            bool sound = localSettings.Values["EnableSound"] is bool b ? b : true;
-            if (localSettings.Values["EnableSound"] == null)
-                localSettings.Values["EnableSound"] = true;
-            SoundToggle.IsOn = sound;
+            SoundToggle.IsOn = SettingsLoader.GetEnableSound();
         }
 
         public void LoadAppInfo()
@@ -66,8 +59,6 @@ namespace FeedCustomizer.Pages
             {
                 TxtAppName.Text = Package.Current.DisplayName;
                 TxtVersion.Text = AboutViewModel.GetCurrentVersion();
-                TxtCopyrightPrefix.Text = AboutViewModel.GetCopyrightPrefix();
-                ImgAppIcon.Source = new BitmapImage(Package.Current.Logo);
             }
             catch (Exception ex)
             {
@@ -92,7 +83,7 @@ namespace FeedCustomizer.Pages
                 _ => ElementTheme.Default
             };
 
-            localSettings.Values["AppTheme"] = value;
+            SettingsLoader.SetAppTheme(value);
             AppThemeManager.CurrentTheme = theme;
             if (App.MainWindow?.Content is FrameworkElement root)
                 root.RequestedTheme = theme;
@@ -109,7 +100,7 @@ namespace FeedCustomizer.Pages
                 2 => "Acrylic",
                 _ => "Mica"
             };
-            localSettings.Values["AppMaterial"] = value;
+            SettingsLoader.SetAppMaterial(value);
             AppThemeManager.CurrentMaterial = value switch
             {
                 "MicaAlt" => BackgroundMaterial.MicaAlt,
@@ -123,7 +114,7 @@ namespace FeedCustomizer.Pages
         {
             if (_isInitializing) return;
             bool isOn = SoundToggle.IsOn;
-            localSettings.Values["EnableSound"] = isOn;
+            SettingsLoader.SetEnableSound(isOn);
             ElementSoundPlayer.State = isOn ? ElementSoundPlayerState.On : ElementSoundPlayerState.Off;
         }
 
@@ -133,17 +124,25 @@ namespace FeedCustomizer.Pages
             _ = e;
             if (App.MainWindow is MainWindow window)
             {
-                await window.OpenExternalLinkAsync(AboutViewModel.OpenSourceLink);
+                await window.ExternalLaunch.OpenLinkAsync(AboutViewModel.OpenSourceLink);
             }
         }
 
-        private async void DeveloperStoreLink_Click(object sender, RoutedEventArgs e)
+        private async void DeveloperLink_Click(object sender, RoutedEventArgs e)
         {
-            _ = sender;
             _ = e;
-            if (App.MainWindow is MainWindow window)
+            if (sender is HyperlinkButton hb)
             {
-                await window.OpenExternalLinkAsync(AboutViewModel.DeveloperStoreLink);
+                var link = hb.Tag as string;
+                if (string.IsNullOrEmpty(link))
+                {
+                    link = AboutViewModel.DeveloperStoreLink;
+                }
+
+                if (App.MainWindow is MainWindow window)
+                {
+                    await window.ExternalLaunch.OpenLinkAsync(link);
+                }
             }
         }
     }

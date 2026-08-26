@@ -35,6 +35,13 @@
 		</ItemGroup>
 	</Target>
 
+	<!-- 在 Clean 之后执行，清理FeedProvider文件 -->
+	<Target Name="CustomCleanAfter" AfterTargets="Clean">
+		<Message Text="执行自定义清理：清理FeedProvider文件" Importance="High" />
+
+		<RemoveDir Directories="$(ProjectDir)Resources\FeedProvider" />
+	</Target>
+
 	<ItemGroup>
 		<Manifest Include="$(ApplicationManifest)" />
 	</ItemGroup>

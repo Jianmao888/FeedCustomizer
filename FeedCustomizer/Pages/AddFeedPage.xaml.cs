@@ -171,7 +171,7 @@ namespace FeedCustomizer.Pages
                     $"Message: {ex.Message}",
                     string.Empty,
                     ex.ToString());
-                await window.ShowWebIconFetchErrorDialogAsync(details);
+                await window.Dialogs.ShowWebIconFetchErrorAsync(details);
             }
             finally
             {

@@ -262,8 +262,8 @@
     <comment>关于页面”开发者“标题</comment>
   </data>
   <data name="AboutCopyrightPrefix" xml:space="preserve">
-    <value>© {0} {1}</value>
-    <comment>关于页面封面版权信息前缀</comment>
+    <value>© {0}</value>
+    <comment>关于页面封面版权信息前缀（只显示年份，开发者由超链接显示）</comment>
   </data>
   <data name="AboutCopyrightSeparator.Text" xml:space="preserve">
     <value>。</value>

@@ -1,3 +1,4 @@
+using FeedCustomizer.Core.Tools;
 using Microsoft.UI;
 using Microsoft.UI.Composition.SystemBackdrops;
 using Microsoft.UI.Windowing;
@@ -9,7 +10,6 @@ using System;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
-using Windows.Storage;
 using Windows.UI;
 
 namespace FeedCustomizer
@@ -87,16 +87,13 @@ namespace FeedCustomizer
 
         public static void LoadSettings()
         {
-            var settings = ApplicationData.Current.LocalSettings;
-            try { CurrentTheme = (settings.Values["AppTheme"] as string) switch { "Light" => ElementTheme.Light, "Dark" => ElementTheme.Dark, _ => ElementTheme.Default }; }
+            try { CurrentTheme = SettingsLoader.GetAppTheme() switch { "Light" => ElementTheme.Light, "Dark" => ElementTheme.Dark, _ => ElementTheme.Default }; }
             catch { CurrentTheme = ElementTheme.Default; }
-            try { CurrentMaterial = (settings.Values["AppMaterial"] as string ?? "MicaAlt") switch { "MicaAlt" => BackgroundMaterial.MicaAlt, "Acrylic" => BackgroundMaterial.Acrylic, _ => BackgroundMaterial.Mica }; }
+            try { CurrentMaterial = SettingsLoader.GetAppMaterial() switch { "MicaAlt" => BackgroundMaterial.MicaAlt, "Acrylic" => BackgroundMaterial.Acrylic, _ => BackgroundMaterial.Mica }; }
             catch { CurrentMaterial = BackgroundMaterial.Mica; }
             try
             {
-                bool sound = settings.Values["EnableSound"] is bool value ? value : true;
-                settings.Values["EnableSound"] ??= true;
-                ElementSoundPlayer.State = sound ? ElementSoundPlayerState.On : ElementSoundPlayerState.Off;
+                ElementSoundPlayer.State = SettingsLoader.GetEnableSound() ? ElementSoundPlayerState.On : ElementSoundPlayerState.Off;
             }
             catch { ElementSoundPlayer.State = ElementSoundPlayerState.On; }
         }

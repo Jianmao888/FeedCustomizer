@@ -262,8 +262,8 @@
     <comment>"Developer" heading on the About page</comment>
   </data>
   <data name="AboutCopyrightPrefix" xml:space="preserve">
-    <value>© {0} {1}</value>
-    <comment>Copyright information prefix shown on the about-page cover</comment>
+    <value>© {0}</value>
+    <comment>Copyright information prefix shown on the about-page cover (show year only; developers shown via hyperlinks)</comment>
   </data>
   <data name="AboutCopyrightSeparator.Text" xml:space="preserve">
     <value>. </value>
