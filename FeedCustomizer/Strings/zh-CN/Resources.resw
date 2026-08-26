@@ -138,7 +138,7 @@
     <comment>首页“应用”按钮显示文字</comment>
   </data>
   <data name="AppName" xml:space="preserve">
-    <value>源自定义工具</value>
+    <value>小组件源自定义工具</value>
     <comment>应用的显示名称</comment>
   </data>
   <data name="CancelButton.Text" xml:space="preserve">
@@ -274,7 +274,7 @@
     <comment>关于页面”开源地址“标题</comment>
   </data>
   <data name="AboutAppName.Text" xml:space="preserve">
-    <value>源自定义工具</value>
+    <value>小组件源自定义工具</value>
     <comment>关于页面”应用名称“显示文本</comment>
   </data>
   <data name="DialogOK" xml:space="preserve">
@@ -392,5 +392,49 @@
   <data name="Settings_SoundCard.Header" xml:space="preserve">
     <value>控件声音</value>
     <comment>设置页面控件声音设置卡片标头</comment>
+  </data>
+  <data name="DonationGroup.Text" xml:space="preserve">
+    <value>捐赠者版</value>
+    <comment>设置页面捐赠者版分组标题</comment>
+  </data>
+  <data name="DonationCard.Header" xml:space="preserve">
+    <value>购买捐赠者版</value>
+    <comment>设置页面购买捐赠者版卡片标头</comment>
+  </data>
+  <data name="DonationCard.Description" xml:space="preserve">
+    <value>通过购买赞助者版来支持我们的开发</value>
+    <comment>设置页面购买捐赠者版卡片描述</comment>
+  </data>
+  <data name="DonateButton.Content" xml:space="preserve">
+    <value>购买捐赠者版</value>
+    <comment>设置页面购买捐赠者版按钮文本</comment>
+  </data>
+  <data name="DonationThanks.Text" xml:space="preserve">
+    <value>感谢您购买捐赠者版！</value>
+    <comment>已购买捐赠者版后显示的感谢文本</comment>
+  </data>
+  <data name="DonationConfirmTitle" xml:space="preserve">
+    <value>购买捐赠者版</value>
+    <comment>购买捐赠者版确认弹窗标题</comment>
+  </data>
+  <data name="DonationConfirmMessage" xml:space="preserve">
+    <value>捐赠者版与普通版的功能完全相同，唯一区别是此区域会显示感谢文字，没有其他特权。是否购买捐赠者版？</value>
+    <comment>购买捐赠者版确认弹窗内容</comment>
+  </data>
+  <data name="DonationConfirmPrimaryButtonText" xml:space="preserve">
+    <value>购买</value>
+    <comment>购买捐赠者版确认弹窗主按钮（购买）文本</comment>
+  </data>
+  <data name="DonationConfirmCloseButtonText" xml:space="preserve">
+    <value>取消</value>
+    <comment>购买捐赠者版确认弹窗关闭按钮文本</comment>
+  </data>
+  <data name="DonationErrorTitle" xml:space="preserve">
+    <value>购买失败</value>
+    <comment>购买捐赠者版失败弹窗标题</comment>
+  </data>
+  <data name="DonationErrorMessage" xml:space="preserve">
+    <value>无法完成购买，请稍后重试，或检查 Microsoft Store 账户状态。</value>
+    <comment>购买捐赠者版失败弹窗内容</comment>
   </data>
 </root>

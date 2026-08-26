@@ -13,7 +13,7 @@ namespace FeedCustomizer.Core.Tools
 {
     public class ResourcesCopier
     {
-        private static string UserAppFolder => AppDataPaths.FeedProviderFolder;
+        private static string UserAppFolder => AppDataPaths.PackageLocalFeedProviderFolder;
 
         // Native AOT publishes the provider as a single executable.  The
         // framework DLL and runtimeconfig files that existed in older
@@ -24,13 +24,6 @@ namespace FeedCustomizer.Core.Tools
         ];
 
         private static string FlagFilePath => Path.Combine(UserAppFolder, ".first_run_complete");
-        private static string LegacyMigrationFlagFilePath => Path.Combine(UserAppFolder, ".legacy_cache_migrated");
-        private static string LegacyManifestPath => Path.Combine(
-            AppDataPaths.LegacyFeedProviderFolder,
-            "AppxManifest.xml");
-        private static string LegacyImagesFolder => Path.Combine(
-            AppDataPaths.LegacyFeedProviderFolder,
-            "Images");
         private static readonly SemaphoreSlim CopyGate = new(1, 1);
         private static readonly TimeSpan FileCopyRetryDelay = TimeSpan.FromMilliseconds(150);
         private const int FileCopyAttempts = 4;
@@ -47,41 +40,36 @@ namespace FeedCustomizer.Core.Tools
                 // template and intentionally has an empty Definitions node.
                 // Preserve the user's feeds before copying that template, then
                 // serialize them back after the provider files are refreshed.
-                // A previous build used the registration cache as its data
-                // location. Read that cache once when the current manifest is
-                // empty so an update cannot discard the user's feeds.
                 List<Feed>? existingFeeds = null;
-                bool sourceManifestWasReadable = false;
                 string? sourceManifestBackupPath = null;
-                if (File.Exists(AppDataPaths.ManifestPath))
+
+                // On first run after switching to package-local staging, the
+                // user's feeds may still live in the real LocalAppData
+                // manifest. Prefer the package-local copy, but migrate feeds
+                // from the real manifest when the package-local copy has not
+                // been created yet.
+                string existingManifestPath = File.Exists(AppDataPaths.PackageLocalManifestPath)
+                    ? AppDataPaths.PackageLocalManifestPath
+                    : File.Exists(AppDataPaths.ManifestPath)
+                        ? AppDataPaths.ManifestPath
+                        : string.Empty;
+
+                if (!string.IsNullOrEmpty(existingManifestPath))
                 {
                     try
                     {
-                        existingFeeds = await ManifestXmlService.Read(AppDataPaths.ManifestPath);
-                        sourceManifestWasReadable = true;
+                        existingFeeds = await ManifestXmlService.Read(existingManifestPath);
                     }
                     catch (Exception ex)
                     {
                         Debug.WriteLine($"Failed to preserve existing feed definitions: {ex.Message}");
-                        sourceManifestBackupPath = AppDataPaths.ManifestPath + ".backup";
-                        if (!TryCopyFile(AppDataPaths.ManifestPath, sourceManifestBackupPath))
+                        sourceManifestBackupPath = existingManifestPath + ".backup";
+                        if (!TryCopyFile(existingManifestPath, sourceManifestBackupPath))
                         {
                             throw new IOException(
                                 $"无法创建损坏清单的备份文件：{sourceManifestBackupPath}",
                                 ex);
                         }
-                    }
-                }
-
-                bool shouldCheckLegacyCache = !File.Exists(LegacyMigrationFlagFilePath) &&
-                    (!sourceManifestWasReadable || existingFeeds is { Count: 0 });
-                if (shouldCheckLegacyCache)
-                {
-                    List<Feed>? legacyFeeds = await TryReadFeedsAsync(LegacyManifestPath);
-                    if (legacyFeeds is { Count: > 0 })
-                    {
-                        existingFeeds = legacyFeeds;
-                        Debug.WriteLine($"Migrating {legacyFeeds.Count} feed definitions from the legacy registration cache.");
                     }
                 }
 
@@ -123,18 +111,12 @@ namespace FeedCustomizer.Core.Tools
                     Path.Combine(UserAppFolder, "FeedProvider"));
                 await CopyDirectoryAsync(assetsFolderPath, Path.Combine(UserAppFolder, "Assets"));
 
-                // User-downloaded icons are data, not package resources. Copy
-                // only files missing from the current cache so an old cache can
-                // supply icons referenced by migrated definitions without
-                // overwriting newer files.
-                await CopyDirectoryIfMissingAsync(LegacyImagesFolder, AppDataPaths.ImagesFolder);
-
                 if (sourceManifestBackupPath is not null && existingFeeds is null)
                 {
                     // Keep an unreadable manifest available instead of silently
                     // replacing it with the package template. The backup can be
                     // recovered manually and the next startup will retry.
-                    await CopyFileWithRetryAsync(sourceManifestBackupPath, AppDataPaths.ManifestPath);
+                    await CopyFileWithRetryAsync(sourceManifestBackupPath, AppDataPaths.PackageLocalManifestPath);
                 }
                 else
                 {
@@ -144,20 +126,13 @@ namespace FeedCustomizer.Core.Tools
                         // Write() also normalizes older manifests that had one
                         // AppExtension per feed into one provider with many
                         // Definitions.
-                        await ManifestXmlService.Write(existingFeeds, AppDataPaths.ManifestPath);
+                        await ManifestXmlService.Write(existingFeeds, AppDataPaths.PackageLocalManifestPath);
                     }
                 }
-                if (!File.Exists(AppDataPaths.ManifestPath) || !File.Exists(AppDataPaths.ProviderExecutablePath))
+                if (!File.Exists(AppDataPaths.PackageLocalManifestPath) || !File.Exists(AppDataPaths.PackageLocalProviderExecutablePath))
                 {
                     throw new FileNotFoundException(
-                        $"资源复制完成后找不到 FeedProvider 文件。Manifest={AppDataPaths.ManifestPath}; Executable={AppDataPaths.ProviderExecutablePath}");
-                }
-                if (sourceManifestWasReadable || existingFeeds is not null)
-                {
-                    // This marker prevents a later intentional deletion of all
-                    // feeds from resurrecting stale definitions in the legacy
-                    // registration directory.
-                    File.WriteAllText(LegacyMigrationFlagFilePath, "1");
+                        $"资源复制完成后找不到 FeedProvider 文件。Manifest={AppDataPaths.PackageLocalManifestPath}; Executable={AppDataPaths.PackageLocalProviderExecutablePath}");
                 }
                 // 写入标志文件（版本号），表示首次初始化完成
                 File.WriteAllText(FlagFilePath, GetCurrentVersion());
@@ -183,28 +158,18 @@ namespace FeedCustomizer.Core.Tools
             {
                 Debug.WriteLine($"Checking resource version. Flag file path: {FlagFilePath}");
                 if (!File.Exists(FlagFilePath) ||
-                    !File.Exists(AppDataPaths.ManifestPath) ||
-                    !File.Exists(AppDataPaths.ProviderExecutablePath))
+                    !File.Exists(AppDataPaths.PackageLocalManifestPath) ||
+                    !File.Exists(AppDataPaths.PackageLocalProviderExecutablePath))
                 {
                     return false; // 标志文件不存在，资源未初始化
                 }
 
                 // Treat a malformed manifest as stale instead of replacing it
-                // blindly on the next startup. ResourcesCopyAsync keeps a
-                // backup and can recover from the legacy cache when available.
-                List<Feed>? currentFeeds = await TryReadFeedsAsync(AppDataPaths.ManifestPath);
+                // blindly on the next startup.
+                List<Feed>? currentFeeds = await TryReadFeedsAsync(AppDataPaths.PackageLocalManifestPath);
                 if (currentFeeds is null)
                 {
                     return false;
-                }
-
-                if (!File.Exists(LegacyMigrationFlagFilePath) && currentFeeds.Count == 0)
-                {
-                    List<Feed>? legacyFeeds = await TryReadFeedsAsync(LegacyManifestPath);
-                    if (legacyFeeds is { Count: > 0 })
-                    {
-                        return false;
-                    }
                 }
 
                 string currentVersion = GetCurrentVersion();
@@ -218,7 +183,7 @@ namespace FeedCustomizer.Core.Tools
                 // package version often remains 1.0.0.0. Comparing only the
                 // flag file leaves an older AOT COM server in place forever.
                 return currentVersion == savedVersion &&
-                    FilesHaveSameContent(packagedProviderPath, AppDataPaths.ProviderExecutablePath);
+                    FilesHaveSameContent(packagedProviderPath, AppDataPaths.PackageLocalProviderExecutablePath);
             }
             catch (Exception ex)
             {
@@ -232,8 +197,8 @@ namespace FeedCustomizer.Core.Tools
         /// </summary>
         public static async Task EnsureResourcesReadyAsync()
         {
-            if (!File.Exists(AppDataPaths.ManifestPath) ||
-                !File.Exists(AppDataPaths.ProviderExecutablePath) ||
+            if (!File.Exists(AppDataPaths.PackageLocalManifestPath) ||
+                !File.Exists(AppDataPaths.PackageLocalProviderExecutablePath) ||
                 !await IsResourceUpToDate())
             {
                 await ResourcesCopyAsync();
@@ -246,12 +211,12 @@ namespace FeedCustomizer.Core.Tools
                 await SynchronizeProviderFilesAsync();
             }
 
-            if (!File.Exists(AppDataPaths.ManifestPath) ||
-                !File.Exists(AppDataPaths.ProviderExecutablePath))
+            if (!File.Exists(AppDataPaths.PackageLocalManifestPath) ||
+                !File.Exists(AppDataPaths.PackageLocalProviderExecutablePath))
             {
                 throw new FileNotFoundException(
-                    $"资源复制后仍缺少注册文件。Manifest={AppDataPaths.ManifestPath}; " +
-                    $"Provider={AppDataPaths.ProviderExecutablePath}");
+                    $"资源复制后仍缺少注册文件。Manifest={AppDataPaths.PackageLocalManifestPath}; " +
+                    $"Provider={AppDataPaths.PackageLocalProviderExecutablePath}");
             }
         }
 
@@ -294,69 +259,26 @@ namespace FeedCustomizer.Core.Tools
 
         public static bool IsRegisteredProviderCurrent()
         {
-            string sourceProviderFolder = Path.Combine(
-                GetResourcesFolderPath(),
+            // The registered package lives in the real LocalAppData folder,
+            // while user edits are staged in the package-local folder. Both
+            // must match the staged sources for the registration to be
+            // considered current; otherwise the installer re-copies and
+            // re-registers.
+            string stagedProviderFolder = Path.Combine(
+                AppDataPaths.PackageLocalFeedProviderFolder,
                 "FeedProvider");
             string registeredProviderFolder = Path.Combine(
-                AppDataPaths.RegistrationFolder,
+                AppDataPaths.FeedProviderFolder,
                 "FeedProvider");
 
             bool providerFilesAreCurrent = RequiredProviderFiles.All(fileName => FilesHaveSameContent(
-                Path.Combine(sourceProviderFolder, fileName),
-                Path.Combine(registeredProviderFolder, fileName))) &&
-                // A previous CoreCLR publish can leave dozens of runtime files
-                // beside the AOT executable in the registration staging folder.
-                // Treat that layout as stale so the installer gets one chance
-                // to mirror the provider directory and remove the residue.
-                DirectoryFilesExactlyMatch(sourceProviderFolder, registeredProviderFolder);
+                Path.Combine(stagedProviderFolder, fileName),
+                Path.Combine(registeredProviderFolder, fileName)));
 
             return providerFilesAreCurrent &&
-                ManifestXmlService.IsPresentationCurrent(AppDataPaths.ManifestPath) &&
-                FilesHaveSameContent(AppDataPaths.ManifestPath, AppDataPaths.RegistrationManifestPath) &&
-                DirectoryFilesHaveSameContent(
-                    Path.Combine(UserAppFolder, "Assets"),
-                    Path.Combine(AppDataPaths.RegistrationFolder, "Assets")) &&
-                DirectoryFilesHaveSameContent(
-                    AppDataPaths.ImagesFolder,
-                    Path.Combine(AppDataPaths.RegistrationFolder, "Images"));
-        }
-
-        private static bool DirectoryFilesHaveSameContent(string sourceFolder, string destinationFolder)
-        {
-            if (!Directory.Exists(sourceFolder) || !Directory.Exists(destinationFolder))
-            {
-                return false;
-            }
-
-            return Directory
-                .GetFiles(sourceFolder, "*", SearchOption.AllDirectories)
-                .All(sourcePath => FilesHaveSameContent(
-                    sourcePath,
-                    Path.Combine(destinationFolder, Path.GetRelativePath(sourceFolder, sourcePath))));
-        }
-
-        private static bool DirectoryFilesExactlyMatch(string sourceFolder, string destinationFolder)
-        {
-            if (!Directory.Exists(sourceFolder) || !Directory.Exists(destinationFolder))
-            {
-                return false;
-            }
-
-            string[] sourceFiles = Directory
-                .GetFiles(sourceFolder, "*", SearchOption.AllDirectories)
-                .Select(path => Path.GetRelativePath(sourceFolder, path))
-                .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
-                .ToArray();
-            string[] destinationFiles = Directory
-                .GetFiles(destinationFolder, "*", SearchOption.AllDirectories)
-                .Select(path => Path.GetRelativePath(destinationFolder, path))
-                .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
-                .ToArray();
-
-            return sourceFiles.SequenceEqual(destinationFiles, StringComparer.OrdinalIgnoreCase) &&
-                sourceFiles.All(relativePath => FilesHaveSameContent(
-                    Path.Combine(sourceFolder, relativePath),
-                    Path.Combine(destinationFolder, relativePath)));
+                FilesHaveSameContent(
+                    AppDataPaths.PackageLocalManifestPath,
+                    AppDataPaths.ManifestPath);
         }
 
         private static bool FilesHaveSameContent(string firstPath, string secondPath)
@@ -439,24 +361,6 @@ namespace FeedCustomizer.Core.Tools
                 string relativePath = Path.GetRelativePath(sourceDir, filePath);
                 string destFilePath = Path.Combine(destDir, relativePath);
                 await CopyFileWithRetryAsync(filePath, destFilePath);
-            }
-        }
-
-        private static async Task CopyDirectoryIfMissingAsync(string sourceDir, string destDir)
-        {
-            if (!Directory.Exists(sourceDir))
-            {
-                return;
-            }
-
-            foreach (string filePath in Directory.GetFiles(sourceDir, "*", SearchOption.AllDirectories))
-            {
-                string relativePath = Path.GetRelativePath(sourceDir, filePath);
-                string destFilePath = Path.Combine(destDir, relativePath);
-                if (!File.Exists(destFilePath))
-                {
-                    await CopyFileWithRetryAsync(filePath, destFilePath);
-                }
             }
         }
 

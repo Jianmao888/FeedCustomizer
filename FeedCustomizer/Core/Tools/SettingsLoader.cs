@@ -1,5 +1,5 @@
-﻿using SettingDefaults = FeedCustomizer.Core.Constants.Constants.SettingDefaults;
-using Windows.Storage;
+﻿using Windows.Storage;
+using SettingDefaults = FeedCustomizer.Core.Constants.Constants.SettingDefaults;
 
 namespace FeedCustomizer.Core.Tools
 {

@@ -39,10 +39,6 @@ namespace FeedCustomizer.Core.Tools
         {
             try
             {
-                // Always perform this preflight. Cached page state can bypass the
-                // normal first-run copy path, but registration still requires the
-                // local manifest and the current architecture provider.
-                await MigrateLegacyCacheAsync();
                 await ResourcesCopier.EnsureResourcesReadyAsync();
 
                 if (await IsFeedProviderInstalled())
@@ -58,10 +54,16 @@ namespace FeedCustomizer.Core.Tools
                     await UninstallFeedProviderCoreAsync();
                 }
 
-                string escapedRegistrationManifestPath = AppDataPaths.RegistrationManifestPath.Replace("'", "''");
+                // 在注册前，将应用包内的需要文件使用 PowerShell 同步到真实的
+                // %LocalAppData%\FeedCustomProvider 路径，避免应用写入被重定向导致
+                // Add-AppxPackage 无法访问到真实文件的问题。只复制已修改的文件
+                //（使用 robocopy），并在第一次失败时尝试备份模式重试以应对被占用的文件。
                 await StopProviderProcessesAsync();
+                string realManifestPath = await CopyPackageFilesToRealLocalAppDataAsync();
+                string escapedManifestPath = realManifestPath.Replace("'", "''");
+
                 var result = await RunPowerShellViaProcess(BuildRegistrationCommand(
-                    escapedRegistrationManifestPath));
+                    escapedManifestPath));
 
                 if (result.ExitCode != 0)
                 {
@@ -80,115 +82,11 @@ namespace FeedCustomizer.Core.Tools
             }
         }
 
-        internal static async Task MigrateLegacyCacheAsync()
+        private static string BuildRegistrationCommand(string escapedManifestPath)
         {
-            string source = AppDataPaths.FeedProviderFolder.Replace("'", "''");
-            string legacy = AppDataPaths.LegacyFeedProviderFolder.Replace("'", "''");
-            string migrationFlag = Path.Combine(
-                AppDataPaths.FeedProviderFolder,
-                ".legacy_cache_migrated").Replace("'", "''");
-
-            string command =
-                "$ErrorActionPreference = 'Stop'; " +
-                $"$source = '{source}'; " +
-                $"$legacy = '{legacy}'; " +
-                $"$migrationFlag = '{migrationFlag}'; " +
-                "function Copy-PlainFile([string]$sourcePath, [string]$destinationPath) { " +
-                "  $parent = Split-Path -Parent $destinationPath; " +
-                "  if ($parent) { New-Item -ItemType Directory -Force -Path $parent | Out-Null } " +
-                "  $bytes = [System.IO.File]::ReadAllBytes($sourcePath); " +
-                "  [System.IO.File]::WriteAllBytes($destinationPath, $bytes); " +
-                "} " +
-                "if (-not (Test-Path -LiteralPath $migrationFlag)) { " +
-                "  $sourceManifest = Join-Path $source 'AppxManifest.xml'; " +
-                "  $legacyManifest = Join-Path $legacy 'AppxManifest.xml'; " +
-                "  $sourceDefinitions = 0; $legacyDefinitions = 0; " +
-                "  $sourceReadable = -not (Test-Path -LiteralPath $sourceManifest); " +
-                "  $legacyReadable = -not (Test-Path -LiteralPath $legacyManifest); " +
-                "  if (Test-Path -LiteralPath $sourceManifest) { " +
-                "    try { $sourceXml = [xml](Get-Content -LiteralPath $sourceManifest -Raw); " +
-                "      $sourceDefinitions = @($sourceXml.SelectNodes(\"//*[local-name()='Definition']\")).Count; $sourceReadable = $true " +
-                "    } catch { } " +
-                "  } " +
-                "  if (Test-Path -LiteralPath $legacyManifest) { " +
-                "    try { $legacyXml = [xml](Get-Content -LiteralPath $legacyManifest -Raw); " +
-                "      $legacyDefinitions = @($legacyXml.SelectNodes(\"//*[local-name()='Definition']\")).Count; $legacyReadable = $true " +
-                "    } catch { } " +
-                "  } " +
-                "  if ($sourceDefinitions -eq 0 -and $legacyDefinitions -gt 0) { " +
-                "    New-Item -ItemType Directory -Force -Path $source -ErrorAction Stop | Out-Null; " +
-                "    Copy-PlainFile -sourcePath $legacyManifest -destinationPath $sourceManifest; " +
-                "  } " +
-                "  $legacyImages = Join-Path $legacy 'Images'; " +
-                "  $sourceImages = Join-Path $source 'Images'; " +
-                "  if (Test-Path -LiteralPath $legacyImages) { " +
-                "    Get-ChildItem -LiteralPath $legacyImages -File -Recurse | ForEach-Object { " +
-                "      $relative = $_.FullName.Substring($legacyImages.Length).TrimStart('\\'); " +
-                "      $destination = Join-Path $sourceImages $relative; " +
-                "      if (-not (Test-Path -LiteralPath $destination)) { " +
-                "        $parent = Split-Path -Parent $destination; " +
-                "        New-Item -ItemType Directory -Force -Path $parent | Out-Null; " +
-                "        Copy-PlainFile -sourcePath $_.FullName -destinationPath $destination; " +
-                "      } " +
-                "    } " +
-                "  } " +
-                "  if ($sourceReadable -and $legacyReadable) { " +
-                "    New-Item -ItemType File -Force -Path $migrationFlag -ErrorAction Stop | Out-Null " +
-                "  } " +
-                "}";
-
-            PowerShellResult result = await RunPowerShellViaProcess(command);
-            if (result.ExitCode != 0)
-            {
-                // Migration is best-effort. The canonical LocalCache manifest
-                // remains untouched on failure, and registration will report a
-                // normal deployment error if its required files are missing.
-                Debug.WriteLine($"Legacy feed cache migration failed ({result.ExitCode}): {result.Error}");
-            }
-        }
-
-        private static string BuildRegistrationCommand(string escapedRegistrationManifestPath)
-        {
-            string source = AppDataPaths.FeedProviderFolder.Replace("'", "''");
-            string target = AppDataPaths.RegistrationFolder.Replace("'", "''");
-
             return
                 "$ErrorActionPreference = 'Stop'; " +
-                $"$source = '{source}'; " +
-                $"$target = '{target}'; " +
-                "$providerTarget = Join-Path $target 'FeedProvider'; " +
-                "function Copy-PlainFile([string]$sourcePath, [string]$destinationPath) { " +
-                "  $parent = Split-Path -Parent $destinationPath; " +
-                "  if ($parent) { New-Item -ItemType Directory -Force -Path $parent | Out-Null } " +
-                "  if (Test-Path -LiteralPath $destinationPath) { " +
-                "    [System.IO.File]::SetAttributes($destinationPath, [System.IO.FileAttributes]::Normal); " +
-                "  } " +
-                "  $bytes = [System.IO.File]::ReadAllBytes($sourcePath); " +
-                "  [System.IO.File]::WriteAllBytes($destinationPath, $bytes); " +
-                "} " +
-                "New-Item -ItemType Directory -Force -Path $target -ErrorAction Stop | Out-Null; " +
-                "if (Test-Path -LiteralPath $providerTarget) { " +
-                "  $removed = $false; $lastError = $null; " +
-                "  for ($attempt = 0; $attempt -lt 4; $attempt++) { " +
-                "    try { Remove-Item -LiteralPath $providerTarget -Recurse -Force -ErrorAction Stop; $removed = $true; break } " +
-                "    catch { $lastError = $_; Start-Sleep -Milliseconds 150 } " +
-                "  } " +
-                "  if (-not $removed) { throw $lastError } " +
-                "} " +
-                "$sourceLength = $source.Length; " +
-                "Get-ChildItem -LiteralPath $source -File -Recurse -Force | ForEach-Object { " +
-                "  $relative = $_.FullName.Substring($sourceLength).TrimStart('\\'); " +
-                "  $destination = Join-Path $target $relative; " +
-                "  $copied = $false; $lastError = $null; " +
-                "  for ($attempt = 0; $attempt -lt 4; $attempt++) { " +
-                "    try { " +
-                "      Copy-PlainFile -sourcePath $_.FullName -destinationPath $destination; " +
-                "      $copied = $true; break " +
-                "    } catch { $lastError = $_; Start-Sleep -Milliseconds 150 } " +
-                "  } " +
-                "  if (-not $copied) { throw $lastError } " +
-                "}; " +
-                $"Add-AppxPackage -Register -ForceApplicationShutdown -ErrorAction Stop '{escapedRegistrationManifestPath}'";
+                $"Add-AppxPackage -Register -ForceApplicationShutdown -ErrorAction Stop '{escapedManifestPath}'";
         }
 
 
@@ -259,12 +157,6 @@ namespace FeedCustomizer.Core.Tools
             string sourceProviderRoot = Path.GetFullPath(Path.Combine(
                 AppDataPaths.FeedProviderFolder,
                 "FeedProvider"));
-            string registrationProviderRoot = Path.GetFullPath(Path.Combine(
-                AppDataPaths.RegistrationFolder,
-                "FeedProvider"));
-            string legacyProviderRoot = Path.GetFullPath(Path.Combine(
-                AppDataPaths.LegacyFeedProviderFolder,
-                "FeedProvider"));
 
             foreach (Process process in Process.GetProcessesByName("FeedProvider"))
             {
@@ -296,9 +188,7 @@ namespace FeedCustomizer.Core.Tools
                 }
 
                 bool isOurProvider =
-                    fullPath.StartsWith(sourceProviderRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) ||
-                    fullPath.StartsWith(registrationProviderRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) ||
-                    fullPath.StartsWith(legacyProviderRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
+                    fullPath.StartsWith(sourceProviderRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
                 if (!isOurProvider)
                 {
                     process.Dispose();
@@ -348,6 +238,71 @@ namespace FeedCustomizer.Core.Tools
             return result.ExitCode == 0 && !string.IsNullOrWhiteSpace(result.Output);
         }
 
+        // 将包内已准备好的用户文件从应用私有目录同步到真正的
+        // %LocalAppData%\FeedCustomProvider 并返回目标清单路径。使用
+        // robocopy 只复制已更改的文件，遇到失败时尝试备份模式重试。
+        private static async Task<string> CopyPackageFilesToRealLocalAppDataAsync()
+        {
+            // 源目录为应用的私有目录（包内的 LocalCache/Local/FeedCustomProvider），
+            // 而不是全局 LocalAppData 路径。
+            string source = AppDataPaths.PackageLocalFeedProviderFolder;
+            string dest = AppDataPaths.FeedProviderFolder;
+
+            // 构造 PowerShell 命令，使用 /COPY:DAT 只复制数据/属性/时间戳，避免复制审计信息导致权限错误
+            string BuildRobocopyCommand(string extraOptions) =>
+                "$src = \"" + source.Replace("\"", "\\\"") + "\"; " +
+                "$dst = \"" + dest.Replace("\"", "\\\"") + "\"; " +
+                "if (-not (Test-Path -Path $dst)) { New-Item -ItemType Directory -Path $dst | Out-Null }; " +
+                "robocopy \"$src\" \"$dst\" /E /COPY:DAT /R:3 /W:1 /MT:8 " + extraOptions + "; exit $LASTEXITCODE";
+
+            string cmd = BuildRobocopyCommand(string.Empty);
+            if (!Directory.Exists(source))
+            {
+                throw new DirectoryNotFoundException($"源目录不存在：{source}");
+            }
+
+            // 如果源与目标路径相同，则跳过复制
+            string normSource = Path.GetFullPath(source).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            string normDest = Path.GetFullPath(dest).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            if (string.Equals(normSource, normDest, StringComparison.OrdinalIgnoreCase))
+            {
+                Debug.WriteLine($"源与目标路径相同，跳过复制：{normSource}");
+                string manifestPathSame = Path.Combine(dest, "AppxManifest.xml");
+                if (!File.Exists(manifestPathSame))
+                {
+                    throw new FileNotFoundException($"目标路径缺少清单文件：{manifestPathSame}");
+                }
+
+                return manifestPathSame;
+            }
+
+            var result = await RunPowerShellViaProcess(cmd);
+
+            // Robocopy 返回值小于 8 表示成功或轻微问题，>=8 表示失败
+            if (result.ExitCode >= 8)
+            {
+                Debug.WriteLine($"robocopy first attempt failed ({result.ExitCode}). Output: {result.Output}. Error: {result.Error}");
+                // 备份模式尝试覆盖被占用文件（需要权限），再次采纳返回码
+                string cmd2 = BuildRobocopyCommand("/B");
+                var result2 = await RunPowerShellViaProcess(cmd2);
+                if (result2.ExitCode >= 8)
+                {
+                    Debug.WriteLine($"robocopy backup attempt failed ({result2.ExitCode}). Output: {result2.Output}. Error: {result2.Error}");
+                    throw new IOException($"无法将包文件复制到 {dest}，robocopy 出错：第一次尝试: " +
+                        $"ExitCode={result.ExitCode}; Output={result.Output}; Error={result.Error} || 第二次尝试: " +
+                        $"ExitCode={result2.ExitCode}; Output={result2.Output}; Error={result2.Error}");
+                }
+            }
+
+            string manifestPath = Path.Combine(dest, "AppxManifest.xml");
+            if (!File.Exists(manifestPath))
+            {
+                throw new FileNotFoundException($"目标路径缺少清单文件：{manifestPath}");
+            }
+
+            return manifestPath;
+        }
+
         private static Task ShowInstallErrorAsync(string? error, int? exitCode, string output)
         {
             var resourceLoader = new Microsoft.Windows.ApplicationModel.Resources.ResourceLoader();
@@ -361,7 +316,6 @@ namespace FeedCustomizer.Core.Tools
                 Environment.NewLine,
                 $"ExitCode: {(exitCode?.ToString() ?? "n/a")}",
                 $"SourceManifest: {ManifestXmlPath}",
-                $"RegistrationManifest: {AppDataPaths.RegistrationManifestPath}",
                 $"Error: {error ?? string.Empty}",
                 $"Output: {output}");
 

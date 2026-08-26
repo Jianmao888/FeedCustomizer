@@ -1,6 +1,5 @@
 using Microsoft.UI.Dispatching;
 using System;
-using System.Threading;
 using System.Threading.Tasks;
 
 namespace FeedCustomizer.Core.Tools

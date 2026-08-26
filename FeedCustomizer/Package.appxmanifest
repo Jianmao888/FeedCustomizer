@@ -41,6 +41,18 @@
         <uap:DefaultTile Square71x71Logo="Assets\SmallTile.png" Wide310x150Logo="Assets\WideTile.png" Square310x310Logo="Assets\LargeTile.png"/>
         <uap:SplashScreen Image="Assets\SplashScreen.png" uap5:Optional="true"/>
       </uap:VisualElements>
+			<Extensions>
+				<uap3:Extension Category="windows.appExtension">
+					<uap3:AppExtension Name="com.microsoft.windows.widgets.feeds" DisplayName="ms-resource:StartFeedProviderDisplayName" Id="MicrosoftStartFeed" PublicFolder="Public">
+						<uap3:Properties>
+							<FeedProvider>
+								<Definitions>
+								</Definitions>
+							</FeedProvider>
+						</uap3:Properties>
+					</uap3:AppExtension>
+				</uap3:Extension>
+			</Extensions>
     </Application>
   </Applications>
 

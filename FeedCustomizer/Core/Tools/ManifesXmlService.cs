@@ -24,7 +24,7 @@ namespace FeedCustomizer.Core.Tools
         private static readonly XNamespace UapNs = "http://schemas.microsoft.com/appx/manifest/uap/windows10";
         private static readonly XNamespace ComNs = "http://schemas.microsoft.com/appx/manifest/com/windows10";
 
-        private static string DefauleXmlFilePath => AppDataPaths.ManifestPath;
+        private static string DefauleXmlFilePath => AppDataPaths.PackageLocalManifestPath;
 
         private static string ProviderPackageDisplayName
         {
@@ -174,7 +174,7 @@ namespace FeedCustomizer.Core.Tools
                 "FeedProvider",
                 "FeedProvider.exe").Replace(Path.DirectorySeparatorChar, '\\');
 
-            var document = XDocument.Load(AppDataPaths.ManifestPath);
+            var document = XDocument.Load(AppDataPaths.PackageLocalManifestPath);
             var root = document.Root
                 ?? throw new InvalidDataException("源提供程序清单缺少 Package 根节点。");
             var identity = root.Element(DefaultNs + "Identity")
@@ -254,7 +254,7 @@ namespace FeedCustomizer.Core.Tools
             // toggling the provider can still leave only the switch visible.
             NormalizeProviderManifest(document);
 
-            document.Save(AppDataPaths.ManifestPath);
+            document.Save(AppDataPaths.PackageLocalManifestPath);
         }
 
         /// <summary>

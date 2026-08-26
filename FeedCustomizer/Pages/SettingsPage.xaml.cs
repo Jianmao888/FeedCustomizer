@@ -1,11 +1,10 @@
 using FeedCustomizer.Core.Tools;
 using FeedCustomizer.ViewModels;
-using Microsoft.UI.Composition.SystemBackdrops;
-using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Media.Imaging;
+using Microsoft.UI.Xaml.Controls;
 using System;
 using System.Diagnostics;
+using System.Threading.Tasks;
 using Windows.ApplicationModel;
 
 // To learn more about WinUI, the WinUI project structure,
@@ -18,7 +17,8 @@ namespace FeedCustomizer.Pages
     /// </summary>
     public sealed partial class SettingsPage : Page
     {
-        public AboutViewModel AboutViewModel { get; } = new();
+        public SettingsViewModel AboutViewModel { get; } = new();
+        private readonly Microsoft.Windows.ApplicationModel.Resources.ResourceLoader _resourceLoader = new();
         private bool _isInitializing = true;
 
         public SettingsPage()
@@ -27,11 +27,14 @@ namespace FeedCustomizer.Pages
             this.Loaded += SettingsPage_Loaded;
         }
 
-        private void SettingsPage_Loaded(object sender, RoutedEventArgs e)
+        private async void SettingsPage_Loaded(object sender, RoutedEventArgs e)
         {
             LoadUI();
             LoadAppInfo();
             _isInitializing = false;
+
+            // 不在页面加载流程中等待 Store 许可证查询，先展示页面，再在后台刷新捐赠者版购买状态
+            _ = RefreshDonationStateAsync();
         }
 
         private void LoadUI()
@@ -58,12 +61,45 @@ namespace FeedCustomizer.Pages
             try
             {
                 TxtAppName.Text = Package.Current.DisplayName;
-                TxtVersion.Text = AboutViewModel.GetCurrentVersion();
+                TxtVersion.Text = SettingsViewModel.GetCurrentVersion();
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"LoadAppInfo 错误: {ex.Message}");
             }
+        }
+
+        private async Task RefreshDonationStateAsync()
+        {
+            IntPtr hwnd = IntPtr.Zero;
+            if (App.MainWindow is MainWindow window)
+            {
+                hwnd = WinRT.Interop.WindowNative.GetWindowHandle(window);
+            }
+
+            var checkTask = DonationService.IsDonorEditionPurchasedAsync(hwnd);
+            var timeoutTask = Task.Delay(TimeSpan.FromSeconds(5));
+            var completedTask = await Task.WhenAny(checkTask, timeoutTask);
+
+            bool purchased =
+                completedTask == checkTask &&
+                checkTask.Status == TaskStatus.RanToCompletion &&
+                checkTask.Result;
+
+            if (DispatcherQueue.HasThreadAccess)
+            {
+                SetDonationPurchasedState(purchased);
+            }
+            else
+            {
+                DispatcherQueue.TryEnqueue(() => SetDonationPurchasedState(purchased));
+            }
+        }
+
+        private void SetDonationPurchasedState(bool purchased)
+        {
+            DonateButton.Visibility = purchased ? Visibility.Collapsed : Visibility.Visible;
+            DonationThanksPanel.Visibility = purchased ? Visibility.Visible : Visibility.Collapsed;
         }
 
         private void RbTheme_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -116,6 +152,43 @@ namespace FeedCustomizer.Pages
             bool isOn = SoundToggle.IsOn;
             SettingsLoader.SetEnableSound(isOn);
             ElementSoundPlayer.State = isOn ? ElementSoundPlayerState.On : ElementSoundPlayerState.Off;
+        }
+
+        private async void DonateButton_Click(object sender, RoutedEventArgs e)
+        {
+            _ = sender;
+            _ = e;
+
+            if (App.MainWindow is not MainWindow window)
+            {
+                return;
+            }
+
+            bool confirmed = await window.Dialogs.ShowConfirmAsync(
+                _resourceLoader.GetString("DonationConfirmTitle"),
+                _resourceLoader.GetString("DonationConfirmMessage"),
+                _resourceLoader.GetString("DonationConfirmPrimaryButtonText"),
+                _resourceLoader.GetString("DonationConfirmCloseButtonText"));
+
+            if (!confirmed)
+            {
+                return;
+            }
+
+            var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(window);
+            var result = await DonationService.PurchaseDonorEditionAsync(hwnd);
+
+            if (result is DonationPurchaseResult.Purchased or DonationPurchaseResult.AlreadyPurchased)
+            {
+                SetDonationPurchasedState(true);
+            }
+            else if (result == DonationPurchaseResult.Failed)
+            {
+                await window.Dialogs.ShowMessageAsync(
+                    _resourceLoader.GetString("DonationErrorTitle"),
+                    _resourceLoader.GetString("DonationErrorMessage"),
+                    _resourceLoader.GetString("DialogOK"));
+            }
         }
 
         private async void OpenSourceLink_Click(object sender, RoutedEventArgs e)

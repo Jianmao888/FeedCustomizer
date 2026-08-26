@@ -138,7 +138,7 @@
     <comment>Display text for the "Apply" button on the home page</comment>
   </data>
   <data name="AppName" xml:space="preserve">
-    <value>Feed Customization Tool</value>
+    <value>Widget Feed Customizer</value>
     <comment>Display name of the application</comment>
   </data>
   <data name="CancelButton.Text" xml:space="preserve">
@@ -274,7 +274,7 @@
     <comment>"Open Source URL" heading on the About page</comment>
   </data>
   <data name="AboutAppName.Text" xml:space="preserve">
-    <value>Feed Customization Tool</value>
+    <value>Widget Feed Customizer</value>
     <comment>Display text for the app name on the About page</comment>
   </data>
   <data name="DialogOK" xml:space="preserve">
@@ -392,5 +392,49 @@
   <data name="Settings_SoundCard.Header" xml:space="preserve">
     <value>Control sound</value>
     <comment>Header of the control sounds settings card on the settings page</comment>
+  </data>
+  <data name="DonationGroup.Text" xml:space="preserve">
+    <value>Donor Edition</value>
+    <comment>Group heading for the donor edition on the settings page</comment>
+  </data>
+  <data name="DonationCard.Header" xml:space="preserve">
+    <value>Buy Donor Edition</value>
+    <comment>Header of the buy donor edition card on the settings page</comment>
+  </data>
+  <data name="DonationCard.Description" xml:space="preserve">
+    <value>Support us by buying the Donor edition</value>
+    <comment>Description of the buy donor edition card on the settings page</comment>
+  </data>
+  <data name="DonateButton.Content" xml:space="preserve">
+    <value>Buy Donor Edition</value>
+    <comment>Text of the buy donor edition button on the settings page</comment>
+  </data>
+  <data name="DonationThanks.Text" xml:space="preserve">
+    <value>Thank you for buying the Donor Edition!</value>
+    <comment>Thanks text shown after the donor edition has been purchased</comment>
+  </data>
+  <data name="DonationConfirmTitle" xml:space="preserve">
+    <value>Buy Donor Edition</value>
+    <comment>Title of the buy donor edition confirmation dialog</comment>
+  </data>
+  <data name="DonationConfirmMessage" xml:space="preserve">
+    <value>The Donor Edition is functionally identical to the standard edition. The only difference is that this area shows a thank-you message, and there are no other privileges. Buy the Donor Edition?</value>
+    <comment>Content of the buy donor edition confirmation dialog</comment>
+  </data>
+  <data name="DonationConfirmPrimaryButtonText" xml:space="preserve">
+    <value>Buy</value>
+    <comment>Primary button (purchase) text of the buy donor edition confirmation dialog</comment>
+  </data>
+  <data name="DonationConfirmCloseButtonText" xml:space="preserve">
+    <value>Cancel</value>
+    <comment>Close button text of the buy donor edition confirmation dialog</comment>
+  </data>
+  <data name="DonationErrorTitle" xml:space="preserve">
+    <value>Purchase failed</value>
+    <comment>Title of the donor edition purchase error dialog</comment>
+  </data>
+  <data name="DonationErrorMessage" xml:space="preserve">
+    <value>Unable to complete the purchase. Please try again later, or check your Microsoft Store account status.</value>
+    <comment>Content of the donor edition purchase error dialog</comment>
   </data>
 </root>

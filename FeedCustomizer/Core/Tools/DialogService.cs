@@ -52,6 +52,32 @@ namespace FeedCustomizer.Core.Tools
             });
         }
 
+        public async Task<bool> ShowConfirmAsync(string title, string content, string primaryButtonText, string closeButtonText)
+        {
+            bool confirmed = false;
+            await _uiThreadRunner.RunAsync(async () =>
+            {
+                var dialog = new ContentDialog
+                {
+                    Title = title,
+                    Content = new TextBlock
+                    {
+                        Text = content,
+                        TextWrapping = TextWrapping.Wrap,
+                        FontSize = 14
+                    },
+                    PrimaryButtonText = primaryButtonText,
+                    CloseButtonText = closeButtonText,
+                    DefaultButton = ContentDialogButton.Primary
+                };
+
+                var result = await ShowWithGateAsync(dialog);
+                confirmed = result == ContentDialogResult.Primary;
+            });
+
+            return confirmed;
+        }
+
         public async Task ShowStartupFailureAsync(string title, string details)
         {
             await _waitForSplashHidden();
@@ -105,19 +131,19 @@ namespace FeedCustomizer.Core.Tools
             });
         }
 
-        private async Task ShowWithGateAsync(ContentDialog dialog)
+        private async Task<ContentDialogResult> ShowWithGateAsync(ContentDialog dialog)
         {
             var xamlRoot = _xamlRootProvider();
             if (xamlRoot is null)
             {
-                return;
+                return ContentDialogResult.None;
             }
 
             dialog.XamlRoot = xamlRoot;
             await _dialogGate.WaitAsync();
             try
             {
-                await dialog.ShowAsync();
+                return await dialog.ShowAsync();
             }
             finally
             {

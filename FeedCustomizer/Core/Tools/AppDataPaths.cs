@@ -1,70 +1,54 @@
 using System;
 using System.IO;
-using System.Runtime.InteropServices;
 using Windows.Storage;
 
 namespace FeedCustomizer.Core.Tools
 {
     internal static class AppDataPaths
     {
+        // The provider cache is ordinary per-user data. Use the real Local
+        // AppData folder (not the package's LocalCache) so the out-of-package
+        // PowerShell registration process reads and registers the same files.
+        // This app runs full trust, so its writes here are not redirected by
+        // the MSIX container.
         internal static string FeedProviderFolder => Path.Combine(
-            GetPhysicalAppDataFolder(),
-            "FeedCustomProvider");
-
-        // Builds before the registration staging split used this ordinary
-        // LocalAppData folder for both user data and AppX registration files.
-        // Keep it as a read-only migration source; never use it as the new
-        // registration target because stale files there can block deployment.
-        internal static string LegacyFeedProviderFolder => Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "FeedCustomProvider");
 
-        private static string GetPhysicalAppDataFolder()
+        // Package-local folder inside the app container where the app should
+        // store user-editable copies before they are published to the real
+        // LocalAppData. Prefer LocalCacheFolder and fall back to LocalFolder.
+        internal static string PackageLocalBase
         {
-            try
+            get
             {
-                // Environment.LocalApplicationData is virtualized for packaged
-                // processes. PowerShell runs outside the package and therefore
-                // cannot resolve that virtual path. LocalCacheFolder.Path is the
-                // physical package-data path visible to both processes.
-                return ApplicationData.Current.LocalCacheFolder.Path;
-            }
-            catch
-            {
-                // Unpackaged/debug launch fallback.
-                return Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+                try
+                {
+                    return ApplicationData.Current.LocalCacheFolder.Path;
+                }
+                catch
+                {
+                    try
+                    {
+                        return ApplicationData.Current.LocalFolder.Path;
+                    }
+                    catch
+                    {
+                        return Path.Combine(AppContext.BaseDirectory, "LocalCache");
+                    }
+                }
             }
         }
+
+        internal static string PackageLocalFeedProviderFolder => Path.Combine(PackageLocalBase, "Local", "FeedCustomProvider");
+
+        internal static string PackageLocalManifestPath => Path.Combine(PackageLocalFeedProviderFolder, "AppxManifest.xml");
+
+        internal static string PackageLocalProviderExecutablePath => Path.Combine(PackageLocalFeedProviderFolder, "FeedProvider", "FeedProvider.exe");
 
         internal static string ManifestPath => Path.Combine(
             FeedProviderFolder,
             "AppxManifest.xml");
-
-        // AppX deployment rejects manifests beneath another package's LocalCache
-        // mount point. Keep the deployment copy in a separate ordinary,
-        // non-virtualized directory so the legacy user-data cache cannot collide
-        // with registration files.
-        internal static string RegistrationFolder => Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "FeedCustomProviderRegistration");
-
-        internal static string RegistrationManifestPath => Path.Combine(
-            RegistrationFolder,
-            "AppxManifest.xml");
-
-        internal static string ProviderArchitectureFolder
-        {
-            get
-            {
-                var architecture = RuntimeInformation.ProcessArchitecture;
-                if (architecture is not Architecture.X64 and not Architecture.Arm64)
-                {
-                    throw new PlatformNotSupportedException($"不支持的处理器架构：{architecture}");
-                }
-
-                return $"win-{architecture.ToString().ToLowerInvariant()}";
-            }
-        }
 
         internal static string ProviderExecutablePath => Path.Combine(
             FeedProviderFolder,

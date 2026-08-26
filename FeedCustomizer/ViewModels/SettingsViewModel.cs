@@ -1,15 +1,31 @@
 ﻿using FeedCustomizer.Core.Constants;
-using Windows.ApplicationModel;
+using System;
 using System.Linq;
+using Windows.ApplicationModel;
 
 namespace FeedCustomizer.ViewModels
 {
-    public class AboutViewModel
+    public class SettingsViewModel
     {
         private readonly Microsoft.Windows.ApplicationModel.Resources.ResourceLoader resourceLoader = new();
 
         // 为 XAML 绑定提供应用图标（BitmapImage）
-        public Microsoft.UI.Xaml.Media.Imaging.BitmapImage AppLogoImage => new(Package.Current.Logo);
+        public Microsoft.UI.Xaml.Media.Imaging.BitmapImage AppLogoImage
+        {
+            get
+            {
+                try
+                {
+                    return new(Package.Current.Logo);
+                }
+                catch (ArgumentException)
+                {
+                    // 包清单中的 Logo 不是有效的绝对 URI 时，
+                    // 回退到内置图标资源，避免“关于”页绑定崩溃。
+                    return new(new Uri("ms-appx:///Assets/StoreLogo.scale-200.png"));
+                }
+            }
+        }
 
         public static string Developer => Package.Current.PublisherDisplayName;
 
