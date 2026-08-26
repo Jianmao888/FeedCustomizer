@@ -138,7 +138,7 @@
     <comment>首页“应用”按钮显示文字</comment>
   </data>
   <data name="AppName" xml:space="preserve">
-    <value>小组件源自定义工具</value>
+    <value>资讯源自定义工具</value>
     <comment>应用的显示名称</comment>
   </data>
   <data name="CancelButton.Text" xml:space="preserve">

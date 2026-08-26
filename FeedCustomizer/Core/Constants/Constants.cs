@@ -19,11 +19,11 @@
         public static readonly string DonationAddOnStoreId = "Donation_Tier";
 
         // 如果有多个合作者，可以在这里添加姓名与对应的商店链接
-        public static readonly string[] DeveloperNames = ["惜忆想睡觉", "窗边的贱猫"];
+        public static readonly string[] DeveloperNames = ["窗边的贱猫", "惜忆想睡觉"];
         public static readonly string[] DeveloperStoreLinks
             = [
-                "https://apps.microsoft.com/search/publisher?name=%E6%83%9C%E5%BF%86%E6%83%B3%E7%9D%A1%E8%A7%89&",
-                "https://apps.microsoft.com/search/publisher?name=jianmao888&"
+                "https://gitee.com/jianmao888",
+                "https://apps.microsoft.com/search/publisher?name=%E6%83%9C%E5%BF%86%E6%83%B3%E7%9D%A1%E8%A7%89&"
             ];
 
         // 设置项默认值
