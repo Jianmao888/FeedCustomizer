@@ -437,4 +437,12 @@
     <value>Unable to complete the purchase. Please try again later, or check your Microsoft Store account status.</value>
     <comment>Content of the donor edition purchase error dialog</comment>
   </data>
+  <data name="RegionWarningInfoBar.Message" xml:space="preserve">
+    <value>The current device region may prevent custom feeds from being displayed.</value>
+    <comment>Message shown in the banner at the top of the home page when the device region is not an EU member state</comment>
+  </data>
+  <data name="RegionWarningLearnMoreButton.Content" xml:space="preserve">
+    <value>Learn more</value>
+    <comment>Text for the hyperlink button that opens the help document in the device region warning banner</comment>
+  </data>
 </root>

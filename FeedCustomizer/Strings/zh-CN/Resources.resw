@@ -437,4 +437,12 @@
     <value>无法完成购买，请稍后重试，或检查 Microsoft Store 账户状态。</value>
     <comment>购买捐赠者版失败弹窗内容</comment>
   </data>
+  <data name="RegionWarningInfoBar.Message" xml:space="preserve">
+    <value>当前的设备设置区域可能导致自定义源无法展示。</value>
+    <comment>设备设置区域不是欧盟成员国时主界面顶部提示横幅的内容</comment>
+  </data>
+  <data name="RegionWarningLearnMoreButton.Content" xml:space="preserve">
+    <value>了解更多</value>
+    <comment>设备设置区域提示横幅中打开帮助文档的超链接按钮文本</comment>
+  </data>
 </root>
