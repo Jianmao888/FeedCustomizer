@@ -118,12 +118,12 @@
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <data name="AboutButton.ToolTipService.ToolTip" xml:space="preserve">
-    <value>About</value>
-    <comment>Tooltip text for the "About" button at the bottom of the home page</comment>
+    <value>Settings</value>
+    <comment>Tooltip text for the "Settings" button at the bottom of the home page</comment>
   </data>
   <data name="AboutButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
-    <value>About</value>
-    <comment>Screen reader text for the "About" button at the bottom of the home page</comment>
+    <value>Settings</value>
+    <comment>Screen reader text for the "Settings" button at the bottom of the home page</comment>
   </data>
   <data name="AddFeedButton.Text" xml:space="preserve">
     <value>New</value>

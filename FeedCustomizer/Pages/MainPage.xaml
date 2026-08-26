@@ -165,7 +165,7 @@
                         <FontIcon Glyph="&#xE82F;" FontSize="16"/>
                     </HyperlinkButton>
                     <HyperlinkButton Padding="6" x:Uid="AboutButton" Click="OnAboutButtonClicked">
-                        <FontIcon Glyph="&#xE946;" FontSize="16"/>
+                        <FontIcon Glyph="&#xE713;" FontSize="16"/>
                     </HyperlinkButton>
                 </StackPanel>
 
