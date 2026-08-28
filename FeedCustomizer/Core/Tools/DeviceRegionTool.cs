@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using System.Threading.Tasks;
 
 namespace FeedCustomizer.Core.Tools
 {
@@ -33,7 +34,7 @@ namespace FeedCustomizer.Core.Tools
         /// 判断当前设备设置区域是否为非欧盟成员国。仅当能够读取并识别出区域代码时
         /// 才返回 true，读取失败时返回 false 以避免误报。
         /// </summary>
-        public static bool IsNonEuropeanUnionRegion()
+        public async static Task<bool> IsNonEuropeanUnionRegion()
         {
             int? geoId = GetDeviceRegionGeoId();
             if (geoId is null)

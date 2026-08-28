@@ -6,7 +6,7 @@
     Style="{StaticResource DefaultContentDialogStyle}"
     x:Uid="StartupFailureDialog"
     DefaultButton="Close">
-    <Grid MinWidth="300" MaxWidth="640">
+    <Grid MinWidth="300" MaxWidth="380">
         <ScrollViewer MaxHeight="420"
                       HorizontalScrollBarVisibility="Disabled"
                       VerticalScrollBarVisibility="Auto">

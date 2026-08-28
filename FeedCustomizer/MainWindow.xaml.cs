@@ -110,8 +110,6 @@ namespace FeedCustomizer
             {
                 SplashOverlay.Visibility = Visibility.Collapsed;
                 _splashHidden.TrySetResult(true);
-                bool sound = SettingsLoader.GetEnableSound();
-                ElementSoundPlayer.State = sound ? ElementSoundPlayerState.On : ElementSoundPlayerState.Off;
             };
             SplashFadeOut.Begin();
         }

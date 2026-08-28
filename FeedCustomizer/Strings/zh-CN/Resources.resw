@@ -381,14 +381,6 @@
     <value>选择要显示的应用材质</value>
     <comment>设置页面背景材质设置展开器副标题</comment>
   </data>
-  <data name="SoundGroup.Text" xml:space="preserve">
-    <value>声音</value>
-    <comment>设置页面声音设置分组标题</comment>
-  </data>
-  <data name="SoundToggle.Header" xml:space="preserve">
-    <value>启用控件声音</value>
-    <comment>设置页面控件声音开关标头文本</comment>
-  </data>
   <data name="AdvancedGroup.Text" xml:space="preserve">
     <value>高级</value>
     <comment>设置页面高级设置分组标题</comment>
@@ -453,14 +445,6 @@
     <value>关于</value>
     <comment>设置页面关于信息分组标题</comment>
   </data>
-  <data name="Settings_SoundCard.Description" xml:space="preserve">
-    <value>控制应用中的交互提示音</value>
-    <comment>设置页面控件声音设置卡片描述</comment>
-  </data>
-  <data name="Settings_SoundCard.Header" xml:space="preserve">
-    <value>控件声音</value>
-    <comment>设置页面控件声音设置卡片标头</comment>
-  </data>
   <data name="DonationGroup.Text" xml:space="preserve">
     <value>捐赠者版</value>
     <comment>设置页面捐赠者版分组标题</comment>
@@ -512,5 +496,9 @@
   <data name="RegionWarningUnlockButton.Content" xml:space="preserve">
     <value>解除限制</value>
     <comment>设备设置区域提示横幅中跳转到设置页解除限制的超链接按钮文本</comment>
+  </data>
+  <data name="DialogCancel" xml:space="preserve">
+    <value>取消</value>
+    <comment>弹窗的取消按钮</comment>
   </data>
 </root>

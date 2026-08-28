@@ -36,6 +36,23 @@ namespace FeedCustomizer.Core.Tools
             }
         }
 
+        /// <summary>
+        /// 将已经准备好的包内暂存资源发布到真实目录并注册源提供程序。
+        /// 开关和应用源配置时调用；资源准备工作由启动流程负责。
+        /// </summary>
+        public static async Task<bool> InstallFeedProviderFromStagedResources()
+        {
+            await RegistrationGate.WaitAsync();
+            try
+            {
+                return await InstallFeedProviderFromStagedResourcesCoreAsync();
+            }
+            finally
+            {
+                RegistrationGate.Release();
+            }
+        }
+
         private static async Task<bool> InstallFeedProviderCoreAsync()
         {
             try
@@ -55,55 +72,7 @@ namespace FeedCustomizer.Core.Tools
                     await UninstallFeedProviderCoreAsync();
                 }
 
-                // 在注册前，将应用包内的需要文件使用 PowerShell 同步到真实的
-                // %LocalAppData%\FeedCustomProvider 路径，避免应用写入被重定向导致
-                // Add-AppxPackage 无法访问到真实文件的问题。只复制已修改的文件
-                //（使用 robocopy），并在第一次失败时尝试备份模式重试以应对被占用的文件。
-                await StopProviderProcessesAsync();
-                string realManifestPath = await CopyPackageFilesToRealLocalAppDataAsync();
-
-                var result = await RegisterProviderAsync(realManifestPath);
-                if (result.ExitCode == 0)
-                {
-                    return true;
-                }
-
-                Debug.WriteLine($"Feed provider registration failed ({result.ExitCode}): {result.Error}");
-
-                if (!IsDeveloperModeError(result))
-                {
-                    await ShowInstallErrorAsync(result.Error, result.ExitCode, result.Output);
-                    return false;
-                }
-
-                // 开发者模式未开启。开关关闭时先询问用户是否启用自动开启，
-                // 开关打开或用户同意后，通过单次提权临时开启开发者模式完成注册。
-                if (!SettingsLoader.GetAutoEnableDeveloperMode())
-                {
-                    if (!await PromptEnableAutoDeveloperModeAsync())
-                    {
-                        return false;
-                    }
-
-                    SettingsLoader.SetAutoEnableDeveloperMode(true);
-                }
-
-                var elevatedResult = await DeveloperModeService.RegisterWithTemporaryDeveloperModeAsync(realManifestPath);
-                if (elevatedResult.ExitCode == 0)
-                {
-                    return true;
-                }
-
-                if (elevatedResult.ExitCode == DeveloperModeService.ElevationCancelledExitCode)
-                {
-                    await ShowDeveloperModeElevationCancelledAsync();
-                }
-                else
-                {
-                    await ShowInstallErrorAsync(elevatedResult.Error, elevatedResult.ExitCode, elevatedResult.Output);
-                }
-
-                return false;
+                return await PublishAndRegisterProviderAsync();
             }
             catch (Exception ex)
             {
@@ -111,6 +80,82 @@ namespace FeedCustomizer.Core.Tools
                 await ShowInstallErrorAsync(ex.ToString(), null, string.Empty);
                 return false;
             }
+        }
+
+        private static async Task<bool> InstallFeedProviderFromStagedResourcesCoreAsync()
+        {
+            try
+            {
+                if (await IsFeedProviderInstalled())
+                {
+                    await UninstallFeedProviderCoreAsync();
+                }
+                else
+                {
+                    await StopProviderProcessesAsync();
+                }
+
+                return await PublishAndRegisterProviderAsync();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine(ex.ToString());
+                await ShowInstallErrorAsync(ex.ToString(), null, string.Empty);
+                return false;
+            }
+        }
+
+        private static async Task<bool> PublishAndRegisterProviderAsync()
+        {
+            // 在注册前，将应用包内的文件同步到真实的
+            // %LocalAppData%\FeedCustomProvider 路径，避免应用写入被重定向导致
+            // Add-AppxPackage 无法访问到真实文件的问题。只复制已修改的文件
+            //（使用 robocopy），并在第一次失败时尝试备份模式重试以应对被占用的文件。
+            await StopProviderProcessesAsync();
+            string realManifestPath = await CopyPackageFilesToRealLocalAppDataAsync();
+
+            var result = await RegisterProviderAsync(realManifestPath);
+            if (result.ExitCode == 0)
+            {
+                return true;
+            }
+
+            Debug.WriteLine($"Feed provider registration failed ({result.ExitCode}): {result.Error}");
+
+            if (!IsDeveloperModeError(result))
+            {
+                await ShowInstallErrorAsync(result.Error, result.ExitCode, result.Output);
+                return false;
+            }
+
+            // 开发者模式未开启。开关关闭时先询问用户是否启用自动开启，
+            // 开关打开或用户同意后，通过单次提权临时开启开发者模式完成注册。
+            if (!SettingsLoader.GetAutoEnableDeveloperMode())
+            {
+                if (!await PromptEnableAutoDeveloperModeAsync())
+                {
+                    return false;
+                }
+
+                SettingsLoader.SetAutoEnableDeveloperMode(true);
+            }
+
+            var elevatedResult = await DeveloperModeService.RegisterWithTemporaryDeveloperModeAsync(realManifestPath);
+            if (elevatedResult.ExitCode == 0)
+            {
+                return true;
+            }
+
+            if (elevatedResult.ExitCode == DeveloperModeService.ElevationCancelledExitCode)
+            {
+                await ShowDeveloperModeElevationCancelledAsync();
+            }
+            else
+            {
+                await ShowInstallErrorAsync(elevatedResult.Error, elevatedResult.ExitCode, elevatedResult.Output);
+            }
+
+            return false;
         }
 
         private static string BuildRegistrationCommand(string escapedManifestPath)
@@ -137,7 +182,7 @@ namespace FeedCustomizer.Core.Tools
                 resourceLoader.GetString("EnableProviderFail"),
                 resourceLoader.GetString("DeveloperModeDisabled"),
                 resourceLoader.GetString("EnableAutoDeveloperMode"),
-                resourceLoader.GetString("DialogOK"));
+                resourceLoader.GetString("DialogCancel"));
         }
 
         private static Task ShowDeveloperModeElevationCancelledAsync()

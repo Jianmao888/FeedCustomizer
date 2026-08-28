@@ -91,11 +91,7 @@ namespace FeedCustomizer
             catch { CurrentTheme = ElementTheme.Default; }
             try { CurrentMaterial = SettingsLoader.GetAppMaterial() switch { "MicaAlt" => BackgroundMaterial.MicaAlt, "Acrylic" => BackgroundMaterial.Acrylic, _ => BackgroundMaterial.Mica }; }
             catch { CurrentMaterial = BackgroundMaterial.Mica; }
-            try
-            {
-                ElementSoundPlayer.State = SettingsLoader.GetEnableSound() ? ElementSoundPlayerState.On : ElementSoundPlayerState.Off;
-            }
-            catch { ElementSoundPlayer.State = ElementSoundPlayerState.On; }
+            ElementSoundPlayer.State = ElementSoundPlayerState.Off;
         }
 
         public static void ApplyMaterial()

@@ -44,20 +44,6 @@ namespace FeedCustomizer.Core.Tools
         public static void SetAppMaterial(string value) =>
             LocalSettings.Values["AppMaterial"] = value;
 
-        public static bool GetEnableSound()
-        {
-            if (LocalSettings.Values["EnableSound"] is bool value)
-            {
-                return value;
-            }
-
-            SetEnableSound(SettingDefaults.EnableSound);
-            return SettingDefaults.EnableSound;
-        }
-
-        public static void SetEnableSound(bool value) =>
-            LocalSettings.Values["EnableSound"] = value;
-
         public static bool GetIsFirstRun()
         {
             if (LocalSettings.Values["IsFirstRun"] is bool value)

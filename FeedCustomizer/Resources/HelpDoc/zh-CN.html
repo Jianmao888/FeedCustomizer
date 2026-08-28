@@ -253,60 +253,60 @@
             <span>源自定义工具 · 帮助文档</span>
         </h1>
         <div class="subheading">
-            启动本工具前，请确认以下三项系统配置均已就绪。每项均附操作指引。
+            使用本工具前，请了解以下功能及其适用条件。开发者选项和地区限制均可在应用的“设置 → 高级”中处理。
         </div>
 
         <div class="prereq-section">
-            <!-- 1. 开发者模式（含安全警告） -->
+            <!-- 1. 开发者选项（含安全警告） -->
             <div class="prereq-card">
                 <div class="card-header">
-                    <span class="step-number">条件 1</span>
-                    <span class="card-title">开发者模式</span>
+                    <span class="step-number">功能 1</span>
+                    <span class="card-title">自动启用开发者选项</span>
                 </div>
                 <div class="card-desc">
-                    <p>需启用 Windows 开发者模式以允许本地调试接口。</p>
+                    <p>启用设置中的“自动启用开发者选项”后，应用每次安装自定义源时都会临时开启 Windows 开发者选项，完成操作后自动关闭。</p>
                     <ul class="step-list">
-                        <li>打开 <strong>设置</strong> → <strong>系统</strong> → <strong>高级</strong> → <strong>开发者选项</strong></li>
-                        <li>将 <code>开发者模式</code> 切换为 <strong>开启</strong>，并按提示确认。</li>
+                        <li>打开本工具的 <strong>设置</strong> → <strong>高级</strong>。</li>
+                        <li>开启 <code>自动启用开发者选项</code> 配置即可，无需每次手动切换系统设置。</li>
+                        <li>关闭此配置后，如需继续注册自定义源，则需要按照 Windows 的提示手动开启开发者选项。</li>
                     </ul>
                     <div class="action-hint">
-                        若无法找到，可使用设置搜索栏查找“开发者模式”
+                        Windows 系统设置中的名称可能显示为“开发者模式”或“开发者选项”
                     </div>
 
                     <!-- 安全警告 -->
                     <div class="warning-box">
-                        <strong>⚠️ 安全警告：</strong> 开启开发者模式可能会降低设备安全性，增加潜在风险。建议仅在编辑源配置或启用/关闭自定义源时临时开启。<br>
-                        <span style="font-size:0.92rem; display:inline-block; margin-top:0.2rem;">关闭开发者模式后，已添加的自定义源依旧会正常显示，不影响已有功能。</span>
+                        <strong>⚠️ 安全提示：</strong> 开发者选项可能会降低设备安全性。应用只会在执行需要该权限的操作期间临时开启，完成后自动恢复原状态。<br>
+                        <span style="font-size:0.92rem; display:inline-block; margin-top:0.2rem;">关闭开发者选项后，已添加的自定义源依旧会正常显示，不影响已有功能。</span>
                     </div>
                 </div>
             </div>
 
-            <!-- 2. 区域设置为欧盟国家 -->
+            <!-- 2. 解除地区限制（含安全警告） -->
             <div class="prereq-card">
                 <div class="card-header">
-                    <span class="step-number">条件 2</span>
-                    <span class="card-title">区域：欧盟国家</span>
+                    <span class="step-number">功能 2</span>
+                    <span class="card-title">解除自定义源地区限制</span>
                 </div>
                 <div class="card-desc">
-                    <p>设备“设备设置区域”必须设置为欧盟成员国。</p>
+                    <p>如果当前设备的“设备设置地区”不是欧盟成员国，可以使用设置中的“解除自定义源地区限制”功能，强制允许显示第三方自定义源。</p>
                     <ul class="step-list">
-                        <li>进入 <strong>设置</strong> → <strong>时间和语言</strong> → <strong>语言和区域</strong></li>
-                        <li>在 <strong>设备设置地区</strong> 中必须显示一个欧盟国家（注意并不是上方的“国家或地区”下拉框）（如 <code>德国</code>、<code>法国</code>、<code>意大利</code> 等）。</li>
-                        <li>更改后可能需要在源自定义工具中重新启用自定义源。</li>
+                        <li>打开本工具的 <strong>设置</strong> → <strong>高级</strong>。</li>
+                        <li>点击 <code>解除限制</code>，确认警告并按提示授予管理员权限。</li>
+                        <li>修改成功后，重启小组件，或注销并重新登录 Windows，使配置生效。</li>
                     </ul>
 
-                    <div class="ref-box">
-                        <span style="font-weight: 500;">📄 可参考以下第三方博客：</span>
-                        <a href="https://lxnchan.cn/change-windows-installtion-region.html" target="_blank">
-                            change-windows-installtion-region · Lxn-Chan!
-                        </a>
-                        <div style="margin-top: 0.2rem; font-size:0.9rem; color: #1e3a5f;">
-                            ⚠️ 该博客并非由工具作者撰写，仅作为操作参考。
-                        </div>
+                    <div class="warning-box">
+                        <strong>⚠️ 风险提示：</strong> 此功能会通过修改 Windows 系统配置的方式强行开启自定义源显示，可能影响系统相关功能或稳定性。请在确认理解风险后再使用，并确保重要数据已有备份。<br>
+                        <span style="font-size:0.92rem; display:inline-block; margin-top:0.2rem;">系统更新可能会覆盖此修改，导致地区限制恢复；如需继续使用，可能需要重新执行解除限制操作。</span>
                     </div>
 
                     <div class="eu-list">
-                        <strong>欧盟国家列表（部分）：</strong> 奥地利、比利时、保加利亚、克罗地亚、塞浦路斯、捷克、丹麦、爱沙尼亚、芬兰、法国、德国、希腊、匈牙利、爱尔兰、意大利、拉脱维亚、立陶宛、卢森堡、马耳他、荷兰、波兰、葡萄牙、罗马尼亚、斯洛伐克、斯洛文尼亚、西班牙、瑞典。
+                        <strong>手动修改设备设置区域：</strong> Windows 无法在系统设置中直接修改“设备设置地区”。如需修改，请参考以下博客的说明，使用终端命令进行操作：
+                        <a href="https://lxnchan.cn/change-windows-installtion-region.html" target="_blank">修改Windows设备设置区域 · Lxn-Chan!</a>
+                        <div style="margin-top: 0.2rem; font-size:0.9rem; color: #1e3a5f;">
+                            ⚠️ 该博客并非由工具作者撰写，仅作为操作参考。请仔细阅读操作步骤，并自行评估风险。
+                        </div>
                     </div>
                 </div>
             </div>
@@ -314,7 +314,7 @@
             <!-- 3. WinUI3 小组件 -->
             <div class="prereq-card">
                 <div class="card-header">
-                    <span class="step-number">条件 3</span>
+                    <span class="step-number">条件 1</span>
                     <span class="card-title">WinUI 3 小组件</span>
                 </div>
                 <div class="card-desc">

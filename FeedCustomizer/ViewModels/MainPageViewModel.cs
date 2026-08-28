@@ -92,13 +92,9 @@ namespace FeedCustomizer.ViewModels
         /// </summary>
         private async Task InitializeAllFeedsAsync()
         {
-            await InitAsync();
-
-            // TODO 稍后要修改这里的横幅展示逻辑
-            // 如果系统策略已解限，则不展示地区限制警告横幅。
-            bool isNonEu = DeviceRegionTool.IsNonEuropeanUnionRegion();
-            bool isPolicyEnabled = await RegionPolicyService.IsThirdPartyWidgetFeedEnabledAsync();
-            IsRegionWarningVisible = isNonEu && !isPolicyEnabled;
+            Task regionInitializationTask = InitializeRegionStateAsync();
+            Task feedInitializationTask = InitAsync();
+            await Task.WhenAll(regionInitializationTask, feedInitializationTask);
 
             IsLoading = false;
             IsButtonsEnabled = true;
@@ -106,59 +102,118 @@ namespace FeedCustomizer.ViewModels
         }
 
         /// <summary>
-        /// 初始化应用程序：检查源提供程序是否安装，并更新或复制资源文件。
+        /// 初始化地区状态，并在进程生命周期内缓存检测结果。
+        /// </summary>
+        private async Task InitializeRegionStateAsync()
+        {
+            // TODO 稍后要修改这里的横幅展示逻辑
+            // 如果系统策略已解限，则不展示地区限制警告横幅。
+            bool? cachedIsNonEu = RegionDataService.IsNonEuropeanUnionRegion;
+            bool? cachedIsPolicyEnabled = RegionDataService.IsThirdPartyWidgetFeedEnabled;
+
+            Task<bool> regionTask = cachedIsNonEu is bool isNonEu
+                ? Task.FromResult(isNonEu)
+                : Task.Run(DeviceRegionTool.IsNonEuropeanUnionRegion);
+            Task<bool> policyTask = cachedIsPolicyEnabled is bool isPolicyEnabled
+                ? Task.FromResult(isPolicyEnabled)
+                : RegionPolicyService.IsThirdPartyWidgetFeedEnabledAsync();
+
+            await Task.WhenAll(regionTask, policyTask);
+
+            bool regionResult = regionTask.Result;
+            bool policyResult = policyTask.Result;
+            RegionDataService.IsNonEuropeanUnionRegion = regionResult;
+            RegionDataService.IsThirdPartyWidgetFeedEnabled = policyResult;
+            IsRegionWarningVisible = regionResult && !policyResult;
+        }
+
+        /// <summary>
+        /// 初始化源列表、资源文件和源提供程序状态。
         /// </summary>
         private async Task InitAsync()
         {
-            // 优先使用内存中缓存的开关状态，否则回退到系统安装状态。
-            if (FeedProviderEnableDataService.IsFeedProviderEnabled is bool cachedEnabled)
-            {
-                IsFeedProviderEnabled = cachedEnabled;
-            }
-            else
-            {
-                IsFeedProviderEnabled = await PackageInstaller.IsFeedProviderInstalled();
-            }
+            Task<bool> providerInstalledTask = PackageInstaller.IsFeedProviderInstalled();
+            Task<bool> resourceUpToDateTask = FeedListDataService.IsEnable
+                ? Task.FromResult(true)
+                : ResourcesCopier.IsResourceUpToDate();
+
+            await Task.WhenAll(providerInstalledTask, resourceUpToDateTask);
+
+            bool providerInstalled = providerInstalledTask.Result;
+            bool resourceUpToDate = resourceUpToDateTask.Result;
+
+            SetFeedProviderEnabled(providerInstalled);
 
             if (FeedListDataService.IsEnable)
             {
-                // 有缓存的源，直接读取。
                 LoadFeedsFromDataService();
             }
             else
             {
-                // 没有缓存，则执行从磁盘初始化的逻辑。
-                // 更新或复制源提供程序至用户数据目录。
-                bool isUpToDate = await ResourcesCopier.IsResourceUpToDate();
-                if (!isUpToDate)
-                {
-                    // 源提供程序的可执行文件可能被小组件占用而锁定。
-                    // 在替换 AOT 二进制文件前先注销它；安装只执行一次，
-                    // 放在此分支外可避免启动期间的第二次卸载/注册循环。
-                    if (IsFeedProviderEnabled && await PackageInstaller.IsFeedProviderInstalled())
-                    {
-                        await PackageInstaller.UninstallFeedProvider();
-                    }
-
-                    await ResourcesCopier.ResourcesCopyAsync();
-                }
-
-                // 加载源列表。
+                providerInstalled = await UpdateResourcesIfNeededAsync(
+                    providerInstalled,
+                    resourceUpToDate);
                 await LoadFeedsFromXmlAsync();
             }
 
-            // 如果有新建或编辑的源，则将其加入列表。
+            AddPendingFeed();
+            await EnsureFeedProviderRegistrationAsync(providerInstalled);
+        }
+
+        /// <summary>
+        /// 设置源提供程序开关状态：优先使用进程内缓存的用户开关状态。
+        /// </summary>
+        private void SetFeedProviderEnabled(bool providerInstalled)
+        {
+            IsFeedProviderEnabled = FeedProviderEnableDataService.IsFeedProviderEnabled is bool cachedEnabled
+                ? cachedEnabled
+                : providerInstalled;
+        }
+
+        /// <summary>
+        /// 根据启动阶段的检测结果更新源提供程序资源。
+        /// </summary>
+        private async Task<bool> UpdateResourcesIfNeededAsync(bool providerInstalled, bool resourceUpToDate)
+        {
+            if (resourceUpToDate)
+            {
+                return providerInstalled;
+            }
+
+            // 源提供程序的可执行文件可能被小组件占用而锁定。
+            // 在替换 AOT 二进制文件前先注销它。
+            if (IsFeedProviderEnabled && providerInstalled)
+            {
+                await PackageInstaller.UninstallFeedProvider();
+                providerInstalled = false;
+            }
+
+            await ResourcesCopier.ResourcesCopyAsync();
+            return providerInstalled;
+        }
+
+        /// <summary>
+        /// 如果有新建或编辑的源，则将其加入列表。
+        /// </summary>
+        private void AddPendingFeed()
+        {
             if (AddOrEditFeedDataService.Feed is Feed feed)
             {
                 AddOrEditFeed(new FeedViewModel(feed));
                 AddOrEditFeedDataService.Feed = null;
             }
+        }
 
+        /// <summary>
+        /// 根据启动阶段的检测结果判断是否需要重新注册源提供程序。
+        /// </summary>
+        private async Task EnsureFeedProviderRegistrationAsync(bool providerInstalled)
+        {
             // 不要在每次页面启动时都重写/重新注册源提供程序。
             // 小组件可能仍占用 COM 服务器；仅当包缺失或暂存文件
             // 与当前资源不一致时才刷新注册。
             if (IsFeedProviderEnabled &&
-                (!await PackageInstaller.IsFeedProviderInstalled() ||
+                (!providerInstalled ||
                  !ResourcesCopier.IsRegisteredProviderCurrent()))
             {
                 if (!await PackageInstaller.InstallFeedProvider())
@@ -331,7 +386,7 @@ namespace FeedCustomizer.ViewModels
 
                 if (IsFeedProviderEnabled)
                 {
-                    await PackageInstaller.InstallFeedProvider();
+                    await PackageInstaller.InstallFeedProviderFromStagedResources();
                 }
 
                 _deleteFeeds.Clear();
@@ -383,7 +438,7 @@ namespace FeedCustomizer.ViewModels
                 {
                     await PackageInstaller.UninstallFeedProvider();
                 }
-                else if (!await PackageInstaller.InstallFeedProvider())
+                else if (!await PackageInstaller.InstallFeedProviderFromStagedResources())
                 {
                     IsFeedProviderEnabled = false;
                 }
@@ -583,7 +638,7 @@ namespace FeedCustomizer.ViewModels
                 this,
                 new MainPageNavigationRequestedEventArgs(
                     MainPageNavigationTarget.RegionPolicySettings,
-                    Constants.RegionPolicy.NavigationParameter));
+                    "RegionPolicy"));
         }
     }
 

@@ -45,16 +45,6 @@
             </StackPanel>
 
             <StackPanel Spacing="3">
-                <TextBlock x:Uid="SoundGroup" FontSize="14" Margin="0,0,0,6" FontWeight="SemiBold"/>
-                <controls:SettingsCard x:Uid="Settings_SoundCard" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" MinHeight="70" Padding="16,0">
-                    <controls:SettingsCard.HeaderIcon>
-                        <FontIcon Glyph="&#xE767;" />
-                    </controls:SettingsCard.HeaderIcon>
-                    <ToggleSwitch IsOn="{x:Bind ViewModel.IsSoundEnabled, Mode=TwoWay}" HorizontalAlignment="Right"/>
-                </controls:SettingsCard>
-            </StackPanel>
-
-            <StackPanel Spacing="3">
                 <TextBlock x:Uid="AdvancedGroup" FontSize="14" Margin="0,0,0,6" FontWeight="SemiBold"/>
                 <controls:SettingsCard x:Uid="Settings_AutoDeveloperModeCard" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" MinHeight="70" Padding="16,0">
                     <controls:SettingsCard.HeaderIcon>
@@ -86,7 +76,7 @@
                 </controls:SettingsCard>
             </StackPanel>
 
-            <StackPanel Spacing="3">
+            <StackPanel Spacing="3" Margin="0,0,0,20">
                 <TextBlock x:Uid="AboutGroup" FontSize="14" Margin="0,0,0,6" FontWeight="SemiBold"/>
                 <Expander IsExpanded="False" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" MinHeight="70">
                     <Expander.Header>

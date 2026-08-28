@@ -11,7 +11,6 @@
 
         // 应用信息
         // 合作者姓名与商店链接统一写入常量，方便维护
-        public static readonly string DeveloperStoreLink = "https://apps.microsoft.com/search/publisher?name=%E6%83%9C%E5%BF%86%E6%83%B3%E7%9D%A1%E8%A7%89&";
         public static readonly string OpenSourceLink = "https://gitee.com/jianmao888/FeedCustomizer";
 
         // 捐赠者版（Store 加载项）的商店 ID
@@ -31,17 +30,8 @@
         {
             public const string AppTheme = "System";
             public const string AppMaterial = "Mica";
-            public const bool EnableSound = true;
             public const bool IsFirstRun = true;
             public const bool AutoEnableDeveloperMode = false;
-        }
-
-        // 解除自定义源地区限制相关常量
-        public static class RegionPolicy
-        {
-            public const string NavigationParameter = "RegionPolicy";
-            public const string PolicyFileName = "IntegratedServicesRegionPolicySet.json";
-            public const string WidgetsThirdPartyFeedGuid = "{16d2b50e-fa7c-4bb1-ab17-01d766530b3b}";
         }
     }
 }

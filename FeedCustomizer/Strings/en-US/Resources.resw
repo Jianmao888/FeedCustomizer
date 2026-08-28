@@ -381,14 +381,6 @@
     <value>Select the app material to display</value>
     <comment>Subtitle of the background material settings expander on the settings page</comment>
   </data>
-  <data name="SoundGroup.Text" xml:space="preserve">
-    <value>Sound</value>
-    <comment>Group heading for sound settings on the settings page</comment>
-  </data>
-  <data name="SoundToggle.Header" xml:space="preserve">
-    <value>Enable Control Sounds</value>
-    <comment>Header text of the control sounds toggle switch on the settings page</comment>
-  </data>
   <data name="AdvancedGroup.Text" xml:space="preserve">
     <value>Advanced</value>
     <comment>Group heading for advanced settings on the settings page</comment>
@@ -453,14 +445,6 @@
     <value>About</value>
     <comment>Group heading for about information on the settings page</comment>
   </data>
-  <data name="Settings_SoundCard.Description" xml:space="preserve">
-    <value>Control interaction sounds in the app</value>
-    <comment>Description of the control sounds settings card on the settings page</comment>
-  </data>
-  <data name="Settings_SoundCard.Header" xml:space="preserve">
-    <value>Control sound</value>
-    <comment>Header of the control sounds settings card on the settings page</comment>
-  </data>
   <data name="DonationGroup.Text" xml:space="preserve">
     <value>Donor Edition</value>
     <comment>Group heading for the donor edition on the settings page</comment>
@@ -512,5 +496,8 @@
   <data name="RegionWarningUnlockButton.Content" xml:space="preserve">
     <value>Remove restriction</value>
     <comment>Text for the hyperlink button in the device region warning banner that opens the remove-restriction option in settings</comment>
+  </data>
+  <data name="DialogCancel" xml:space="preserve">
+    <value>Cancel</value>
   </data>
 </root>

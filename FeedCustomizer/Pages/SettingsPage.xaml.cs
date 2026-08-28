@@ -35,7 +35,7 @@ namespace FeedCustomizer.Pages
         {
             base.OnNavigatedTo(e);
             _focusRegionPolicyButton = e.Parameter is string parameter &&
-                parameter == Constants.RegionPolicy.NavigationParameter;
+                parameter == "RegionPolicy";
         }
 
         /// <summary>

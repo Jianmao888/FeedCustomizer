@@ -14,7 +14,7 @@ using Windows.ApplicationModel;
 namespace FeedCustomizer.ViewModels
 {
     /// <summary>
-    /// 设置页的视图模型：集中管理外观、声音、高级选项、捐赠与“关于”信息等业务逻辑。
+    /// 设置页的视图模型：集中管理外观、高级选项、捐赠与“关于”信息等业务逻辑。
     /// 页面后置代码只保留焦点控制、打开外部链接等与 UI 强相关的交互。
     /// </summary>
     public partial class SettingsViewModel : ObservableObject
@@ -38,10 +38,6 @@ namespace FeedCustomizer.ViewModels
         /// <summary>背景材质单选索引：0=Mica，1=Mica Alt，2=Acrylic。</summary>
         [ObservableProperty]
         public partial int MaterialIndex { get; set; }
-
-        /// <summary>是否启用应用音效。</summary>
-        [ObservableProperty]
-        public partial bool IsSoundEnabled { get; set; }
 
         /// <summary>是否自动启用开发者模式。</summary>
         [ObservableProperty]
@@ -124,16 +120,10 @@ namespace FeedCustomizer.ViewModels
         /// <summary>发布者显示名。</summary>
         public static string Developer => Package.Current.PublisherDisplayName;
 
-        /// <summary>开发者商店链接（未配置多个合作者时的回退值）。</summary>
-        public string DeveloperStoreLink { get; set; } =
-            (Constants.DeveloperStoreLinks != null && Constants.DeveloperStoreLinks.Length > 0 && !string.IsNullOrEmpty(Constants.DeveloperStoreLinks[0]))
-            ? Constants.DeveloperStoreLinks[0]
-            : Constants.DeveloperStoreLink;
-
         // 为 XAML 绑定提供单独的开发者名与链接（支持两个合作者）。
         public string Developer1Name => (Constants.DeveloperNames != null && Constants.DeveloperNames.Length > 0) ? Constants.DeveloperNames[0] : Developer;
         public string Developer2Name => (Constants.DeveloperNames != null && Constants.DeveloperNames.Length > 1) ? Constants.DeveloperNames[1] : string.Empty;
-        public string Developer1Link => (Constants.DeveloperStoreLinks != null && Constants.DeveloperStoreLinks.Length > 0 && !string.IsNullOrEmpty(Constants.DeveloperStoreLinks[0])) ? Constants.DeveloperStoreLinks[0] : Constants.DeveloperStoreLink;
+        public string Developer1Link => Constants.DeveloperStoreLinks[0];
         public string Developer2Link => (Constants.DeveloperStoreLinks != null && Constants.DeveloperStoreLinks.Length > 1 && !string.IsNullOrEmpty(Constants.DeveloperStoreLinks[1])) ? Constants.DeveloperStoreLinks[1] : string.Empty;
 
         /// <summary>开源仓库链接。</summary>
@@ -177,7 +167,6 @@ namespace FeedCustomizer.ViewModels
                 _ => 0
             };
 
-            IsSoundEnabled = SettingsLoader.GetEnableSound();
             IsAutoDeveloperModeEnabled = SettingsLoader.GetAutoEnableDeveloperMode();
         }
 
@@ -194,20 +183,20 @@ namespace FeedCustomizer.ViewModels
         // 属性变化处理（用户修改设置后立即持久化并生效）
         // =====================
 
-        partial void OnThemeIndexChanged(int index)
+        partial void OnThemeIndexChanged(int value)
         {
             if (_isInitializing)
             {
                 return;
             }
 
-            string themeSetting = index switch
+            string themeSetting = value switch
             {
                 1 => "Light",
                 2 => "Dark",
                 _ => "System"
             };
-            var theme = index switch
+            var theme = value switch
             {
                 1 => ElementTheme.Light,
                 2 => ElementTheme.Dark,
@@ -223,14 +212,14 @@ namespace FeedCustomizer.ViewModels
             AppThemeManager.UpdateTitleBarColors();
         }
 
-        partial void OnMaterialIndexChanged(int index)
+        partial void OnMaterialIndexChanged(int value)
         {
             if (_isInitializing)
             {
                 return;
             }
 
-            string materialSetting = index switch
+            string materialSetting = value switch
             {
                 1 => "MicaAlt",
                 2 => "Acrylic",
@@ -244,17 +233,6 @@ namespace FeedCustomizer.ViewModels
                 _ => BackgroundMaterial.Mica
             };
             AppThemeManager.ApplyMaterial();
-        }
-
-        partial void OnIsSoundEnabledChanged(bool value)
-        {
-            if (_isInitializing)
-            {
-                return;
-            }
-
-            SettingsLoader.SetEnableSound(value);
-            ElementSoundPlayer.State = value ? ElementSoundPlayerState.On : ElementSoundPlayerState.Off;
         }
 
         partial void OnIsAutoDeveloperModeEnabledChanged(bool value)
@@ -309,12 +287,14 @@ namespace FeedCustomizer.ViewModels
             OpenLinkRequested?.Invoke(this, OpenSourceUrl);
         }
 
-        /// <summary>打开开发者商店链接；未提供链接时回退到默认商店链接。</summary>
+        /// <summary>打开开发者商店链接。</summary>
         [RelayCommand]
         private void OpenDeveloperLink(string? url)
         {
-            string link = string.IsNullOrEmpty(url) ? DeveloperStoreLink : url;
-            OpenLinkRequested?.Invoke(this, link);
+            if (!string.IsNullOrEmpty(url))
+            {
+                OpenLinkRequested?.Invoke(this, url);
+            }
         }
 
         /// <summary>

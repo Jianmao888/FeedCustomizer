@@ -253,60 +253,60 @@
             <span>Feed Customization Tool · Help</span>
         </h1>
         <div class="subheading">
-            Before launching this tool, please ensure the following three system configurations are in place. Instructions are provided for each.
+            Before using this tool, please review the following features and their requirements. Developer options and region restrictions can be managed under “Settings → Advanced” in the app.
         </div>
 
         <div class="prereq-section">
-            <!-- 1. Developer Mode (with security warning) -->
+            <!-- 1. Developer options (with security warning) -->
             <div class="prereq-card">
                 <div class="card-header">
-                    <span class="step-number">Prerequisite 1</span>
-                    <span class="card-title">Developer Mode</span>
+                    <span class="step-number">Feature 1</span>
+                    <span class="card-title">Automatically enable developer options</span>
                 </div>
                 <div class="card-desc">
-                    <p>Windows Developer Mode must be enabled to allow local debugging interfaces.</p>
+                    <p>When “Automatically enable developer options” is enabled, the app temporarily enables Windows developer options each time a custom feed is installed, then automatically disables them after the operation is complete.</p>
                     <ul class="step-list">
-                        <li>Open <strong>Settings</strong> → <strong>System</strong> → <strong>Advanced</strong> → <strong>Developer Options</strong></li>
-                        <li>Toggle <code>Developer Mode</code> to <strong>On</strong> and confirm when prompted.</li>
+                        <li>Open <strong>Settings</strong> → <strong>Advanced</strong> in this tool.</li>
+                        <li>Enable the <code>Automatically enable developer options</code> setting; you do not need to switch the Windows setting manually each time.</li>
+                        <li>If this setting is disabled, you must manually enable developer options when prompted by Windows to install a custom feed.</li>
                     </ul>
                     <div class="action-hint">
-                        If you cannot find it, use the Settings search bar and look for "Developer Mode"
+                        The Windows setting may be named “Developer Mode” or “Developer options”
                     </div>
 
                     <!-- Security warning -->
                     <div class="warning-box">
-                        <strong>⚠️ Security Warning:</strong> Enabling Developer Mode may reduce device security and increase potential risks. It is recommended to enable it only temporarily while editing feed configurations or enabling/disabling custom feeds.<br>
-                        <span style="font-size:0.92rem; display:inline-block; margin-top:0.2rem;">After disabling Developer Mode, any custom feeds you have added will still display normally and existing functionality remains unaffected.</span>
+                        <strong>⚠️ Security Notice:</strong> Developer options may reduce device security. The app enables them only temporarily while performing operations that require them, then restores the previous state.<br>
+                        <span style="font-size:0.92rem; display:inline-block; margin-top:0.2rem;">After developer options are disabled, any custom feeds you have added will still display normally and existing functionality remains unaffected.</span>
                     </div>
                 </div>
             </div>
 
-            <!-- 2. Region: EU Country -->
+            <!-- 2. Remove region restriction (with security warning) -->
             <div class="prereq-card">
                 <div class="card-header">
-                    <span class="step-number">Prerequisite 2</span>
-                    <span class="card-title">Region: EU Country</span>
+                    <span class="step-number">Feature 2</span>
+                    <span class="card-title">Remove custom feed region restriction</span>
                 </div>
                 <div class="card-desc">
-                    <p>The device's "device region" must be set to an EU member state.</p>
+                    <p>If the device's “Device region” is not set to an EU member state, you can use “Remove custom feed region restriction” in the settings to force-enable third-party custom feeds.</p>
                     <ul class="step-list">
-                        <li>Go to <strong>Settings</strong> → <strong>Time & Language</strong> → <strong>Language & Region</strong></li>
-                        <li>Under <strong>Device region</strong> (note: this is not the "Country or region" drop-down above), it must show an EU country (e.g. <code>Germany</code>, <code>France</code>, <code>Italy</code>, etc.).</li>
-                        <li>After changing this, you may need to re-enable custom feeds in the Feed Customization Tool.</li>
+                        <li>Open <strong>Settings</strong> → <strong>Advanced</strong> in this tool.</li>
+                        <li>Click <code>Remove restriction</code>, confirm the warning, and grant administrator permission when prompted.</li>
+                        <li>After the change succeeds, restart the widget, or sign out and sign back in to Windows, for the configuration to take effect.</li>
                     </ul>
 
-                    <div class="ref-box">
-                        <span style="font-weight: 500;">📄 Refer to this third-party blog post:</span>
-                        <a href="https://lxnchan.cn/change-windows-installtion-region.html" target="_blank">
-                            change-windows-installtion-region · Lxn-Chan!
-                        </a>
-                        <div style="margin-top: 0.2rem; font-size:0.9rem; color: #1e3a5f;">
-                            ⚠️ This blog is not authored by the tool creator; it is provided for reference only.
-                        </div>
+                    <div class="warning-box">
+                        <strong>⚠️ Risk Notice:</strong> This feature modifies Windows system configuration to force-enable custom feed display. It may affect related system functions or stability. Use it only after understanding the risks, and make sure important data is backed up.<br>
+                        <span style="font-size:0.92rem; display:inline-block; margin-top:0.2rem;">A system update may overwrite this change and restore the region restriction. If you want to continue using the feature, you may need to remove the restriction again.</span>
                     </div>
 
                     <div class="eu-list">
-                        <strong>EU countries (partial list):</strong> Austria, Belgium, Bulgaria, Croatia, Cyprus, Czech Republic, Denmark, Estonia, Finland, France, Germany, Greece, Hungary, Ireland, Italy, Latvia, Lithuania, Luxembourg, Malta, Netherlands, Poland, Portugal, Romania, Slovakia, Slovenia, Spain, Sweden.
+                        <strong>Manually change the device region:</strong> Windows does not provide a direct way to change “Device region” in System Settings. To change it, follow the instructions in the following blog post and use terminal commands:
+                        <a href="https://lxnchan.cn/change-windows-installtion-region.html" target="_blank">Change Windows device region · Lxn-Chan!</a>
+                        <div style="margin-top: 0.2rem; font-size:0.9rem; color: #1e3a5f;">
+                            ⚠️ This blog is not authored by the tool creator and is provided for reference only. Read the instructions carefully and assess the risks yourself.
+                        </div>
                     </div>
                 </div>
             </div>
@@ -314,7 +314,7 @@
             <!-- 3. WinUI 3 Widget -->
             <div class="prereq-card">
                 <div class="card-header">
-                    <span class="step-number">Prerequisite 3</span>
+                    <span class="step-number">Prerequisite 1</span>
                     <span class="card-title">WinUI 3 Widget</span>
                 </div>
                 <div class="card-desc">
