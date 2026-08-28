@@ -25,22 +25,26 @@
                     <ImageIcon Source="{x:Bind BitmapImage, Mode=OneTime}" />
                 </controls:SettingsCard.HeaderIcon>
                 <controls:SettingsCard.Content>
-                    <StackPanel Orientation="Horizontal" Spacing="4">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
                         <HyperlinkButton
-                            Padding="6"
+                            Grid.Column="0"
                             x:Uid="EditFeedButton"
                             Click="OnEditFeedButtonClicked"
-                            DataContext="{x:Bind}">
-                            <FontIcon Glyph="&#xE70F;" FontSize="12" />
+                            DataContext="{x:Bind}"
+                            Padding="0">
                         </HyperlinkButton>
                         <HyperlinkButton
-                            Padding="6"
+                            Grid.Column="1"
                             x:Uid="DeleteFeedButton"
                             Click="OnDeleteFeedButtonClicked"
-                            DataContext="{x:Bind}">
-                            <FontIcon Glyph="&#xE74D;" FontSize="12" />
+                            DataContext="{x:Bind}"
+                            Padding="0">
                         </HyperlinkButton>
-                    </StackPanel>
+                    </Grid>
                 </controls:SettingsCard.Content>
             </controls:SettingsCard>
         </DataTemplate>
@@ -65,16 +69,11 @@
             IsClosable="True"
             IsOpen="{x:Bind MainPageViewModel.IsRegionWarningVisible.Value, Mode=TwoWay}"
             Severity="Warning">
-            <InfoBar.Content>
-                <StackPanel Orientation="Horizontal" Spacing="8">
-                    <HyperlinkButton
-                        x:Uid="RegionWarningLearnMoreButton"
-                        Click="OnGetHelpButtonClicked" />
-                    <HyperlinkButton
-                        x:Uid="RegionWarningUnlockButton"
-                        Click="OnUnlockRegionPolicyButtonClicked" />
-                </StackPanel>
-            </InfoBar.Content>
+            <InfoBar.ActionButton>
+                <HyperlinkButton
+                    x:Uid="RegionWarningUnlockButton"
+                    Click="OnUnlockRegionPolicyButtonClicked" />
+            </InfoBar.ActionButton>
         </InfoBar>
 
         <!-- 整体内容区域 -->

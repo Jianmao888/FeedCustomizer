@@ -58,7 +58,7 @@ namespace FeedCustomizer.Pages
             DispatcherQueue.TryEnqueue(() =>
             {
                 UnlockRegionPolicyButton.StartBringIntoView();
-                UnlockRegionPolicyButton.Focus(FocusState.Programmatic);
+                UnlockRegionPolicyButton.Focus(FocusState.Keyboard);
             });
         }
 

@@ -2,7 +2,7 @@
   "profiles": {
     "FeedCustomizer (Package)": {
       "commandName": "MsixPackage",
-      "remoteDebugEnabled": true,
+      "remoteDebugEnabled": false,
       "remoteDebugMachine": "172.20.173.190",
       "authenticationMode": "None"
     },

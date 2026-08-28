@@ -68,19 +68,8 @@ namespace FeedCustomizer.Core.Tools
             bool confirmed = false;
             await _uiThreadRunner!.RunAsync(async () =>
             {
-                var dialog = new ContentDialog
-                {
-                    Title = title,
-                    Content = new TextBlock
-                    {
-                        Text = content,
-                        TextWrapping = TextWrapping.Wrap,
-                        FontSize = 14
-                    },
-                    PrimaryButtonText = primaryButtonText,
-                    CloseButtonText = closeButtonText,
-                    DefaultButton = ContentDialogButton.Primary
-                };
+                var dialog = new ConfirmDialog();
+                dialog.Configure(title, content, primaryButtonText, closeButtonText);
 
                 var result = await ShowWithGateAsync(dialog);
                 confirmed = result == ContentDialogResult.Primary;

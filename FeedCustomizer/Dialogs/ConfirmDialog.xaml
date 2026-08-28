@@ -1,16 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ContentDialog
-    x:Class="FeedCustomizer.Dialogs.FirstRunDialog"
+    x:Class="FeedCustomizer.Dialogs.ConfirmDialog"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     Style="{StaticResource DefaultContentDialogStyle}"
-    x:Uid="FirstRunDialog"
-    DefaultButton="Close">
+    DefaultButton="Primary">
     <Grid MinWidth="300" MaxWidth="380">
         <ScrollViewer MaxHeight="420"
                       HorizontalScrollBarVisibility="Disabled"
                       VerticalScrollBarVisibility="Auto">
-            <TextBlock x:Uid="FirstRunDialogMessage"
+            <TextBlock x:Name="ConfirmText"
                        TextWrapping="Wrap"
                        FontSize="14" />
         </ScrollViewer>

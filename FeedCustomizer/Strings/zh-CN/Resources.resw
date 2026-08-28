@@ -509,10 +509,6 @@
     <value>当前的设备设置区域可能导致自定义源无法展示。</value>
     <comment>设备设置区域不是欧盟成员国时主界面顶部提示横幅的内容</comment>
   </data>
-  <data name="RegionWarningLearnMoreButton.Content" xml:space="preserve">
-    <value>了解更多</value>
-    <comment>设备设置区域提示横幅中打开帮助文档的超链接按钮文本</comment>
-  </data>
   <data name="RegionWarningUnlockButton.Content" xml:space="preserve">
     <value>解除限制</value>
     <comment>设备设置区域提示横幅中跳转到设置页解除限制的超链接按钮文本</comment>
