@@ -27,7 +27,6 @@ namespace FeedCustomizer
         private readonly TaskCompletionSource<bool> _splashHidden =
             new(TaskCreationOptions.RunContinuationsAsynchronously);
 
-        public DialogService Dialogs { get; }
         public ExternalLaunchService ExternalLaunch { get; }
 
         public MainWindow()
@@ -40,7 +39,7 @@ namespace FeedCustomizer
                 root.Loaded += Root_Loaded;
             }
 
-            Dialogs = new DialogService(DispatcherQueue, GetXamlRoot, WaitForSplashHiddenAsync, _dialogGate);
+            DialogService.Initialize(DispatcherQueue, GetXamlRoot, WaitForSplashHiddenAsync, _dialogGate);
             ExternalLaunch = new ExternalLaunchService(DispatcherQueue, GetXamlRoot, WaitForSplashHiddenAsync, _dialogGate);
 
             // 获取窗口信息

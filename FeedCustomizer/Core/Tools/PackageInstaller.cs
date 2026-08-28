@@ -1,4 +1,5 @@
-﻿using System;
+﻿using FeedCustomizer.Core.Models;
+using System;
 using System.Diagnostics;
 using System.IO;
 using System.Threading;
@@ -60,19 +61,49 @@ namespace FeedCustomizer.Core.Tools
                 //（使用 robocopy），并在第一次失败时尝试备份模式重试以应对被占用的文件。
                 await StopProviderProcessesAsync();
                 string realManifestPath = await CopyPackageFilesToRealLocalAppDataAsync();
-                string escapedManifestPath = realManifestPath.Replace("'", "''");
 
-                var result = await RunPowerShellViaProcess(BuildRegistrationCommand(
-                    escapedManifestPath));
-
-                if (result.ExitCode != 0)
+                var result = await RegisterProviderAsync(realManifestPath);
+                if (result.ExitCode == 0)
                 {
-                    Debug.WriteLine($"Feed provider registration failed ({result.ExitCode}): {result.Error}");
+                    return true;
+                }
+
+                Debug.WriteLine($"Feed provider registration failed ({result.ExitCode}): {result.Error}");
+
+                if (!IsDeveloperModeError(result))
+                {
                     await ShowInstallErrorAsync(result.Error, result.ExitCode, result.Output);
                     return false;
                 }
 
-                return true;
+                // 开发者模式未开启。开关关闭时先询问用户是否启用自动开启，
+                // 开关打开或用户同意后，通过单次提权临时开启开发者模式完成注册。
+                if (!SettingsLoader.GetAutoEnableDeveloperMode())
+                {
+                    if (!await PromptEnableAutoDeveloperModeAsync())
+                    {
+                        return false;
+                    }
+
+                    SettingsLoader.SetAutoEnableDeveloperMode(true);
+                }
+
+                var elevatedResult = await DeveloperModeService.RegisterWithTemporaryDeveloperModeAsync(realManifestPath);
+                if (elevatedResult.ExitCode == 0)
+                {
+                    return true;
+                }
+
+                if (elevatedResult.ExitCode == DeveloperModeService.ElevationCancelledExitCode)
+                {
+                    await ShowDeveloperModeElevationCancelledAsync();
+                }
+                else
+                {
+                    await ShowInstallErrorAsync(elevatedResult.Error, elevatedResult.ExitCode, elevatedResult.Output);
+                }
+
+                return false;
             }
             catch (Exception ex)
             {
@@ -87,6 +118,35 @@ namespace FeedCustomizer.Core.Tools
             return
                 "$ErrorActionPreference = 'Stop'; " +
                 $"Add-AppxPackage -Register -ForceApplicationShutdown -ErrorAction Stop '{escapedManifestPath}'";
+        }
+
+        private static async Task<PowerShellResult> RegisterProviderAsync(string manifestPath)
+        {
+            string escapedManifestPath = manifestPath.Replace("'", "''");
+            return await RunPowerShellViaProcess(BuildRegistrationCommand(escapedManifestPath));
+        }
+
+        private static bool IsDeveloperModeError(PowerShellResult result) =>
+            (result.Error?.Contains("0x80073CFF", StringComparison.OrdinalIgnoreCase) == true) ||
+            (result.Output?.Contains("0x80073CFF", StringComparison.OrdinalIgnoreCase) == true);
+
+        private static async Task<bool> PromptEnableAutoDeveloperModeAsync()
+        {
+            var resourceLoader = new Microsoft.Windows.ApplicationModel.Resources.ResourceLoader();
+            return await DialogService.ShowConfirmAsync(
+                resourceLoader.GetString("EnableProviderFail"),
+                resourceLoader.GetString("DeveloperModeDisabled"),
+                resourceLoader.GetString("EnableAutoDeveloperMode"),
+                resourceLoader.GetString("DialogOK"));
+        }
+
+        private static Task ShowDeveloperModeElevationCancelledAsync()
+        {
+            var resourceLoader = new Microsoft.Windows.ApplicationModel.Resources.ResourceLoader();
+            return DialogService.ShowMessageAsync(
+                resourceLoader.GetString("EnableProviderFail"),
+                resourceLoader.GetString("DeveloperModeElevationCancelled"),
+                resourceLoader.GetString("DialogOK"));
         }
 
 
@@ -307,10 +367,6 @@ namespace FeedCustomizer.Core.Tools
         {
             var resourceLoader = new Microsoft.Windows.ApplicationModel.Resources.ResourceLoader();
             string content = resourceLoader.GetString("SomethingErrorsOccurred");
-            if (error?.Contains("0x80073CFF", StringComparison.OrdinalIgnoreCase) == true)
-            {
-                content = resourceLoader.GetString("DeveloperModeDisabled");
-            }
 
             string details = string.Join(
                 Environment.NewLine,
@@ -321,17 +377,14 @@ namespace FeedCustomizer.Core.Tools
 
             Debug.WriteLine($"Feed provider error ({exitCode}): {details}");
 
-            if (App.MainWindow is MainWindow window)
+            if (App.MainWindow is MainWindow)
             {
-                _ = window.Dialogs.ShowStartupFailureAsync(
-                    resourceLoader.GetString("EnableProviderFail"),
-                    $"{content}{Environment.NewLine}{Environment.NewLine}{details}");
+                string title = resourceLoader.GetString("EnableProviderFail");
+                _ = DialogService.ShowStartupFailureAsync(title, $"{content}{Environment.NewLine}{Environment.NewLine}{details}");
             }
 
             return Task.CompletedTask;
         }
-
-        private sealed record PowerShellResult(int ExitCode, string Output, string Error);
 
         private static async Task<PowerShellResult> RunPowerShellViaProcess(string command)
         {

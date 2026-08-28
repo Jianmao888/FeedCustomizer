@@ -1,7 +1,6 @@
-﻿using FeedCustomizer.Core.Constants;
-using System;
+﻿using System;
 
-namespace FeedCustomizer.Models
+namespace FeedCustomizer.Core.Models
 {
     public class Feed
     {
@@ -11,7 +10,7 @@ namespace FeedCustomizer.Models
         public string Name { get; set; } = string.Empty;
         public string Url { get; set; } = string.Empty;
 
-        public string ImagePath { get; set; } = Constants.DefaultImageRelativePath;
+        public string ImagePath { get; set; } = Constants.Constants.DefaultImageRelativePath;
         public string Description { get; set; } = "string.Empty";
 
         // 这个属性用于标记是否已经编辑过并且已经保存

@@ -55,6 +55,22 @@
             </StackPanel>
 
             <StackPanel Spacing="3">
+                <TextBlock x:Uid="AdvancedGroup" FontSize="14" Margin="0,0,0,6" FontWeight="SemiBold"/>
+                <controls:SettingsCard x:Uid="Settings_AutoDeveloperModeCard" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" MinHeight="70" Padding="16,0">
+                    <controls:SettingsCard.HeaderIcon>
+                        <FontIcon Glyph="&#xE7EF;" />
+                    </controls:SettingsCard.HeaderIcon>
+                    <ToggleSwitch x:Name="AutoDeveloperModeToggle" HorizontalAlignment="Right" Toggled="AutoDeveloperModeToggle_Toggled"/>
+                </controls:SettingsCard>
+                <controls:SettingsCard x:Uid="Settings_RegionPolicyCard" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" MinHeight="70" Padding="16,0">
+                    <controls:SettingsCard.HeaderIcon>
+                        <FontIcon Glyph="&#xE72E;" />
+                    </controls:SettingsCard.HeaderIcon>
+                    <Button x:Name="UnlockRegionPolicyButton" x:Uid="UnlockRegionPolicyButton" HorizontalAlignment="Right" Click="UnlockRegionPolicyButton_Click"/>
+                </controls:SettingsCard>
+            </StackPanel>
+
+            <StackPanel Spacing="3">
                 <TextBlock x:Uid="DonationGroup" FontSize="14" Margin="0,0,0,6" FontWeight="SemiBold"/>
                 <controls:SettingsCard x:Uid="DonationCard" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" MinHeight="70" Padding="16,0">
                     <controls:SettingsCard.HeaderIcon>

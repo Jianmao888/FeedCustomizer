@@ -1,4 +1,4 @@
-﻿using FeedCustomizer.Models;
+﻿using FeedCustomizer.Core.Models;
 using System.Collections.Generic;
 
 namespace FeedCustomizer.Core.DataService

@@ -1,4 +1,4 @@
-﻿using FeedCustomizer.Models;
+﻿using FeedCustomizer.Core.Models;
 
 namespace FeedCustomizer.Core.DataService
 {

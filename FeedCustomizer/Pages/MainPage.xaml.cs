@@ -1,3 +1,5 @@
+using FeedCustomizer.Core.Constants;
+using FeedCustomizer.Core.Tools;
 using FeedCustomizer.ViewModels;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -23,9 +25,9 @@ namespace FeedCustomizer.Pages
         {
             InitializeComponent();
             NavigationCacheMode = NavigationCacheMode.Enabled;
-            if (App.MainWindow is MainWindow window)
+            if (App.MainWindow is MainWindow)
             {
-                window.Dialogs.SetFirstRunDialogPending(_showFirstRunDialog);
+                DialogService.SetFirstRunDialogPending(_showFirstRunDialog);
             }
         }
 
@@ -63,6 +65,15 @@ namespace FeedCustomizer.Pages
 
             MainPageViewModel.SaveListToDataService();
             Frame.Navigate(typeof(SettingsPage));
+        }
+
+        private void OnUnlockRegionPolicyButtonClicked(object sender, RoutedEventArgs e)
+        {
+            _ = sender;
+            _ = e;
+
+            MainPageViewModel.SaveListToDataService();
+            Frame.Navigate(typeof(SettingsPage), Constants.RegionPolicy.NavigationParameter);
         }
 
         private void OnAnyControlActivated()
@@ -193,14 +204,14 @@ namespace FeedCustomizer.Pages
 
             if (_showFirstRunDialog)
             {
-                await window.Dialogs.ShowFirstRunAsync();
+                await DialogService.ShowFirstRunAsync();
                 MainPageModel.SetFirstRunFalg();
             }
 
             if (initializationException is not null && !_startupFailureShown)
             {
                 _startupFailureShown = true;
-                await window.Dialogs.ShowStartupFailureAsync(
+                await DialogService.ShowStartupFailureAsync(
                     "启动失败",
                     initializationException.ToString());
             }

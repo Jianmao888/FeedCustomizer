@@ -1,7 +1,7 @@
 ﻿using FeedCustomizer.Core.Constants;
 using FeedCustomizer.Core.DataService;
 using FeedCustomizer.Core.Tools;
-using FeedCustomizer.Models;
+using FeedCustomizer.Core.Models;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -45,7 +45,10 @@ namespace FeedCustomizer.ViewModels
         private async Task InitiAllFeeds()
         {
             await Init();
-            IsRegionWarningVisible.Value = DeviceRegionTool.IsNonEuropeanUnionRegion();
+            // 如果系统策略已解限，则不展示地区限制警告横幅
+            bool isNonEu = DeviceRegionTool.IsNonEuropeanUnionRegion();
+            bool isPolicyEnabled = await RegionPolicyService.IsThirdPartyWidgetFeedEnabledAsync();
+            IsRegionWarningVisible.Value = isNonEu && !isPolicyEnabled;
             IsLoading.Value = false;
             IsButtonsEnabled.Value = true;
             IsApplyButtonEnabled.Value = CanApplyFeeds;
@@ -63,7 +66,6 @@ namespace FeedCustomizer.ViewModels
             if (FeedProviderEnableDataService.IsFeedProviderEnabled != null)
             {
                 Debug.WriteLine("改变了开关的状态");
-                Debug.WriteLine($"{IsLoading.Value}");
                 IsFeedProviderEnabled.Value = (bool)FeedProviderEnableDataService.IsFeedProviderEnabled;
             }
             else

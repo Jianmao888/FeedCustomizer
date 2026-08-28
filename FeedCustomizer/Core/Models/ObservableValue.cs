@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 
-namespace FeedCustomizer.Models
+namespace FeedCustomizer.Core.Models
 {
     public partial class ObservableValue<T>(T initialValue = default!, Action? _afterSet = null) : INotifyPropertyChanged
     {

@@ -46,6 +46,8 @@ namespace FeedCustomizer.Core.Tools
 
         internal static string PackageLocalProviderExecutablePath => Path.Combine(PackageLocalFeedProviderFolder, "FeedProvider", "FeedProvider.exe");
 
+        internal static string PackageLocalLogPath => Path.Combine(PackageLocalBase, "Local", "Logs");
+
         internal static string ManifestPath => Path.Combine(
             FeedProviderFolder,
             "AppxManifest.xml");

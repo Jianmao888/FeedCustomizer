@@ -33,6 +33,15 @@
             public const string AppMaterial = "Mica";
             public const bool EnableSound = true;
             public const bool IsFirstRun = true;
+            public const bool AutoEnableDeveloperMode = false;
+        }
+
+        // 解除自定义源地区限制相关常量
+        public static class RegionPolicy
+        {
+            public const string NavigationParameter = "RegionPolicy";
+            public const string PolicyFileName = "IntegratedServicesRegionPolicySet.json";
+            public const string WidgetsThirdPartyFeedGuid = "{16d2b50e-fa7c-4bb1-ab17-01d766530b3b}";
         }
     }
 }

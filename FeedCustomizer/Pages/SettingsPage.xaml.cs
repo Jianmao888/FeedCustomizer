@@ -1,7 +1,9 @@
+using FeedCustomizer.Core.Constants;
 using FeedCustomizer.Core.Tools;
 using FeedCustomizer.ViewModels;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Navigation;
 using System;
 using System.Diagnostics;
 using System.Threading.Tasks;
@@ -20,11 +22,19 @@ namespace FeedCustomizer.Pages
         public SettingsViewModel AboutViewModel { get; } = new();
         private readonly Microsoft.Windows.ApplicationModel.Resources.ResourceLoader _resourceLoader = new();
         private bool _isInitializing = true;
+        private bool _focusRegionPolicyButton;
 
         public SettingsPage()
         {
             this.InitializeComponent();
             this.Loaded += SettingsPage_Loaded;
+        }
+
+        protected override void OnNavigatedTo(NavigationEventArgs e)
+        {
+            base.OnNavigatedTo(e);
+            _focusRegionPolicyButton = e.Parameter is string parameter &&
+                parameter == Constants.RegionPolicy.NavigationParameter;
         }
 
         private async void SettingsPage_Loaded(object sender, RoutedEventArgs e)
@@ -35,6 +45,21 @@ namespace FeedCustomizer.Pages
 
             // 不在页面加载流程中等待 Store 许可证查询，先展示页面，再在后台刷新捐赠者版购买状态
             _ = RefreshDonationStateAsync();
+
+            if (_focusRegionPolicyButton)
+            {
+                _focusRegionPolicyButton = false;
+                FocusRegionPolicyButton();
+            }
+        }
+
+        private void FocusRegionPolicyButton()
+        {
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                UnlockRegionPolicyButton.StartBringIntoView();
+                UnlockRegionPolicyButton.Focus(FocusState.Programmatic);
+            });
         }
 
         private void LoadUI()
@@ -54,6 +79,7 @@ namespace FeedCustomizer.Pages
             };
 
             SoundToggle.IsOn = SettingsLoader.GetEnableSound();
+            AutoDeveloperModeToggle.IsOn = SettingsLoader.GetAutoEnableDeveloperMode();
         }
 
         public void LoadAppInfo()
@@ -154,6 +180,12 @@ namespace FeedCustomizer.Pages
             ElementSoundPlayer.State = isOn ? ElementSoundPlayerState.On : ElementSoundPlayerState.Off;
         }
 
+        private void AutoDeveloperModeToggle_Toggled(object sender, RoutedEventArgs e)
+        {
+            if (_isInitializing) return;
+            SettingsLoader.SetAutoEnableDeveloperMode(AutoDeveloperModeToggle.IsOn);
+        }
+
         private async void DonateButton_Click(object sender, RoutedEventArgs e)
         {
             _ = sender;
@@ -164,7 +196,7 @@ namespace FeedCustomizer.Pages
                 return;
             }
 
-            bool confirmed = await window.Dialogs.ShowConfirmAsync(
+            bool confirmed = await DialogService.ShowConfirmAsync(
                 _resourceLoader.GetString("DonationConfirmTitle"),
                 _resourceLoader.GetString("DonationConfirmMessage"),
                 _resourceLoader.GetString("DonationConfirmPrimaryButtonText"),
@@ -184,7 +216,7 @@ namespace FeedCustomizer.Pages
             }
             else if (result == DonationPurchaseResult.Failed)
             {
-                await window.Dialogs.ShowMessageAsync(
+                await DialogService.ShowMessageAsync(
                     _resourceLoader.GetString("DonationErrorTitle"),
                     _resourceLoader.GetString("DonationErrorMessage"),
                     _resourceLoader.GetString("DialogOK"));
@@ -217,6 +249,64 @@ namespace FeedCustomizer.Pages
                     await window.ExternalLaunch.OpenLinkAsync(link);
                 }
             }
+        }
+
+        private async void UnlockRegionPolicyButton_Click(object sender, RoutedEventArgs e)
+        {
+            _ = sender;
+            _ = e;
+
+            bool confirmed = await DialogService.ShowConfirmAsync(
+                _resourceLoader.GetString("RegionPolicyWarningTitle"),
+                _resourceLoader.GetString("RegionPolicyWarningMessage"),
+                _resourceLoader.GetString("RegionPolicyWarningPrimaryButtonText"),
+                _resourceLoader.GetString("DonationConfirmCloseButtonText"));
+
+            if (!confirmed)
+            {
+                return;
+            }
+
+            RegionPolicyOperationResult result = await RegionPolicyService.EnableThirdPartyWidgetFeedAsync();
+
+            switch (result)
+            {
+                case RegionPolicyOperationResult.Success:
+                    await DialogService.ShowMessageAsync(
+                        _resourceLoader.GetString("RegionPolicySuccessTitle"),
+                        _resourceLoader.GetString("RegionPolicySuccessMessage"),
+                        _resourceLoader.GetString("DialogOK"));
+                    break;
+
+                case RegionPolicyOperationResult.Cancelled:
+                    await DialogService.ShowMessageAsync(
+                        _resourceLoader.GetString("RegionPolicyWarningTitle"),
+                        _resourceLoader.GetString("RegionPolicyCancelledMessage"),
+                        _resourceLoader.GetString("DialogOK"));
+                    break;
+
+                case RegionPolicyOperationResult.PolicyNotFound:
+                    await DialogService.ShowMessageAsync(
+                        _resourceLoader.GetString("RegionPolicyFailureTitle"),
+                        BuildRegionPolicyFailureMessage(_resourceLoader.GetString("RegionPolicyPolicyNotFoundMessage")),
+                        _resourceLoader.GetString("DialogOK"));
+                    break;
+
+                default:
+                    await DialogService.ShowMessageAsync(
+                        _resourceLoader.GetString("RegionPolicyFailureTitle"),
+                        BuildRegionPolicyFailureMessage(_resourceLoader.GetString("RegionPolicyFailureMessage")),
+                        _resourceLoader.GetString("DialogOK"));
+                    break;
+            }
+        }
+
+        private static string BuildRegionPolicyFailureMessage(string baseMessage)
+        {
+            string? diagnostics = RegionPolicyService.LastDiagnostics;
+            return string.IsNullOrWhiteSpace(diagnostics)
+                ? baseMessage
+                : baseMessage + Environment.NewLine + Environment.NewLine + diagnostics;
         }
     }
 }

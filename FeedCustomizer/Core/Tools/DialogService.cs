@@ -11,17 +11,16 @@ namespace FeedCustomizer.Core.Tools
     /// <summary>
     /// 负责在主窗口上以串行方式展示各类 ContentDialog。
     /// </summary>
-    public sealed class DialogService
+    public static class DialogService
     {
-        private readonly UiThreadRunner _uiThreadRunner;
-        private readonly Func<XamlRoot?> _xamlRootProvider;
-        private readonly Func<Task> _waitForSplashHidden;
-        private readonly SemaphoreSlim _dialogGate;
-        private readonly TaskCompletionSource<bool> _firstRunDialogFinished =
-            new(TaskCreationOptions.RunContinuationsAsynchronously);
-        private bool _firstRunDialogPending;
+        private static UiThreadRunner? _uiThreadRunner;
+        private static Func<XamlRoot?>? _xamlRootProvider;
+        private static Func<Task>? _waitForSplashHidden;
+        private static SemaphoreSlim? _dialogGate;
+        private static TaskCompletionSource<bool>? _firstRunDialogFinished;
+        private static bool _firstRunDialogPending;
 
-        public DialogService(
+        public static void Initialize(
             DispatcherQueue dispatcherQueue,
             Func<XamlRoot?> xamlRootProvider,
             Func<Task> waitForSplashHidden,
@@ -31,20 +30,31 @@ namespace FeedCustomizer.Core.Tools
             _xamlRootProvider = xamlRootProvider;
             _waitForSplashHidden = waitForSplashHidden;
             _dialogGate = dialogGate;
+            _firstRunDialogFinished = new(TaskCreationOptions.RunContinuationsAsynchronously);
         }
 
-        public void SetFirstRunDialogPending(bool pending)
+        private static void EnsureInitialized()
         {
-            _firstRunDialogPending = pending;
-            if (!pending)
+            if (_uiThreadRunner is null || _xamlRootProvider is null || _waitForSplashHidden is null || _dialogGate is null || _firstRunDialogFinished is null)
             {
-                _firstRunDialogFinished.TrySetResult(true);
+                throw new InvalidOperationException("DialogService is not initialized. Call DialogService.Initialize(...) from MainWindow during startup.");
             }
         }
 
-        public Task ShowMessageAsync(string title, string content, string closeButtonText)
+        public static void SetFirstRunDialogPending(bool pending)
         {
-            return _uiThreadRunner.RunAsync(async () =>
+            EnsureInitialized();
+            _firstRunDialogPending = pending;
+            if (!pending)
+            {
+                _firstRunDialogFinished!.TrySetResult(true);
+            }
+        }
+
+        public static Task ShowMessageAsync(string title, string content, string closeButtonText)
+        {
+            EnsureInitialized();
+            return _uiThreadRunner!.RunAsync(async () =>
             {
                 var dialog = new MessageDialog();
                 dialog.Configure(title, content, closeButtonText);
@@ -52,10 +62,11 @@ namespace FeedCustomizer.Core.Tools
             });
         }
 
-        public async Task<bool> ShowConfirmAsync(string title, string content, string primaryButtonText, string closeButtonText)
+        public static async Task<bool> ShowConfirmAsync(string title, string content, string primaryButtonText, string closeButtonText)
         {
+            EnsureInitialized();
             bool confirmed = false;
-            await _uiThreadRunner.RunAsync(async () =>
+            await _uiThreadRunner!.RunAsync(async () =>
             {
                 var dialog = new ContentDialog
                 {
@@ -78,12 +89,13 @@ namespace FeedCustomizer.Core.Tools
             return confirmed;
         }
 
-        public async Task ShowStartupFailureAsync(string title, string details)
+        public static async Task ShowStartupFailureAsync(string title, string details)
         {
-            await _waitForSplashHidden();
-            await _firstRunDialogFinished.Task;
+            EnsureInitialized();
+            await _waitForSplashHidden!();
+            await _firstRunDialogFinished!.Task;
 
-            await _uiThreadRunner.RunAsync(async () =>
+            await _uiThreadRunner!.RunAsync(async () =>
             {
                 var dialog = new StartupFailureDialog();
                 dialog.Configure(title, details);
@@ -91,19 +103,20 @@ namespace FeedCustomizer.Core.Tools
             });
         }
 
-        public async Task ShowFirstRunAsync()
+        public static async Task ShowFirstRunAsync()
         {
-            await _waitForSplashHidden();
+            EnsureInitialized();
+            await _waitForSplashHidden!();
 
             if (!_firstRunDialogPending)
             {
-                _firstRunDialogFinished.TrySetResult(true);
+                _firstRunDialogFinished!.TrySetResult(true);
                 return;
             }
 
             try
             {
-                await _uiThreadRunner.RunAsync(async () =>
+                await _uiThreadRunner!.RunAsync(async () =>
                 {
                     if (!_firstRunDialogPending)
                     {
@@ -117,13 +130,14 @@ namespace FeedCustomizer.Core.Tools
             finally
             {
                 _firstRunDialogPending = false;
-                _firstRunDialogFinished.TrySetResult(true);
+                _firstRunDialogFinished!.TrySetResult(true);
             }
         }
 
-        public Task ShowWebIconFetchErrorAsync(string details)
+        public static Task ShowWebIconFetchErrorAsync(string details)
         {
-            return _uiThreadRunner.RunAsync(async () =>
+            EnsureInitialized();
+            return _uiThreadRunner!.RunAsync(async () =>
             {
                 var dialog = new WebIconFetchErrorDialog();
                 dialog.Configure(details);
@@ -131,16 +145,17 @@ namespace FeedCustomizer.Core.Tools
             });
         }
 
-        private async Task<ContentDialogResult> ShowWithGateAsync(ContentDialog dialog)
+        private static async Task<ContentDialogResult> ShowWithGateAsync(ContentDialog dialog)
         {
-            var xamlRoot = _xamlRootProvider();
+            EnsureInitialized();
+            var xamlRoot = _xamlRootProvider!();
             if (xamlRoot is null)
             {
                 return ContentDialogResult.None;
             }
 
             dialog.XamlRoot = xamlRoot;
-            await _dialogGate.WaitAsync();
+            await _dialogGate!.WaitAsync();
             try
             {
                 return await dialog.ShowAsync();

@@ -246,8 +246,16 @@
     <comment>错误弹窗通用内容-出现了一些错误</comment>
   </data>
   <data name="DeveloperModeDisabled" xml:space="preserve">
-    <value>未启用开发者模式，请按照应用帮助文件提示在Windows设置中开启开发者模式</value>
+    <value>未启用开发者模式。可点击下方按钮，让应用临时开启开发者模式并在注册完成后自动恢复原状态。</value>
     <comment>未启用开发者模式错误弹窗详细信息</comment>
+  </data>
+  <data name="EnableAutoDeveloperMode" xml:space="preserve">
+    <value>启用自动开启开发者权限</value>
+    <comment>未启用开发者模式弹窗中启用自动开启的主按钮文本</comment>
+  </data>
+  <data name="DeveloperModeElevationCancelled" xml:space="preserve">
+    <value>已取消管理员权限请求，无法自动开启开发者模式。请手动开启开发者模式后重试。</value>
+    <comment>取消管理员权限请求时的提示内容</comment>
   </data>
   <data name="LanguageTag" xml:space="preserve">
     <value>zh-CN</value>
@@ -381,6 +389,66 @@
     <value>启用控件声音</value>
     <comment>设置页面控件声音开关标头文本</comment>
   </data>
+  <data name="AdvancedGroup.Text" xml:space="preserve">
+    <value>高级</value>
+    <comment>设置页面高级设置分组标题</comment>
+  </data>
+  <data name="Settings_AutoDeveloperModeCard.Header" xml:space="preserve">
+    <value>自动启用开发者选项</value>
+    <comment>设置页面自动启用开发者选项卡片标头</comment>
+  </data>
+  <data name="Settings_AutoDeveloperModeCard.Description" xml:space="preserve">
+    <value>注册源时临时开启开发者选项，完成后自动恢复</value>
+    <comment>设置页面自动启用开发者选项卡片描述</comment>
+  </data>
+  <data name="Settings_RegionPolicyCard.Header" xml:space="preserve">
+    <value>解除自定义源地区限制</value>
+    <comment>设置页面解除自定义源地区限制卡片标头</comment>
+  </data>
+  <data name="Settings_RegionPolicyCard.Description" xml:space="preserve">
+    <value>修改系统配置，允许在当前地区显示第三方自定义源</value>
+    <comment>设置页面解除自定义源地区限制卡片描述</comment>
+  </data>
+  <data name="UnlockRegionPolicyButton.Content" xml:space="preserve">
+    <value>解除限制</value>
+    <comment>设置页面解除自定义源地区限制按钮文本</comment>
+  </data>
+  <data name="RegionPolicyWarningTitle" xml:space="preserve">
+    <value>解除自定义源地区限制</value>
+    <comment>解除自定义源地区限制警告弹窗标题</comment>
+  </data>
+  <data name="RegionPolicyWarningMessage" xml:space="preserve">
+    <value>这会尝试修改系统配置文件，可能带来风险，并且可能在未来的 Windows 更新中被覆盖。是否继续？</value>
+    <comment>解除自定义源地区限制警告弹窗内容</comment>
+  </data>
+  <data name="RegionPolicyWarningPrimaryButtonText" xml:space="preserve">
+    <value>继续</value>
+    <comment>解除自定义源地区限制警告弹窗主按钮文本</comment>
+  </data>
+  <data name="RegionPolicySuccessTitle" xml:space="preserve">
+    <value>已解除限制</value>
+    <comment>解除自定义源地区限制成功弹窗标题</comment>
+  </data>
+  <data name="RegionPolicySuccessMessage" xml:space="preserve">
+    <value>已成功修改系统配置。请重启小组件或注销并重新登录后生效。</value>
+    <comment>解除自定义源地区限制成功弹窗内容</comment>
+  </data>
+  <data name="RegionPolicyCancelledMessage" xml:space="preserve">
+    <value>已取消管理员权限请求，未做任何修改。</value>
+    <comment>解除自定义源地区限制时用户取消管理员权限的提示内容</comment>
+  </data>
+  <data name="RegionPolicyPolicyNotFoundMessage" xml:space="preserve">
+    <value>未在系统配置文件中找到目标策略，可能已被未来的 Windows 更新更改。</value>
+    <comment>解除自定义源地区限制时未找到目标策略的提示内容</comment>
+  </data>
+  <data name="RegionPolicyFailureTitle" xml:space="preserve">
+    <value>修改失败</value>
+    <comment>解除自定义源地区限制失败弹窗标题</comment>
+  </data>
+  <data name="RegionPolicyFailureMessage" xml:space="preserve">
+    <value>无法修改系统配置文件，请以管理员身份手动处理。</value>
+    <comment>解除自定义源地区限制失败弹窗内容</comment>
+  </data>
   <data name="AboutGroup.Text" xml:space="preserve">
     <value>关于</value>
     <comment>设置页面关于信息分组标题</comment>
@@ -444,5 +512,9 @@
   <data name="RegionWarningLearnMoreButton.Content" xml:space="preserve">
     <value>了解更多</value>
     <comment>设备设置区域提示横幅中打开帮助文档的超链接按钮文本</comment>
+  </data>
+  <data name="RegionWarningUnlockButton.Content" xml:space="preserve">
+    <value>解除限制</value>
+    <comment>设备设置区域提示横幅中跳转到设置页解除限制的超链接按钮文本</comment>
   </data>
 </root>

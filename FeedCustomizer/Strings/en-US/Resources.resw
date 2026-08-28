@@ -246,8 +246,16 @@
     <comment>General error pop-up content - Some errors occurred</comment>
   </data>
   <data name="DeveloperModeDisabled" xml:space="preserve">
-    <value>Developer mode is not enabled. Please follow the app's help instructions to enable Developer Mode in Windows Settings.</value>
+    <value>Developer Mode is not enabled. You can let the app temporarily enable Developer Mode and restore the previous state after registration.</value>
     <comment>Detailed error message for when Developer Mode is not enabled</comment>
+  </data>
+  <data name="EnableAutoDeveloperMode" xml:space="preserve">
+    <value>Enable auto developer mode</value>
+    <comment>Primary button text for enabling auto developer mode in the developer mode error dialog</comment>
+  </data>
+  <data name="DeveloperModeElevationCancelled" xml:space="preserve">
+    <value>The administrator permission request was canceled, so Developer Mode could not be enabled automatically. Please enable Developer Mode manually and try again.</value>
+    <comment>Content shown when the administrator permission request is canceled</comment>
   </data>
   <data name="LanguageTag" xml:space="preserve">
     <value>en-US</value>
@@ -381,6 +389,66 @@
     <value>Enable Control Sounds</value>
     <comment>Header text of the control sounds toggle switch on the settings page</comment>
   </data>
+  <data name="AdvancedGroup.Text" xml:space="preserve">
+    <value>Advanced</value>
+    <comment>Group heading for advanced settings on the settings page</comment>
+  </data>
+  <data name="Settings_AutoDeveloperModeCard.Header" xml:space="preserve">
+    <value>Auto-enable Developer Mode</value>
+    <comment>Header of the auto-enable developer mode card on the settings page</comment>
+  </data>
+  <data name="Settings_AutoDeveloperModeCard.Description" xml:space="preserve">
+    <value>Temporarily enable Developer Mode when registering the feed and restore it afterwards</value>
+    <comment>Description of the auto-enable developer mode card on the settings page</comment>
+  </data>
+  <data name="Settings_RegionPolicyCard.Header" xml:space="preserve">
+    <value>Remove custom feed region restriction</value>
+    <comment>Header of the remove custom feed region restriction card on the settings page</comment>
+  </data>
+  <data name="Settings_RegionPolicyCard.Description" xml:space="preserve">
+    <value>Modify system configuration to allow third-party custom feeds in this region</value>
+    <comment>Description of the remove custom feed region restriction card on the settings page</comment>
+  </data>
+  <data name="UnlockRegionPolicyButton.Content" xml:space="preserve">
+    <value>Remove restriction</value>
+    <comment>Text of the remove custom feed region restriction button on the settings page</comment>
+  </data>
+  <data name="RegionPolicyWarningTitle" xml:space="preserve">
+    <value>Remove custom feed region restriction</value>
+    <comment>Title of the remove custom feed region restriction warning dialog</comment>
+  </data>
+  <data name="RegionPolicyWarningMessage" xml:space="preserve">
+    <value>This will attempt to modify a system configuration file. This may pose risks and could be overwritten by future Windows updates. Continue?</value>
+    <comment>Content of the remove custom feed region restriction warning dialog</comment>
+  </data>
+  <data name="RegionPolicyWarningPrimaryButtonText" xml:space="preserve">
+    <value>Continue</value>
+    <comment>Primary button text of the remove custom feed region restriction warning dialog</comment>
+  </data>
+  <data name="RegionPolicySuccessTitle" xml:space="preserve">
+    <value>Restriction removed</value>
+    <comment>Title of the remove custom feed region restriction success dialog</comment>
+  </data>
+  <data name="RegionPolicySuccessMessage" xml:space="preserve">
+    <value>The system configuration was updated successfully. Restart Widgets or sign out and back in for the change to take effect.</value>
+    <comment>Content of the remove custom feed region restriction success dialog</comment>
+  </data>
+  <data name="RegionPolicyCancelledMessage" xml:space="preserve">
+    <value>Administrator permission was canceled. No changes were made.</value>
+    <comment>Content shown when the administrator permission request is canceled while removing the custom feed region restriction</comment>
+  </data>
+  <data name="RegionPolicyPolicyNotFoundMessage" xml:space="preserve">
+    <value>The target policy was not found in the system configuration file. It may have been changed by a recent Windows update.</value>
+    <comment>Content shown when the target policy cannot be found while removing the custom feed region restriction</comment>
+  </data>
+  <data name="RegionPolicyFailureTitle" xml:space="preserve">
+    <value>Modification failed</value>
+    <comment>Title of the remove custom feed region restriction failure dialog</comment>
+  </data>
+  <data name="RegionPolicyFailureMessage" xml:space="preserve">
+    <value>Could not modify the system configuration file. Please handle it manually with administrator privileges.</value>
+    <comment>Content of the remove custom feed region restriction failure dialog</comment>
+  </data>
   <data name="AboutGroup.Text" xml:space="preserve">
     <value>About</value>
     <comment>Group heading for about information on the settings page</comment>
@@ -444,5 +512,9 @@
   <data name="RegionWarningLearnMoreButton.Content" xml:space="preserve">
     <value>Learn more</value>
     <comment>Text for the hyperlink button that opens the help document in the device region warning banner</comment>
+  </data>
+  <data name="RegionWarningUnlockButton.Content" xml:space="preserve">
+    <value>Remove restriction</value>
+    <comment>Text for the hyperlink button in the device region warning banner that opens the remove-restriction option in settings</comment>
   </data>
 </root>

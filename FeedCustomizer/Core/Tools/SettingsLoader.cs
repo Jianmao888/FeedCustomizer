@@ -71,5 +71,19 @@ namespace FeedCustomizer.Core.Tools
 
         public static void SetIsFirstRun(bool value) =>
             LocalSettings.Values["IsFirstRun"] = value;
+
+        public static bool GetAutoEnableDeveloperMode()
+        {
+            if (LocalSettings.Values["AutoEnableDeveloperMode"] is bool value)
+            {
+                return value;
+            }
+
+            SetAutoEnableDeveloperMode(SettingDefaults.AutoEnableDeveloperMode);
+            return SettingDefaults.AutoEnableDeveloperMode;
+        }
+
+        public static void SetAutoEnableDeveloperMode(bool value) =>
+            LocalSettings.Values["AutoEnableDeveloperMode"] = value;
     }
 }

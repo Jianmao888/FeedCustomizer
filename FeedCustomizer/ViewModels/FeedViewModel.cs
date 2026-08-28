@@ -1,7 +1,7 @@
 ﻿using FeedCustomizer.Core.Constants;
 using FeedCustomizer.Core.DataService;
 using FeedCustomizer.Core.Tools;
-using FeedCustomizer.Models;
+using FeedCustomizer.Core.Models;
 using Microsoft.UI.Xaml.Media.Imaging;
 using System;
 using System.Diagnostics;

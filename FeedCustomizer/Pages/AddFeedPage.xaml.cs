@@ -1,4 +1,5 @@
 using FeedCustomizer.Core.Constants;
+using FeedCustomizer.Core.Tools;
 using FeedCustomizer.ViewModels;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -171,7 +172,7 @@ namespace FeedCustomizer.Pages
                     $"Message: {ex.Message}",
                     string.Empty,
                     ex.ToString());
-                await window.Dialogs.ShowWebIconFetchErrorAsync(details);
+                await DialogService.ShowWebIconFetchErrorAsync(details);
             }
             finally
             {
