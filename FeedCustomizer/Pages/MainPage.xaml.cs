@@ -1,10 +1,10 @@
-using FeedCustomizer.Core.Constants;
 using FeedCustomizer.Core.Tools;
 using FeedCustomizer.ViewModels;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
 using System;
+using Windows.Storage;
 
 // To learn more about WinUI, the WinUI project structure,
 // and more about our project templates, see: http://aka.ms/winui-project-info.
@@ -12,19 +12,33 @@ using System;
 namespace FeedCustomizer.Pages
 {
     /// <summary>
-    /// An empty page that can be used on its own or navigated to within a Frame.
+    /// 主页：只保留与 UI 强相关的代码（导航、加载遮罩、对话框、开关重入保护），
+    /// 业务逻辑统一放在 MainPageViewModel 中。
     /// </summary>
     public sealed partial class MainPage : Page
     {
-        private readonly bool _showFirstRunDialog = MainPageModel.CheckFirstRunDialog();
-        private readonly MainPageModel MainPageViewModel = new();
+        /// <summary>页面视图模型，供 XAML 通过 x:Bind 绑定。</summary>
+        public MainPageViewModel ViewModel { get; } = new();
+
+        /// <summary>是否需要在启动完成后展示首次运行安全说明。</summary>
+        private readonly bool _showFirstRunDialog = SettingsLoader.GetIsFirstRun();
+
+        /// <summary>启动失败对话框是否已展示过，避免重复弹出。</summary>
         private bool _startupFailureShown;
+
+        /// <summary>防止源提供程序开关在业务逻辑回写状态时重入。</summary>
         private bool _isChangingProviderState;
 
         public MainPage()
         {
             InitializeComponent();
             NavigationCacheMode = NavigationCacheMode.Enabled;
+
+            // 订阅视图模型发出的 UI 请求，让视图模型不依赖具体控件。
+            ViewModel.NavigationRequested += OnNavigationRequested;
+            ViewModel.LoadingOverlayRequested += OnLoadingOverlayRequested;
+            ViewModel.HelpFileReady += OnHelpFileReady;
+
             if (App.MainWindow is MainWindow)
             {
                 DialogService.SetFirstRunDialogPending(_showFirstRunDialog);
@@ -36,121 +50,86 @@ namespace FeedCustomizer.Pages
             base.OnNavigatedTo(e);
             if (e.NavigationMode == NavigationMode.Back)
             {
-                MainPageViewModel.RefreshAfterNavigation();
+                ViewModel.RefreshAfterNavigation();
             }
         }
-        private void AddFeedButton_Click(object sender, RoutedEventArgs e)
-        {
-            if (MainPageViewModel.IsLoading.Value) return;
-            if (!MainPageViewModel.CanAddFeed()) return;
-            MainPageViewModel.SaveListToDataService();
-            Frame.Navigate(typeof(AddFeedPage));
-        }
 
-        private async void OnGetHelpButtonClicked(object sender, RoutedEventArgs e)
+        /// <summary>
+        /// 处理视图模型发出的页面导航请求。
+        /// </summary>
+        private void OnNavigationRequested(object? sender, MainPageNavigationRequestedEventArgs e)
         {
             _ = sender;
-            _ = e;
-            var file = await MainPageViewModel.GetHelpFileAsync();
-            if (file is not null && App.MainWindow is MainWindow window)
+
+            Type pageType = e.Target switch
+            {
+                MainPageNavigationTarget.AddFeed => typeof(AddFeedPage),
+                MainPageNavigationTarget.Settings => typeof(SettingsPage),
+                MainPageNavigationTarget.RegionPolicySettings => typeof(SettingsPage),
+                _ => throw new ArgumentOutOfRangeException(nameof(e.Target), e.Target, null),
+            };
+
+            Frame.Navigate(pageType, e.Parameter);
+        }
+
+        /// <summary>
+        /// 处理视图模型发出的加载遮罩显隐请求。
+        /// </summary>
+        private void OnLoadingOverlayRequested(object? sender, bool isVisible)
+        {
+            _ = sender;
+
+            if (App.MainWindow is MainWindow window)
+            {
+                window.SetLoadingOverlayVisible(isVisible);
+            }
+        }
+
+        /// <summary>
+        /// 处理视图模型发出的帮助文档打开请求。
+        /// </summary>
+        private async void OnHelpFileReady(object? sender, StorageFile file)
+        {
+            _ = sender;
+
+            if (App.MainWindow is MainWindow window)
             {
                 await window.ExternalLaunch.OpenFileAsync(file);
             }
         }
 
-        private void OnAboutButtonClicked(object sender, RoutedEventArgs e)
-        {
-            _ = sender;
-            _ = e;
-
-            MainPageViewModel.SaveListToDataService();
-            Frame.Navigate(typeof(SettingsPage));
-        }
-
-        private void OnUnlockRegionPolicyButtonClicked(object sender, RoutedEventArgs e)
-        {
-            _ = sender;
-            _ = e;
-
-            MainPageViewModel.SaveListToDataService();
-            Frame.Navigate(typeof(SettingsPage), Constants.RegionPolicy.NavigationParameter);
-        }
-
-        private void OnAnyControlActivated()
-        {
-            MainPageViewModel.DisableAllControl();
-        }
-
+        /// <summary>
+        /// 编辑源：只从 UI 元素中取出数据上下文，其余逻辑交给视图模型。
+        /// </summary>
         private void OnEditFeedButtonClicked(object sender, RoutedEventArgs _)
         {
-            if (MainPageViewModel.IsLoading.Value) return;
-            OnAnyControlActivated();
-            MainPageViewModel.SaveListToDataService();
-            if (sender is FrameworkElement element && element.DataContext is FeedViewModel FeedViewModel)
+            if (sender is FrameworkElement { DataContext: FeedViewModel feed })
             {
-                Frame.Navigate(typeof(AddFeedPage), FeedViewModel);
+                ViewModel.EditFeed(feed);
             }
         }
 
+        /// <summary>
+        /// 删除源：只从 UI 元素中取出数据上下文，其余逻辑交给视图模型。
+        /// </summary>
         private void OnDeleteFeedButtonClicked(object sender, RoutedEventArgs _)
         {
-            if (MainPageViewModel.IsLoading.Value) return;
-            OnAnyControlActivated();
-            if (sender is FrameworkElement element && element.DataContext is FeedViewModel FeedViewModel)
+            if (sender is FrameworkElement { DataContext: FeedViewModel feed })
             {
-                MainPageViewModel.DeleteFeed(FeedViewModel);
+                ViewModel.DeleteFeed(feed);
             }
         }
 
-        private async void OnApplyButtonClicked(object sender, RoutedEventArgs e)
-        {
-            _ = e;
-            _ = sender;
-            if (MainPageViewModel.IsLoading.Value) return;
-
-            if (App.MainWindow is not MainWindow window)
-            {
-                return;
-            }
-
-            OnAnyControlActivated();
-            window.SetLoadingOverlayVisible(true);
-            try
-            {
-                await MainPageViewModel.SaveFeeds();
-            }
-            finally
-            {
-                window.SetLoadingOverlayVisible(false);
-            }
-        }
-
-        private async void OnCancelChangesButtonClicked(object sender, RoutedEventArgs e)
-        {
-            _ = sender;
-            _ = e;
-            if (MainPageViewModel.IsLoading.Value || App.MainWindow is not MainWindow window)
-            {
-                return;
-            }
-
-            OnAnyControlActivated();
-            window.SetLoadingOverlayVisible(true);
-            try
-            {
-                await MainPageViewModel.CancelPendingChanges();
-            }
-            finally
-            {
-                window.SetLoadingOverlayVisible(false);
-            }
-        }
-
+        /// <summary>
+        /// 源提供程序开关。ToggleSwitch 没有 Command 属性，且需要遮罩与重入保护，
+        /// 因此保留在代码后置中，实际业务逻辑仍由视图模型执行。
+        /// </summary>
         private async void OnFeedProviderToggleChanged(object sender, RoutedEventArgs e)
         {
             _ = e;
+
             if (_isChangingProviderState ||
-                MainPageViewModel.IsLoading.Value ||
+                ViewModel.IsLoading ||
                 sender is not ToggleSwitch toggleSwitch ||
                 App.MainWindow is not MainWindow window)
             {
@@ -158,12 +137,14 @@ namespace FeedCustomizer.Pages
             }
 
             _isChangingProviderState = true;
-            MainPageViewModel.IsFeedProviderEnabled.Value = toggleSwitch.IsOn;
-            OnAnyControlActivated();
+
+            // 让视图模型状态与开关保持一致（TwoWay 绑定通常已完成，这里做防御性同步）。
+            ViewModel.IsFeedProviderEnabled = toggleSwitch.IsOn;
+
             window.SetLoadingOverlayVisible(true);
             try
             {
-                await MainPageViewModel.EnableOrDisableFeedProvider();
+                await ViewModel.EnableOrDisableFeedProviderAsync();
             }
             finally
             {
@@ -173,13 +154,13 @@ namespace FeedCustomizer.Pages
         }
 
         /// <summary>
-        /// Called when the Page is navigated to.
+        /// 页面加载完成后的启动流程编排（UI 生命周期，保留在代码后置）。
         /// </summary>
-        /// <param name="e"></param>
         public async void MainPage_Loaded(object sender, RoutedEventArgs e)
         {
             _ = sender;
             _ = e;
+
             if (App.MainWindow is not MainWindow window)
             {
                 return;
@@ -188,7 +169,7 @@ namespace FeedCustomizer.Pages
             Exception? initializationException = null;
             try
             {
-                await MainPageViewModel.InitializationTask;
+                await ViewModel.InitializationTask;
             }
             catch (Exception ex)
             {
@@ -198,20 +179,21 @@ namespace FeedCustomizer.Pages
             window.NotifyInitialContentReady();
 
             // 数据已加载完成，主页即将展示。后台清理孤儿图片，避免阻塞启动流程。
-            _ = MainPageViewModel.CleanUpUnusedImagesAsync();
+            _ = ViewModel.CleanUpUnusedImagesAsync();
 
             await window.WaitForSplashHiddenAsync();
 
             if (_showFirstRunDialog)
             {
                 await DialogService.ShowFirstRunAsync();
-                MainPageModel.SetFirstRunFalg();
+                SettingsLoader.SetIsFirstRun(false);
             }
 
             if (initializationException is not null && !_startupFailureShown)
             {
                 _startupFailureShown = true;
                 await DialogService.ShowStartupFailureAsync(
+                    // TODO 稍后将这里改为本地字符串
                     "启动失败",
                     initializationException.ToString());
             }

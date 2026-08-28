@@ -19,7 +19,7 @@
                             </StackPanel>
                         </StackPanel>
                     </Expander.Header>
-                    <RadioButtons x:Name="RbTheme" SelectionChanged="RbTheme_SelectionChanged" Padding="12,0,0,12">
+                    <RadioButtons SelectedIndex="{x:Bind ViewModel.ThemeIndex, Mode=TwoWay}" Padding="12,0,0,12">
                         <RadioButton x:Uid="ThemeSystem" Tag="System"/>
                         <RadioButton x:Uid="ThemeLight" Tag="Light"/>
                         <RadioButton x:Uid="ThemeDark" Tag="Dark"/>
@@ -36,7 +36,7 @@
                             </StackPanel>
                         </StackPanel>
                     </Expander.Header>
-                    <RadioButtons x:Name="RbMaterial" SelectionChanged="RbMaterial_SelectionChanged" Padding="12,0,0,12">
+                    <RadioButtons SelectedIndex="{x:Bind ViewModel.MaterialIndex, Mode=TwoWay}" Padding="12,0,0,12">
                         <RadioButton Content="Mica" Tag="Mica"/>
                         <RadioButton Content="Mica Alt" Tag="MicaAlt"/>
                         <RadioButton Content="Acrylic" Tag="Acrylic"/>
@@ -50,7 +50,7 @@
                     <controls:SettingsCard.HeaderIcon>
                         <FontIcon Glyph="&#xE767;" />
                     </controls:SettingsCard.HeaderIcon>
-                    <ToggleSwitch x:Name="SoundToggle" HorizontalAlignment="Right" Toggled="SoundToggle_Toggled"/>
+                    <ToggleSwitch IsOn="{x:Bind ViewModel.IsSoundEnabled, Mode=TwoWay}" HorizontalAlignment="Right"/>
                 </controls:SettingsCard>
             </StackPanel>
 
@@ -60,13 +60,13 @@
                     <controls:SettingsCard.HeaderIcon>
                         <FontIcon Glyph="&#xE7EF;" />
                     </controls:SettingsCard.HeaderIcon>
-                    <ToggleSwitch x:Name="AutoDeveloperModeToggle" HorizontalAlignment="Right" Toggled="AutoDeveloperModeToggle_Toggled"/>
+                    <ToggleSwitch IsOn="{x:Bind ViewModel.IsAutoDeveloperModeEnabled, Mode=TwoWay}" HorizontalAlignment="Right"/>
                 </controls:SettingsCard>
                 <controls:SettingsCard x:Uid="Settings_RegionPolicyCard" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" MinHeight="70" Padding="16,0">
                     <controls:SettingsCard.HeaderIcon>
                         <FontIcon Glyph="&#xE72E;" />
                     </controls:SettingsCard.HeaderIcon>
-                    <Button x:Name="UnlockRegionPolicyButton" x:Uid="UnlockRegionPolicyButton" HorizontalAlignment="Right" Click="UnlockRegionPolicyButton_Click"/>
+                    <Button x:Name="UnlockRegionPolicyButton" x:Uid="UnlockRegionPolicyButton" HorizontalAlignment="Right" Command="{x:Bind ViewModel.UnlockRegionPolicyCommand}"/>
                 </controls:SettingsCard>
             </StackPanel>
 
@@ -77,8 +77,8 @@
                         <FontIcon Glyph="&#xE00B;" />
                     </controls:SettingsCard.HeaderIcon>
                     <StackPanel Orientation="Horizontal" Spacing="12" HorizontalAlignment="Right" VerticalAlignment="Center">
-                        <Button x:Name="DonateButton" x:Uid="DonateButton" Style="{StaticResource AccentButtonStyle}" Click="DonateButton_Click"/>
-                        <StackPanel x:Name="DonationThanksPanel" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" Visibility="Collapsed">
+                        <Button x:Uid="DonateButton" Style="{StaticResource AccentButtonStyle}" Command="{x:Bind ViewModel.DonateCommand}" Visibility="{x:Bind ViewModel.DonateButtonVisibility, Mode=OneWay}"/>
+                        <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" Visibility="{x:Bind ViewModel.DonationThanksVisibility, Mode=OneWay}">
                             <FontIcon Glyph="&#xE73E;" FontSize="16" VerticalAlignment="Center"/>
                             <TextBlock x:Uid="DonationThanks" FontSize="14" VerticalAlignment="Center"/>
                         </StackPanel>
@@ -96,15 +96,15 @@
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
-                            <Image x:Name="ImgAppIcon" Grid.Column="0" Width="20" Height="20" Stretch="Uniform" VerticalAlignment="Center" Source="{x:Bind AboutViewModel.AppLogoImage}" />
+                            <Image Grid.Column="0" Width="20" Height="20" Stretch="Uniform" VerticalAlignment="Center" Source="{x:Bind ViewModel.AppLogoImage}" />
                             <StackPanel Grid.Column="1" Margin="21,0,0,0" VerticalAlignment="Center">
-                                <TextBlock x:Name="TxtAppName" FontSize="14.4"/>
+                                <TextBlock FontSize="14.4" Text="{x:Bind ViewModel.AppDisplayName, Mode=OneWay}"/>
                                 <StackPanel Orientation="Horizontal" Spacing="0">
-                                    <TextBlock x:Name="TxtCopyrightPrefix" Padding="0" FontSize="12" Opacity="0.8" Text="{x:Bind AboutViewModel.GetCopyrightPrefix()}" />
+                                    <TextBlock Padding="0" FontSize="12" Opacity="0.8" Text="{x:Bind ViewModel.CopyrightPrefix, Mode=OneWay}" />
                                     <HyperlinkButton
-                                        Content="{x:Bind AboutViewModel.Developer1Name}"
-                                        Tag="{x:Bind AboutViewModel.Developer1Link}"
-                                        Click="DeveloperLink_Click"
+                                        Content="{x:Bind ViewModel.Developer1Name, Mode=OneWay}"
+                                        Command="{x:Bind ViewModel.OpenDeveloperLinkCommand}"
+                                        CommandParameter="{x:Bind ViewModel.Developer1Link}"
                                         Padding="5,0,0,0"
                                         FontSize="12"
                                         Opacity="0.7">
@@ -114,9 +114,9 @@
                                     </HyperlinkButton>
                                     <TextBlock Text=" , " FontSize="12" Opacity="0.7" VerticalAlignment="Center"/>
                                     <HyperlinkButton
-                                        Content="{x:Bind AboutViewModel.Developer2Name}"
-                                        Tag="{x:Bind AboutViewModel.Developer2Link}"
-                                        Click="DeveloperLink_Click"
+                                        Content="{x:Bind ViewModel.Developer2Name, Mode=OneWay}"
+                                        Command="{x:Bind ViewModel.OpenDeveloperLinkCommand}"
+                                        CommandParameter="{x:Bind ViewModel.Developer2Link}"
                                         Padding="0,0,2,0"
                                         FontSize="12"
                                         Opacity="0.7">
@@ -127,13 +127,13 @@
                                     <TextBlock x:Uid="AboutCopyrightAllRights" FontSize="12" Opacity="0.8"/>
                                 </StackPanel>
                             </StackPanel>
-                            <TextBlock x:Name="TxtVersion" Grid.Column="2" FontSize="14.4" Opacity="0.7" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Column="2" FontSize="14.4" Opacity="0.7" VerticalAlignment="Center" Text="{x:Bind ViewModel.AppVersion, Mode=OneWay}"/>
                         </Grid>
                     </Expander.Header>
                     <StackPanel Spacing="8">
                         <StackPanel>
                             <TextBlock x:Uid="AboutOpenSourceLink" FontSize="13" Opacity="0.6"/>
-                            <HyperlinkButton Content="Gitee" Click="OpenSourceLink_Click" Padding="0" FontSize="16"/>
+                            <HyperlinkButton Content="Gitee" Command="{x:Bind ViewModel.OpenSourceLinkCommand}" Padding="0" FontSize="16"/>
                         </StackPanel>
                     </StackPanel>
                 </Expander>

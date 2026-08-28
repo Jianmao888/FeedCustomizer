@@ -67,12 +67,12 @@
             x:Uid="RegionWarningInfoBar"
             Margin="12,12,12,0"
             IsClosable="True"
-            IsOpen="{x:Bind MainPageViewModel.IsRegionWarningVisible.Value, Mode=TwoWay}"
+            IsOpen="{x:Bind ViewModel.IsRegionWarningVisible, Mode=TwoWay}"
             Severity="Warning">
             <InfoBar.ActionButton>
                 <HyperlinkButton
                     x:Uid="RegionWarningUnlockButton"
-                    Click="OnUnlockRegionPolicyButtonClicked" />
+                    Command="{x:Bind ViewModel.UnlockRegionPolicyCommand}" />
             </InfoBar.ActionButton>
         </InfoBar>
 
@@ -96,10 +96,10 @@
                     <ToggleSwitch
                         x:Uid="FeedProviderToggle"
                         HorizontalAlignment="Right"
-                        IsEnabled="{x:Bind MainPageViewModel.IsButtonsEnabled.Value, Mode=OneWay}"
+                        IsEnabled="{x:Bind ViewModel.IsButtonsEnabled, Mode=OneWay}"
                         AutomationProperties.Name="EnableFeedToggle"
                         Toggled="OnFeedProviderToggleChanged"
-                        IsOn="{x:Bind MainPageViewModel.IsFeedProviderEnabled.Value, Mode=TwoWay}"/>
+                        IsOn="{x:Bind ViewModel.IsFeedProviderEnabled, Mode=TwoWay}"/>
                 </controls:SettingsCard>
 
                 <ScrollViewer
@@ -112,7 +112,7 @@
                         x:Name="FeedSettingsExpander"
                         x:Uid="FeedListExpander"
                         IsExpanded="True"
-                        ItemsSource="{x:Bind MainPageViewModel.Feeds}"
+                        ItemsSource="{x:Bind ViewModel.Feeds}"
                         ItemTemplate="{StaticResource FeedItemTemplate}"
                         HorizontalAlignment="Stretch"
                         VerticalAlignment="Top">
@@ -123,8 +123,8 @@
                                 Height="32"
                                 Margin="0,0,16,0"
                                 Style="{StaticResource AccentButtonStyle}"
-                                IsEnabled="{x:Bind MainPageViewModel.IsButtonsEnabled.Value, Mode=OneWay}"
-                                Click="AddFeedButton_Click">
+                                IsEnabled="{x:Bind ViewModel.IsButtonsEnabled, Mode=OneWay}"
+                                Command="{x:Bind ViewModel.AddFeedCommand}">
                                 <Button.Content>
                                     <StackPanel Orientation="Horizontal" Spacing="6" Padding="11,0">
                                         <FontIcon
@@ -165,10 +165,10 @@
                     Spacing="8" 
                     Orientation="Horizontal"
                     HorizontalAlignment="Left">
-                    <HyperlinkButton Padding="6" x:Uid="GetHelpButton" Click="OnGetHelpButtonClicked">
+                    <HyperlinkButton Padding="6" x:Uid="GetHelpButton" Command="{x:Bind ViewModel.GetHelpCommand}">
                         <FontIcon Glyph="&#xE82F;" FontSize="16"/>
                     </HyperlinkButton>
-                    <HyperlinkButton Padding="6" x:Uid="AboutButton" Click="OnAboutButtonClicked">
+                    <HyperlinkButton Padding="6" x:Uid="AboutButton" Command="{x:Bind ViewModel.AboutCommand}">
                         <FontIcon Glyph="&#xE713;" FontSize="16"/>
                     </HyperlinkButton>
                 </StackPanel>
@@ -181,11 +181,11 @@
                     HorizontalAlignment="Right">
                     <Button
                         x:Name="CancelChangesButton"
-                        x:Load="{x:Bind MainPageViewModel.IsApplyButtonEnabled.Value, Mode=OneWay}"
+                        x:Load="{x:Bind ViewModel.IsApplyButtonEnabled, Mode=OneWay}"
                         MinWidth="128"
                         HorizontalAlignment="Right"
-                        IsEnabled="{x:Bind MainPageViewModel.IsApplyButtonEnabled.Value, Mode=OneWay}"
-                        Click="OnCancelChangesButtonClicked">
+                        IsEnabled="{x:Bind ViewModel.IsApplyButtonEnabled, Mode=OneWay}"
+                        Command="{x:Bind ViewModel.CancelChangesCommand}">
                         <TextBlock x:Uid="CancelButton" />
                     </Button>
                     <Button
@@ -193,9 +193,9 @@
                         MinWidth="128"
                         x:Uid="ApplyButton"
                         HorizontalAlignment="Right"
-                        IsEnabled="{x:Bind MainPageViewModel.IsApplyButtonEnabled.Value, Mode=OneWay}"
+                        IsEnabled="{x:Bind ViewModel.IsApplyButtonEnabled, Mode=OneWay}"
                         Style="{StaticResource AccentButtonStyle}"
-                        Click="OnApplyButtonClicked"/>
+                        Command="{x:Bind ViewModel.ApplyFeedsCommand}"/>
                 </StackPanel>
             </Grid>
         </Border>

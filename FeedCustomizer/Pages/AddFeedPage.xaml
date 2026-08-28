@@ -25,14 +25,14 @@
                         x:Uid="UrlTextBox"
                         InputScope="Url"
                         Margin="0,10,0,0"
-                        Text="{x:Bind FeedViewModel.Url, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                        Text="{x:Bind ViewModel.Url, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
 
                     <!-- 名称输入 -->
                     <TextBox 
                         x:Name="NameTextBox" 
                         x:Uid="NameTextBox"
                         Margin="0,0,0,0"
-                        Text="{x:Bind FeedViewModel.Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                        Text="{x:Bind ViewModel.Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
 
                     <!-- 图片选择器区域 -->
                     <StackPanel Spacing="10">
@@ -43,13 +43,12 @@
                                 x:Name="WebsiteIconRadioButton"
                                 x:Uid="WebsiteIconRadioButton"
                                 GroupName="IconSource"
-                                IsChecked="True"
-                                Checked="OnIconModeChanged" />
+                                IsChecked="{x:Bind ViewModel.IsWebsiteIconMode, Mode=TwoWay}" />
                             <RadioButton
                                 x:Name="CustomIconRadioButton"
                                 x:Uid="CustomIconRadioButton"
                                 GroupName="IconSource"
-                                Checked="OnIconModeChanged" />
+                                IsChecked="{x:Bind ViewModel.IsCustomIconMode, Mode=TwoWay}" />
                         </StackPanel>
 
                         <Grid x:Name="WebsiteImageControls">
@@ -70,7 +69,7 @@
                                         FontSize="64" />
                                     <Image
                                         x:Name="WebsitePreviewImage"
-                                        Source="{x:Bind FeedViewModel.BitmapImage, Mode=OneTime}"
+                                        Source="{x:Bind ViewModel.PreviewImage, Mode=OneWay}"
                                         Stretch="Uniform" />
                                 </Grid>
                             </Border>
@@ -110,7 +109,7 @@
                                     <Image
                                         Stretch="Uniform"
                                         x:Name="PreviewImage" 
-                                        Source="{x:Bind FeedViewModel.BitmapImage, Mode=OneTime}" />
+                                        Source="{x:Bind ViewModel.PreviewImage, Mode=OneWay}" />
                                 </Grid>
                             </Border>
 
@@ -121,7 +120,7 @@
                                 Style="{StaticResource AccentButtonStyle}"
                                 VerticalAlignment="Bottom"
                                 HorizontalAlignment="Stretch"
-                                Click="OnSelectImageButtonClick">
+                                Command="{x:Bind ViewModel.SelectImageCommand}">
                                 <StackPanel Orientation="Horizontal" Spacing="8">
                                     <SymbolIcon Symbol="OpenFile"/>
                                     <TextBlock x:Uid="SelectImageButton"/>
@@ -134,8 +133,8 @@
                                 Grid.Row="1" Grid.Column="1"
                                 VerticalAlignment="Bottom"
                                 HorizontalAlignment="Stretch"
-                                IsEnabled="{x:Bind FeedViewModel.CanClearImage.Value, Mode=OneWay}"
-                                Click="OnClearImageButtonClick">
+                                IsEnabled="{x:Bind ViewModel.CanClearImage, Mode=OneWay}"
+                                Command="{x:Bind ViewModel.ClearImageCommand}">
                                 <StackPanel Orientation="Horizontal" Spacing="8">
                                     <SymbolIcon Symbol="Clear"/>
                                     <TextBlock x:Uid="ClearButton"/>
@@ -179,9 +178,9 @@
                         x:Name="SaveButton"
                         MinWidth="128"
                         HorizontalAlignment="Right"
-                        IsEnabled="{x:Bind FeedViewModel.CanSave.Value, Mode=OneWay}"
+                        IsEnabled="{x:Bind ViewModel.CanSaveAndNotSaving, Mode=OneWay}"
                         Style="{StaticResource AccentButtonStyle}"
-                        Click="OnSaveButtonClick">
+                        Command="{x:Bind ViewModel.SaveCommand}">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <SymbolIcon Symbol="Save" />
                             <TextBlock x:Uid="SaveButton" />
@@ -193,7 +192,7 @@
 
         <!-- 顶部标题 (可选) -->
         <TextBlock Grid.Row="0" 
-                   Text="{x:Bind FeedViewModel.PageTitle, Mode=OneTime}" 
+                   Text="{x:Bind ViewModel.PageTitle, Mode=OneTime}" 
                    Style="{StaticResource TitleTextBlockStyle}"
                    Margin="20,20,20,10"/>
 

@@ -1,13 +1,9 @@
 using FeedCustomizer.Core.Constants;
-using FeedCustomizer.Core.Tools;
 using FeedCustomizer.ViewModels;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
 using System;
-using System.Diagnostics;
-using System.Threading.Tasks;
-using Windows.ApplicationModel;
 
 // To learn more about WinUI, the WinUI project structure,
 // and more about our project templates, see: http://aka.ms/winui-project-info.
@@ -15,19 +11,24 @@ using Windows.ApplicationModel;
 namespace FeedCustomizer.Pages
 {
     /// <summary>
-    /// An empty page that can be used on its own or navigated to within a Frame.
+    /// 设置页：只保留与 UI 强相关的代码（导航参数处理、控件焦点、打开外部链接），
+    /// 业务逻辑统一放在 SettingsViewModel 中。
     /// </summary>
     public sealed partial class SettingsPage : Page
     {
-        public SettingsViewModel AboutViewModel { get; } = new();
-        private readonly Microsoft.Windows.ApplicationModel.Resources.ResourceLoader _resourceLoader = new();
-        private bool _isInitializing = true;
+        /// <summary>页面视图模型，供 XAML 通过 x:Bind 绑定。</summary>
+        public SettingsViewModel ViewModel { get; } = new();
+
+        /// <summary>导航到设置页时是否请求聚焦“解除地区限制”按钮。</summary>
         private bool _focusRegionPolicyButton;
 
         public SettingsPage()
         {
-            this.InitializeComponent();
-            this.Loaded += SettingsPage_Loaded;
+            InitializeComponent();
+
+            // 订阅视图模型发出的 UI 请求，让视图模型不依赖具体控件。
+            ViewModel.OpenLinkRequested += OnOpenLinkRequested;
+            Loaded += SettingsPage_Loaded;
         }
 
         protected override void OnNavigatedTo(NavigationEventArgs e)
@@ -37,14 +38,16 @@ namespace FeedCustomizer.Pages
                 parameter == Constants.RegionPolicy.NavigationParameter;
         }
 
-        private async void SettingsPage_Loaded(object sender, RoutedEventArgs e)
+        /// <summary>
+        /// 页面加载完成后启动视图模型初始化，并按需聚焦“解除地区限制”按钮。
+        /// </summary>
+        private void SettingsPage_Loaded(object sender, RoutedEventArgs e)
         {
-            LoadUI();
-            LoadAppInfo();
-            _isInitializing = false;
+            _ = sender;
+            _ = e;
 
-            // 不在页面加载流程中等待 Store 许可证查询，先展示页面，再在后台刷新捐赠者版购买状态
-            _ = RefreshDonationStateAsync();
+            // 设置项已在 ViewModel 构造函数中读取，这里只启动需要窗口句柄的异步初始化。
+            _ = ViewModel.InitializeAsync(GetWindowHandle());
 
             if (_focusRegionPolicyButton)
             {
@@ -53,6 +56,7 @@ namespace FeedCustomizer.Pages
             }
         }
 
+        /// <summary>将焦点移动到“解除地区限制”按钮（纯 UI 逻辑）。</summary>
         private void FocusRegionPolicyButton()
         {
             DispatcherQueue.TryEnqueue(() =>
@@ -62,251 +66,23 @@ namespace FeedCustomizer.Pages
             });
         }
 
-        private void LoadUI()
+        /// <summary>获取主窗口句柄，供 Store 购买与许可证查询使用。</summary>
+        private static IntPtr GetWindowHandle()
         {
-            RbTheme.SelectedIndex = SettingsLoader.GetAppTheme() switch
-            {
-                "Light" => 1,
-                "Dark" => 2,
-                _ => 0
-            };
-
-            RbMaterial.SelectedIndex = SettingsLoader.GetAppMaterial() switch
-            {
-                "MicaAlt" => 1,
-                "Acrylic" => 2,
-                _ => 0
-            };
-
-            SoundToggle.IsOn = SettingsLoader.GetEnableSound();
-            AutoDeveloperModeToggle.IsOn = SettingsLoader.GetAutoEnableDeveloperMode();
+            return App.MainWindow is MainWindow window
+                ? WinRT.Interop.WindowNative.GetWindowHandle(window)
+                : IntPtr.Zero;
         }
 
-        public void LoadAppInfo()
+        /// <summary>处理视图模型发出的打开外部链接请求。</summary>
+        private async void OnOpenLinkRequested(object? sender, string url)
         {
-            try
-            {
-                TxtAppName.Text = Package.Current.DisplayName;
-                TxtVersion.Text = SettingsViewModel.GetCurrentVersion();
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"LoadAppInfo 错误: {ex.Message}");
-            }
-        }
+            _ = sender;
 
-        private async Task RefreshDonationStateAsync()
-        {
-            IntPtr hwnd = IntPtr.Zero;
             if (App.MainWindow is MainWindow window)
             {
-                hwnd = WinRT.Interop.WindowNative.GetWindowHandle(window);
+                await window.ExternalLaunch.OpenLinkAsync(url);
             }
-
-            var checkTask = DonationService.IsDonorEditionPurchasedAsync(hwnd);
-            var timeoutTask = Task.Delay(TimeSpan.FromSeconds(5));
-            var completedTask = await Task.WhenAny(checkTask, timeoutTask);
-
-            bool purchased =
-                completedTask == checkTask &&
-                checkTask.Status == TaskStatus.RanToCompletion &&
-                checkTask.Result;
-
-            if (DispatcherQueue.HasThreadAccess)
-            {
-                SetDonationPurchasedState(purchased);
-            }
-            else
-            {
-                DispatcherQueue.TryEnqueue(() => SetDonationPurchasedState(purchased));
-            }
-        }
-
-        private void SetDonationPurchasedState(bool purchased)
-        {
-            DonateButton.Visibility = purchased ? Visibility.Collapsed : Visibility.Visible;
-            DonationThanksPanel.Visibility = purchased ? Visibility.Visible : Visibility.Collapsed;
-        }
-
-        private void RbTheme_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            if (_isInitializing) return;
-
-            string value = RbTheme.SelectedIndex switch
-            {
-                1 => "Light",
-                2 => "Dark",
-                _ => "System"
-            };
-            var theme = RbTheme.SelectedIndex switch
-            {
-                1 => ElementTheme.Light,
-                2 => ElementTheme.Dark,
-                _ => ElementTheme.Default
-            };
-
-            SettingsLoader.SetAppTheme(value);
-            AppThemeManager.CurrentTheme = theme;
-            if (App.MainWindow?.Content is FrameworkElement root)
-                root.RequestedTheme = theme;
-            AppThemeManager.UpdateTitleBarColors();
-        }
-
-        private void RbMaterial_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            if (_isInitializing) return;
-
-            string value = RbMaterial.SelectedIndex switch
-            {
-                1 => "MicaAlt",
-                2 => "Acrylic",
-                _ => "Mica"
-            };
-            SettingsLoader.SetAppMaterial(value);
-            AppThemeManager.CurrentMaterial = value switch
-            {
-                "MicaAlt" => BackgroundMaterial.MicaAlt,
-                "Acrylic" => BackgroundMaterial.Acrylic,
-                _ => BackgroundMaterial.Mica
-            };
-            AppThemeManager.ApplyMaterial();
-        }
-
-        private void SoundToggle_Toggled(object sender, RoutedEventArgs e)
-        {
-            if (_isInitializing) return;
-            bool isOn = SoundToggle.IsOn;
-            SettingsLoader.SetEnableSound(isOn);
-            ElementSoundPlayer.State = isOn ? ElementSoundPlayerState.On : ElementSoundPlayerState.Off;
-        }
-
-        private void AutoDeveloperModeToggle_Toggled(object sender, RoutedEventArgs e)
-        {
-            if (_isInitializing) return;
-            SettingsLoader.SetAutoEnableDeveloperMode(AutoDeveloperModeToggle.IsOn);
-        }
-
-        private async void DonateButton_Click(object sender, RoutedEventArgs e)
-        {
-            _ = sender;
-            _ = e;
-
-            if (App.MainWindow is not MainWindow window)
-            {
-                return;
-            }
-
-            bool confirmed = await DialogService.ShowConfirmAsync(
-                _resourceLoader.GetString("DonationConfirmTitle"),
-                _resourceLoader.GetString("DonationConfirmMessage"),
-                _resourceLoader.GetString("DonationConfirmPrimaryButtonText"),
-                _resourceLoader.GetString("DonationConfirmCloseButtonText"));
-
-            if (!confirmed)
-            {
-                return;
-            }
-
-            var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(window);
-            var result = await DonationService.PurchaseDonorEditionAsync(hwnd);
-
-            if (result is DonationPurchaseResult.Purchased or DonationPurchaseResult.AlreadyPurchased)
-            {
-                SetDonationPurchasedState(true);
-            }
-            else if (result == DonationPurchaseResult.Failed)
-            {
-                await DialogService.ShowMessageAsync(
-                    _resourceLoader.GetString("DonationErrorTitle"),
-                    _resourceLoader.GetString("DonationErrorMessage"),
-                    _resourceLoader.GetString("DialogOK"));
-            }
-        }
-
-        private async void OpenSourceLink_Click(object sender, RoutedEventArgs e)
-        {
-            _ = sender;
-            _ = e;
-            if (App.MainWindow is MainWindow window)
-            {
-                await window.ExternalLaunch.OpenLinkAsync(AboutViewModel.OpenSourceLink);
-            }
-        }
-
-        private async void DeveloperLink_Click(object sender, RoutedEventArgs e)
-        {
-            _ = e;
-            if (sender is HyperlinkButton hb)
-            {
-                var link = hb.Tag as string;
-                if (string.IsNullOrEmpty(link))
-                {
-                    link = AboutViewModel.DeveloperStoreLink;
-                }
-
-                if (App.MainWindow is MainWindow window)
-                {
-                    await window.ExternalLaunch.OpenLinkAsync(link);
-                }
-            }
-        }
-
-        private async void UnlockRegionPolicyButton_Click(object sender, RoutedEventArgs e)
-        {
-            _ = sender;
-            _ = e;
-
-            bool confirmed = await DialogService.ShowConfirmAsync(
-                _resourceLoader.GetString("RegionPolicyWarningTitle"),
-                _resourceLoader.GetString("RegionPolicyWarningMessage"),
-                _resourceLoader.GetString("RegionPolicyWarningPrimaryButtonText"),
-                _resourceLoader.GetString("DonationConfirmCloseButtonText"));
-
-            if (!confirmed)
-            {
-                return;
-            }
-
-            RegionPolicyOperationResult result = await RegionPolicyService.EnableThirdPartyWidgetFeedAsync();
-
-            switch (result)
-            {
-                case RegionPolicyOperationResult.Success:
-                    await DialogService.ShowMessageAsync(
-                        _resourceLoader.GetString("RegionPolicySuccessTitle"),
-                        _resourceLoader.GetString("RegionPolicySuccessMessage"),
-                        _resourceLoader.GetString("DialogOK"));
-                    break;
-
-                case RegionPolicyOperationResult.Cancelled:
-                    await DialogService.ShowMessageAsync(
-                        _resourceLoader.GetString("RegionPolicyWarningTitle"),
-                        _resourceLoader.GetString("RegionPolicyCancelledMessage"),
-                        _resourceLoader.GetString("DialogOK"));
-                    break;
-
-                case RegionPolicyOperationResult.PolicyNotFound:
-                    await DialogService.ShowMessageAsync(
-                        _resourceLoader.GetString("RegionPolicyFailureTitle"),
-                        BuildRegionPolicyFailureMessage(_resourceLoader.GetString("RegionPolicyPolicyNotFoundMessage")),
-                        _resourceLoader.GetString("DialogOK"));
-                    break;
-
-                default:
-                    await DialogService.ShowMessageAsync(
-                        _resourceLoader.GetString("RegionPolicyFailureTitle"),
-                        BuildRegionPolicyFailureMessage(_resourceLoader.GetString("RegionPolicyFailureMessage")),
-                        _resourceLoader.GetString("DialogOK"));
-                    break;
-            }
-        }
-
-        private static string BuildRegionPolicyFailureMessage(string baseMessage)
-        {
-            string? diagnostics = RegionPolicyService.LastDiagnostics;
-            return string.IsNullOrWhiteSpace(diagnostics)
-                ? baseMessage
-                : baseMessage + Environment.NewLine + Environment.NewLine + diagnostics;
         }
     }
 }
