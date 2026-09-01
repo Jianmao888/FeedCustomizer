@@ -12,9 +12,9 @@
 <p align="center" style="display:flex;gap:16px;justify-content:center;align-items:center;">
   <a href="https://apps.microsoft.com/store/detail/9N0MB6RNWL85?cid=DevShareMCLPCS" title="从 Microsoft Store 获取">
     <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="Document/Images/DownloadCard/get-it-on-microsoft-dark.svg">
-      <source media="(prefers-color-scheme: light)" srcset="Document/Images/DownloadCard/get-it-on-microsoft-light.svg">
-      <img src="Document/Images/DownloadCard/get-it-on-microsoft-light.svg" width="220" alt="从 Microsoft Store 获取">
+      <source media="(prefers-color-scheme: dark)" srcset="Document/Images/DownloadCard/get-it-on-microsoft-dark-zh.svg">
+      <source media="(prefers-color-scheme: light)" srcset="Document/Images/DownloadCard/get-it-on-microsoft-light-zh.svg">
+      <img src="Document/Images/DownloadCard/get-it-on-microsoft-light-zh.svg" width="220" alt="从 Microsoft Store 获取">
     </picture>
   </a>
   <a href="releases" title="从 Releases 获取（跳转到 Releases 页面）">
@@ -131,9 +131,9 @@ FeedCustomizer 不会主动收集任何个人信息，也不会向开发者所�
 <p align="left">
   <a href="https://apps.microsoft.com/detail/9nvqxzgpnp2m">
     <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="Document/Images/DownloadCard/get-it-on-microsoft-dark.svg">
-      <source media="(prefers-color-scheme: light)" srcset="Document/Images/DownloadCard/get-it-on-microsoft-light.svg">
-      <img src="Document/Images/DownloadCard/get-it-on-microsoft-light.svg" width="220" alt="从 Microsoft Store 获取">
+      <source media="(prefers-color-scheme: dark)" srcset="Document/Images/DownloadCard/get-it-on-microsoft-dark-zh.svg">
+      <source media="(prefers-color-scheme: light)" srcset="Document/Images/DownloadCard/get-it-on-microsoft-light-zh.svg">
+      <img src="Document/Images/DownloadCard/get-it-on-microsoft-light-zh.svg" width="220" alt="从 Microsoft Store 获取">
     </picture>
   </a>
 </p>
