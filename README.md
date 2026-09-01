@@ -10,14 +10,10 @@
 [![Platform](https://img.shields.io/badge/Platform-Windows%2011-0078D6.svg?logo=windows&logoColor=white)](#)
 
 <p align="center" style="display:flex;gap:16px;justify-content:center;align-items:center;">
-  <a href="https://apps.microsoft.com/store/detail/9N0MB6RNWL85?cid=DevShareMCLPCS" title="从 Microsoft Store 获取">
-    <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="https://get.microsoft.com/images/zh-cn%20dark.svg">
-      <source media="(prefers-color-scheme: light)" srcset="https://get.microsoft.com/images/zh-cn%20light.svg">
-      <img src="https://get.microsoft.com/images/zh-cn%20light.svg" width="220" alt="从 Microsoft Store 获取">
-    </picture>
+  <a href="https://apps.microsoft.com/store/detail/9N0MB6RNWL85?cid=DevShareMCLPCS">
+    <img src="https://get.microsoft.com/images/zh-cn%20dark.svg" width="220" alt="从 Microsoft Store 获取">
   </a>
-  <a href="releases" title="从 Releases 获取（跳转到 Releases 页面）">
+  <a href="releases">
     <img src="https://raw.githubusercontent.com/Kunzisoft/Github-badge/main/get-it-on-github.png" width="220" alt="从 Releases 获取">
   </a>
 </p>
@@ -43,13 +39,13 @@ FeedCustomizer 是一款面向 Windows 11 的开源工具，允许你为系统�
 
 <div style="display:flex;flex-direction:column;align-items:left;gap:8px;">
   <div style="display:flex;gap:8px;justify-content:left;flex-wrap:nowrap;">
-    <img src="Document/Images/Preview/小组件面板示例-抖音.png" alt="截图1" style="width:50%;height:auto;object-fit:cover;" />
-    <img src="Document/Images/Preview/小组件面板示例-Nasa.png" alt="截图2" style="width:50%;height:auto;object-fit:cover;" />
+    <img src="Document/Images/Preview/小组件面板示例-抖音.png" alt="截图1" style="width:48%;height:auto;object-fit:cover;" />
+    <img src="Document/Images/Preview/小组件面板示例-Nasa.png" alt="截图2" style="width:48%;height:auto;object-fit:cover;" />
   </div>
   <div style="display:flex;gap:8px;justify-content:left;flex-wrap:nowrap;">
-    <img src="Document/Images/Preview/应用截图-首页.png" alt="截图3" style="width:33%;height:auto;object-fit:cover;" />
-    <img src="Document/Images/Preview/应用截图-编辑页面.png" alt="截图4" style="width:33%;height:auto;object-fit:cover;" />
-    <img src="Document/Images/Preview/应用截图-设置页面.png" alt="截图5" style="width:33%;height:auto;object-fit:cover;" />
+    <img src="Document/Images/Preview/应用截图-首页.png" alt="截图3" style="width:32%;height:auto;object-fit:cover;" />
+    <img src="Document/Images/Preview/应用截图-编辑页面.png" alt="截图4" style="width:32%;height:auto;object-fit:cover;" />
+    <img src="Document/Images/Preview/应用截图-设置页面.png" alt="截图5" style="width:32%;height:auto;object-fit:cover;" />
   </div>
 </div>
 
