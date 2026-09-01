@@ -10,11 +10,17 @@
 [![Platform](https://img.shields.io/badge/Platform-Windows%2011-0078D6.svg?logo=windows&logoColor=white)](#)
 
 <p align="center" style="display:flex;gap:16px;justify-content:center;align-items:center;">
-  <a href="https://apps.microsoft.com/store/detail/9N0MB6RNWL85?cid=DevShareMCLPCS">
-    <img src="https://get.microsoft.com/images/zh-cn%20dark.svg" width="220" alt="从 Microsoft Store 获取">
+  <a href="https://apps.microsoft.com/store/detail/9N0MB6RNWL85?cid=DevShareMCLPCS" title="从 Microsoft Store 获取">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="Document/Images/DownloadCard/get-it-on-microsoft-dark.svg">
+      <source media="(prefers-color-scheme: light)" srcset="Document/Images/DownloadCard/get-it-on-microsoft-light.svg">
+      <img src="Document/Images/DownloadCard/get-it-on-microsoft-light.svg" width="220" alt="从 Microsoft Store 获取">
+    </picture>
   </a>
-  <a href="releases">
-    <img src="https://raw.githubusercontent.com/Kunzisoft/Github-badge/main/get-it-on-github.png" width="220" alt="从 Releases 获取">
+  <a href="releases" title="从 Releases 获取（跳转到 Releases 页面）">
+    <picture>
+      <img src="Document/Images/DownloadCard/get-it-on-github.png" width="220" alt="从 Releases 获取">
+    </picture>
   </a>
 </p>
 </div>
@@ -123,11 +129,11 @@ FeedCustomizer 不会主动收集任何个人信息，也不会向开发者所�
 
 商店下载
 <p align="left">
-    <a href="https://apps.microsoft.com/detail/9nvqxzgpnp2m">
-        <picture>
-            <source media="(prefers-color-scheme: dark)" srcset="https://get.microsoft.com/images/zh-cn%20dark.svg">
-            <source media="(prefers-color-scheme: light)" srcset="https://get.microsoft.com/images/zh-cn%20light.svg">
-            <img src="https://get.microsoft.com/images/zh-cn%20light.svg" width="200" alt="从 Microsoft Store 获取">
-        </picture>
-    </a>
+  <a href="https://apps.microsoft.com/detail/9nvqxzgpnp2m">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="Document/Images/DownloadCard/get-it-on-microsoft-dark.svg">
+      <source media="(prefers-color-scheme: light)" srcset="Document/Images/DownloadCard/get-it-on-microsoft-light.svg">
+      <img src="Document/Images/DownloadCard/get-it-on-microsoft-light.svg" width="220" alt="从 Microsoft Store 获取">
+    </picture>
+  </a>
 </p>
