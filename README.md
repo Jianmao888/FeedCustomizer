@@ -91,3 +91,17 @@ FeedCustomizer 不会主动收集任何个人信息，也不会向开发者所�
 ## 📄 许可证
 
 本项目依据 [MIT 许可协议](LICENSE) 开源。
+
+### 👉 UWP版本
+
+[UWP版本-由惜忆想睡觉制作](https://github.com/Furry-Xiyi/FeedCustomizer)
+也可从商店下载
+<p align="center">
+  <a href="https://apps.microsoft.com/detail/9P1BW5WB82MH">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="https://get.microsoft.com/images/zh-cn%20dark.svg">
+      <source media="(prefers-color-scheme: light)" srcset="https://get.microsoft.com/images/zh-cn%20light.svg">
+      <img src="https://get.microsoft.com/images/zh-cn%20light.svg" width="220" alt="从 Microsoft Store 获取">
+    </picture>
+  </a>
+</p>
