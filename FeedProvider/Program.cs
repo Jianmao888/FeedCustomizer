@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 
 namespace FeedProvider
@@ -36,6 +37,7 @@ namespace FeedProvider
                     out registrationHandle);
 
                 Console.WriteLine("Feed Provider registered.");
+                Debug.WriteLine("FeedProvider Starting...");
 
                 // Do not query FeedManager or WidgetManager here. Those calls
                 // race Widgets activation and are unnecessary for registration.
@@ -53,12 +55,14 @@ namespace FeedProvider
                 if (registrationHandle != 0)
                 {
                     ComClassObject.Revoke(registrationHandle);
+                    Debug.WriteLine("退出1");
                 }
 
                 if (_factoryPointer != nint.Zero)
                 {
                     Marshal.Release(_factoryPointer);
                     _factoryPointer = nint.Zero;
+                    Debug.WriteLine("退出2");
                 }
             }
         }

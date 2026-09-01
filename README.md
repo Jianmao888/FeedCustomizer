@@ -9,13 +9,16 @@
 [![Windows App SDK](https://img.shields.io/badge/Windows%20App%20SDK-WinUI%203-blue.svg)](#)
 [![Platform](https://img.shields.io/badge/Platform-Windows%2011-0078D6.svg?logo=windows&logoColor=white)](#)
 
-<p align="center">
-  <a href="https://apps.microsoft.com/detail/">
+<p align="center" style="display:flex;gap:16px;justify-content:center;align-items:center;">
+  <a href="https://apps.microsoft.com/store/detail/9N0MB6RNWL85?cid=DevShareMCLPCS" title="从 Microsoft Store 获取">
     <picture>
       <source media="(prefers-color-scheme: dark)" srcset="https://get.microsoft.com/images/zh-cn%20dark.svg">
       <source media="(prefers-color-scheme: light)" srcset="https://get.microsoft.com/images/zh-cn%20light.svg">
       <img src="https://get.microsoft.com/images/zh-cn%20light.svg" width="220" alt="从 Microsoft Store 获取">
     </picture>
+  </a>
+  <a href="releases" title="从 Releases 获取（跳转到 Releases 页面）">
+    <img src="https://raw.githubusercontent.com/Kunzisoft/Github-badge/main/get-it-on-github.png" width="220" alt="从 Releases 获取">
   </a>
 </p>
 </div>
@@ -26,13 +29,29 @@ FeedCustomizer 是一款面向 Windows 11 的开源工具，允许你为系统�
 
 ## ✨ 功能特性
 
-- **源管理**：添加、编辑、删除小组件源，支持自定义名称、网址与描述，最多 32 条
+- **源管理**：添加、编辑、删除小组件源，支持自定义名称、网址与描述
 - **图标支持**：自动解析并下载网站图标（favicon），也可选择本地自定义图片
 - **一键启用/关闭**：随时启用或停用自定义源提供程序
 - **外观个性化**：支持浅色 / 深色 / 跟随系统主题，以及 Mica / Mica Alt / Acrylic 背景材质
 - **多语言**：内置简体中文与英语
 - **捐献者版**：支持 Microsoft Store 加载项，识别捐献者身份
 - **隐私友好**：不主动收集任何个人信息（详见[隐私政策](Document/PrivacyPolicy.md)）
+- **自动获取开发者模式**：应用可在需要时自动检测并提示开启开发者模式，简化原生源提供程序的部署流程（可能需要管理员权限）。
+- **一键解除地区限制**：在受地区限制的系统/商店场景下，提供一键解除地区限制的设置入口，帮助获取受限资源或功能（请根据法律法规合理使用）。
+
+## 🖼 预览
+
+<div style="display:flex;flex-direction:column;align-items:left;gap:8px;">
+  <div style="display:flex;gap:8px;justify-content:left;flex-wrap:nowrap;">
+    <img src="Document/Images/Preview/小组件面板示例-抖音.png" alt="截图1" style="width:50%;height:auto;object-fit:cover;" />
+    <img src="Document/Images/Preview/小组件面板示例-Nasa.png" alt="截图2" style="width:50%;height:auto;object-fit:cover;" />
+  </div>
+  <div style="display:flex;gap:8px;justify-content:left;flex-wrap:nowrap;">
+    <img src="Document/Images/Preview/应用截图-首页.png" alt="截图3" style="width:33%;height:auto;object-fit:cover;" />
+    <img src="Document/Images/Preview/应用截图-编辑页面.png" alt="截图4" style="width:33%;height:auto;object-fit:cover;" />
+    <img src="Document/Images/Preview/应用截图-设置页面.png" alt="截图5" style="width:33%;height:auto;object-fit:cover;" />
+  </div>
+</div>
 
 ## 📋 系统要求
 
@@ -50,10 +69,11 @@ FeedCustomizer 是一款面向 Windows 11 的开源工具，允许你为系统�
 
 ## 🚀 使用说明
 
-1. 启动 FeedCustomizer，开启「启用自定义源」
-2. 点击「添加」新建源，填入网站地址与名称
-3. 应用会自动抓取网站图标，你也可以手动选择图片
-4. 点击「应用」保存，Windows 小组件面板即可显示自定义源
+1. 启动 FeedCustomizer，开启「启用自定义源」。当需要部署原生源提供程序或额外权限时，应用会自动检测并尝试开启开发者模式（可能会提示 UAC 或要求管理员权限）。
+2. 若遇到系统地区限制，可在「设置」中使用“解除地区限制”功能尝试解除受限功能（Beta）。
+3. 点击「添加」新建源，填入网站地址与名称
+4. 应用会自动抓取网站图标，你也可以手动选择图片
+5. 点击「应用」保存，Windows 小组件面板即可显示自定义源
 
 ## 🔨 构建
 
@@ -70,8 +90,9 @@ FeedCustomizer 是一款面向 Windows 11 的开源工具，允许你为系统�
    git clone https://gitee.com/jianmao888/FeedCustomizer.git
    ```
 2. 使用 Visual Studio 打开 `FeedCustomizer.slnx`
-3. 生成解决方案（生成 → 生成解决方案）
-4. 部署或打包：使用 Visual Studio 的「部署」功能，或手动创建并安装 MSIX/APPX 包
+3. 恢复解决方案
+4. 生成 FeedCustomizer 项目（WinUI 3 主应用）（注意：不要生成解决方案，否则会编译出错）
+5. 部署或打包：使用 Visual Studio 的「部署」功能，或手动创建并安装 MSIX 包
 
 ## 🗂️ 项目结构
 
@@ -89,8 +110,7 @@ FeedCustomizer/
 ## 🛠️ 技术栈
 
 - **语言 / 框架**：C#、.NET 10、WinUI 3（Windows App SDK）
-- **打包**：MSIX / APPX
-- **组件**：CommunityToolkit.WinUI.Controls.SettingsControls
+- **打包**：MSIX
 - **源提供程序**：Windows App SDK Widgets / Feed Provider（原生 AOT COM）
 
 ## 🔒 隐私
@@ -106,12 +126,12 @@ FeedCustomizer 不会主动收集任何个人信息，也不会向开发者所�
 [由惜忆想睡觉制作](https://github.com/Furry-Xiyi/FeedCustomizer)
 
 商店下载
-<p align="center">
-  <a href="https://apps.microsoft.com/detail/9nvqxzgpnp2m">
-    <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="https://get.microsoft.com/images/zh-cn%20dark.svg">
-      <source media="(prefers-color-scheme: light)" srcset="https://get.microsoft.com/images/zh-cn%20light.svg">
-      <img src="https://get.microsoft.com/images/zh-cn%20light.svg" width="220" alt="从 Microsoft Store 获取">
-    </picture>
-  </a>
+<p align="left">
+    <a href="https://apps.microsoft.com/detail/9nvqxzgpnp2m">
+        <picture>
+            <source media="(prefers-color-scheme: dark)" srcset="https://get.microsoft.com/images/zh-cn%20dark.svg">
+            <source media="(prefers-color-scheme: light)" srcset="https://get.microsoft.com/images/zh-cn%20light.svg">
+            <img src="https://get.microsoft.com/images/zh-cn%20light.svg" width="200" alt="从 Microsoft Store 获取">
+        </picture>
+    </a>
 </p>

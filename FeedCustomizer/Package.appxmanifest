@@ -12,7 +12,7 @@
   <Identity
     Name="D454B137.Jianmao.FeedCustomizer"
     Publisher="CN=Jianmao"
-    Version="1.1.0.0" />
+    Version="1.1.1.0" />
 
   <Properties>
     <DisplayName>ms-resource:AppName</DisplayName>
