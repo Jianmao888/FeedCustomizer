@@ -11,7 +11,7 @@
 
   <Identity
     Name="D454B137.Jianmao.FeedCustomizer"
-    Publisher="CN=Jianmao"
+    Publisher="CN=8CB38C3F-7EA3-4B56-82F9-A2018B33EF3F"
     Version="1.1.1.0" />
 
   <Properties>
@@ -47,6 +47,13 @@
 						<uap3:Properties>
 							<FeedProvider>
 								<Definitions>
+									<Definition Id="EFeed"
+								    DisplayName="EFeed"
+								    Description="EFeed"
+								    ContentUri="https://www.microsoft.com/"
+								    AllowedUriFiltersForNavigation="https://www.microsoft.com/*"
+								    Icon="Images\w.png">
+									</Definition>
 								</Definitions>
 							</FeedProvider>
 						</uap3:Properties>
