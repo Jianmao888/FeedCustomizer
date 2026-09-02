@@ -17,7 +17,7 @@
       <img src="Document/Images/DownloadCard/get-it-on-microsoft-light-zh.svg" height="55" alt="从 Microsoft Store 获取">
     </picture>
   </a>
-  <a href="releases" title="从 Releases 获取（跳转到 Releases 页面）">
+  <a href="https://github.com/Jianmao888/FeedCustomizer/releases" title="从 Releases 获取（跳转到 Releases 页面）">
     <picture>
       <img src="Document/Images/DownloadCard/get-it-on-github.png" height="55" alt="从 Releases 获取">
     </picture>
@@ -133,7 +133,7 @@ FeedCustomizer 不会主动收集任何个人信息，也不会向开发者所�
     <picture>
       <source media="(prefers-color-scheme: dark)" srcset="Document/Images/DownloadCard/get-it-on-microsoft-dark-zh.svg">
       <source media="(prefers-color-scheme: light)" srcset="Document/Images/DownloadCard/get-it-on-microsoft-light-zh.svg">
-      <img src="Document/Images/DownloadCard/get-it-on-microsoft-light-zh.svg" width="220" alt="从 Microsoft Store 获取">
+      <img src="Document/Images/DownloadCard/get-it-on-microsoft-light-zh.svg" width="200" alt="从 Microsoft Store 获取">
     </picture>
   </a>
 </p>
