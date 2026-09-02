@@ -28,6 +28,7 @@ namespace FeedCustomizer.Pages
 
             // 订阅视图模型发出的 UI 请求，让视图模型不依赖具体控件。
             ViewModel.OpenLinkRequested += OnOpenLinkRequested;
+            ViewModel.LoadingOverlayRequested += OnLoadingOverlayRequested;
             Loaded += SettingsPage_Loaded;
         }
 
@@ -82,6 +83,28 @@ namespace FeedCustomizer.Pages
             if (App.MainWindow is MainWindow window)
             {
                 await window.ExternalLaunch.OpenLinkAsync(url);
+            }
+        }
+
+        /// <summary>打开贡献者链接：只从 UI 元素中取出数据对象，其余逻辑交给视图模型。</summary>
+        private void OnContributorLinkClicked(object sender, RoutedEventArgs _)
+        {
+            if (sender is FrameworkElement { Tag: Contributor contributor })
+            {
+                ViewModel.OpenContributorLink(contributor);
+            }
+        }
+
+        /// <summary>
+        /// 处理视图模型发出的加载遮罩显隐请求。
+        /// </summary>
+        private void OnLoadingOverlayRequested(object? sender, bool isVisible)
+        {
+            _ = sender;
+
+            if (App.MainWindow is MainWindow window)
+            {
+                window.SetLoadingOverlayVisible(isVisible);
             }
         }
     }

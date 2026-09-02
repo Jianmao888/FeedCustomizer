@@ -2,6 +2,7 @@
     x:Class="FeedCustomizer.Pages.SettingsPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:constants="using:FeedCustomizer.Core.Constants"
     xmlns:controls="using:CommunityToolkit.WinUI.Controls">
 
     <ScrollViewer Padding="20,20,20,0">
@@ -92,22 +93,10 @@
                                 <StackPanel Orientation="Horizontal" Spacing="0">
                                     <TextBlock Padding="0" FontSize="12" Opacity="0.8" Text="{x:Bind ViewModel.CopyrightPrefix, Mode=OneWay}" />
                                     <HyperlinkButton
-                                        Content="{x:Bind ViewModel.Developer1Name, Mode=OneWay}"
+                                        Content="{x:Bind ViewModel.DeveloperName, Mode=OneWay}"
                                         Command="{x:Bind ViewModel.OpenDeveloperLinkCommand}"
-                                        CommandParameter="{x:Bind ViewModel.Developer1Link}"
-                                        Padding="5,0,0,0"
-                                        FontSize="12"
-                                        Opacity="0.7">
-                                        <HyperlinkButton.RenderTransform>
-                                            <TranslateTransform Y="-1" />
-                                        </HyperlinkButton.RenderTransform>
-                                    </HyperlinkButton>
-                                    <TextBlock Text=" , " FontSize="12" Opacity="0.7" VerticalAlignment="Center"/>
-                                    <HyperlinkButton
-                                        Content="{x:Bind ViewModel.Developer2Name, Mode=OneWay}"
-                                        Command="{x:Bind ViewModel.OpenDeveloperLinkCommand}"
-                                        CommandParameter="{x:Bind ViewModel.Developer2Link}"
-                                        Padding="0,0,2,0"
+                                        CommandParameter="{x:Bind ViewModel.DeveloperLink}"
+                                        Padding="5,0,5,0"
                                         FontSize="12"
                                         Opacity="0.7">
                                         <HyperlinkButton.RenderTransform>
@@ -122,8 +111,32 @@
                     </Expander.Header>
                     <StackPanel Spacing="8">
                         <StackPanel>
-                            <TextBlock x:Uid="AboutOpenSourceLink" FontSize="13" Opacity="0.6"/>
-                            <HyperlinkButton Content="Gitee" Command="{x:Bind ViewModel.OpenSourceLinkCommand}" Padding="0" FontSize="16"/>
+                            <TextBlock x:Uid="AboutOpenSourceLink" FontSize="13" Opacity="0.6" Padding="0,0,0,4"/>
+                            <StackPanel Orientation="Horizontal" Spacing="12">
+                                <HyperlinkButton Content="Gitee" Command="{x:Bind ViewModel.OpenGiteeLinkCommand}" Padding="0" FontSize="13"/>
+                                <HyperlinkButton Content="GitHub" Command="{x:Bind ViewModel.OpenGitHubLinkCommand}" Padding="0" FontSize="13"/>
+                            </StackPanel>
+                        </StackPanel>
+                        <StackPanel>
+                            <TextBlock x:Uid="AboutContributors" FontSize="13" Opacity="0.6" Padding="0,8,0,4"/>
+                            <ItemsControl ItemsSource="{x:Bind ViewModel.Contributors, Mode=OneWay}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapGrid Orientation="Horizontal"/>
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="constants:Contributor">
+                                        <HyperlinkButton
+                                            Content="{x:Bind Name, Mode=OneWay}"
+                                            Click="OnContributorLinkClicked"
+                                            Tag="{x:Bind}"
+                                            Margin="0,0,12,0"
+                                            Padding="0"
+                                            FontSize="13"/>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
                         </StackPanel>
                     </StackPanel>
                 </Expander>

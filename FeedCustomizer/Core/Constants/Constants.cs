@@ -10,20 +10,24 @@
         public static readonly int MaxFeedNum = 32;
 
         // 应用信息
-        // 合作者姓名与商店链接统一写入常量，方便维护
-        public static readonly string OpenSourceLink = "https://gitee.com/jianmao888/FeedCustomizer";
+        // 开源仓库链接
+        public static readonly string GiteeUrl = "https://gitee.com/jianmao888/FeedCustomizer";
+        public static readonly string GitHubLink = "https://github.com/Jianmao888/FeedCustomizer";
+
+        // 版权开发者（版权信息中固定只显示这一位）
+        public static readonly string DeveloperName = "窗边的贱猫";
+        public static readonly string DeveloperLink = "https://gitee.com/jianmao888";
+
+        // 贡献者名单，未来新增贡献者时在下方数组中追加即可
+        public static readonly Contributor[] Contributors =
+            [
+                new("窗边的贱猫", "https://github.com/Jianmao888/"),
+                new("惜忆想睡觉", "https://apps.microsoft.com/search/publisher?name=%E6%83%9C%E5%BF%86%E6%83%B3%E7%9D%A1%E8%A7%89&")
+            ];
 
         // 捐赠者版（Store 加载项）的商店 ID
         // 请在合作伙伴中心创建“捐赠者版”加载项后，将其 Store ID 填入此处
         public static readonly string DonationAddOnStoreId = "Donation_Tier";
-
-        // 如果有多个合作者，可以在这里添加姓名与对应的商店链接
-        public static readonly string[] DeveloperNames = ["窗边的贱猫", "惜忆想睡觉"];
-        public static readonly string[] DeveloperStoreLinks
-            = [
-                "https://gitee.com/jianmao888",
-                "https://apps.microsoft.com/search/publisher?name=%E6%83%9C%E5%BF%86%E6%83%B3%E7%9D%A1%E8%A7%89&"
-            ];
 
         // 设置项默认值
         public static class SettingDefaults
@@ -34,4 +38,7 @@
             public const bool AutoEnableDeveloperMode = false;
         }
     }
+
+    /// <summary>贡献者信息：姓名与对应的个人主页链接。</summary>
+    public sealed record Contributor(string Name, string Link);
 }

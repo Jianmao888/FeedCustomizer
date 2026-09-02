@@ -6,8 +6,8 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Media.Imaging;
 using Microsoft.Windows.ApplicationModel.Resources;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
-using System.Linq;
 using System.Threading.Tasks;
 using Windows.ApplicationModel;
 
@@ -117,20 +117,20 @@ namespace FeedCustomizer.ViewModels
         public string CopyrightPrefix =>
             string.Format(_resourceLoader.GetString("AboutCopyrightPrefix"), DateTime.Now.Year);
 
-        /// <summary>发布者显示名。</summary>
-        public static string Developer => Package.Current.PublisherDisplayName;
+        /// <summary>版权开发者姓名。</summary>
+        public string DeveloperName => Constants.DeveloperName;
 
-        // 为 XAML 绑定提供单独的开发者名与链接（支持两个合作者）。
-        public string Developer1Name => (Constants.DeveloperNames != null && Constants.DeveloperNames.Length > 0) ? Constants.DeveloperNames[0] : Developer;
-        public string Developer2Name => (Constants.DeveloperNames != null && Constants.DeveloperNames.Length > 1) ? Constants.DeveloperNames[1] : string.Empty;
-        public string Developer1Link => Constants.DeveloperStoreLinks[0];
-        public string Developer2Link => (Constants.DeveloperStoreLinks != null && Constants.DeveloperStoreLinks.Length > 1 && !string.IsNullOrEmpty(Constants.DeveloperStoreLinks[1])) ? Constants.DeveloperStoreLinks[1] : string.Empty;
+        /// <summary>版权开发者链接。</summary>
+        public string DeveloperLink => Constants.DeveloperLink;
 
-        /// <summary>开源仓库链接。</summary>
-        public string OpenSourceUrl { get; set; } = Constants.OpenSourceLink;
+        /// <summary>贡献者列表，绑定到“关于”展开器。</summary>
+        public IReadOnlyList<Contributor> Contributors => Constants.Contributors;
 
-        /// <summary>合并显示名，供版权与其它位置使用。</summary>
-        public string DeveloperStoreDisplayName => string.Join(" / ", new[] { Developer1Name, Developer2Name }.Where(s => !string.IsNullOrEmpty(s)));
+        /// <summary>Gitee 开源仓库链接。</summary>
+        public string GiteeUrl { get; set; } = Constants.GiteeUrl;
+
+        /// <summary>GitHub 开源仓库链接。</summary>
+        public string GitHubUrl { get; set; } = Constants.GitHubLink;
 
         // =====================
         // UI 请求事件（视图模型不依赖具体控件）
@@ -138,6 +138,9 @@ namespace FeedCustomizer.ViewModels
 
         /// <summary>请求页面打开外部链接。</summary>
         public event EventHandler<string>? OpenLinkRequested;
+
+        /// <summary>请求显示或隐藏加载遮罩。</summary>
+        public event EventHandler<bool>? LoadingOverlayRequested;
 
         // =====================
         // 构造函数与初始化
@@ -280,20 +283,36 @@ namespace FeedCustomizer.ViewModels
         // 命令（绑定到页面按钮）
         // =====================
 
-        /// <summary>打开开源仓库链接。</summary>
+        /// <summary>打开 Gitee 开源仓库链接。</summary>
         [RelayCommand]
-        private void OpenSourceLink()
+        private void OpenGiteeLink()
         {
-            OpenLinkRequested?.Invoke(this, OpenSourceUrl);
+            OpenLinkRequested?.Invoke(this, GiteeUrl);
         }
 
-        /// <summary>打开开发者商店链接。</summary>
+        /// <summary>打开 GitHub 开源仓库链接。</summary>
+        [RelayCommand]
+        private void OpenGitHubLink()
+        {
+            OpenLinkRequested?.Invoke(this, GitHubUrl);
+        }
+
+        /// <summary>打开开发者个人主页链接。</summary>
         [RelayCommand]
         private void OpenDeveloperLink(string? url)
         {
             if (!string.IsNullOrEmpty(url))
             {
                 OpenLinkRequested?.Invoke(this, url);
+            }
+        }
+
+        /// <summary>打开贡献者个人主页链接。</summary>
+        public void OpenContributorLink(Contributor contributor)
+        {
+            if (!string.IsNullOrEmpty(contributor.Link))
+            {
+                OpenLinkRequested?.Invoke(this, contributor.Link);
             }
         }
 
@@ -346,7 +365,16 @@ namespace FeedCustomizer.ViewModels
                 return;
             }
 
-            RegionPolicyOperationResult result = await RegionPolicyService.EnableThirdPartyWidgetFeedAsync();
+            LoadingOverlayRequested?.Invoke(this, true);
+            RegionPolicyOperationResult result;
+            try
+            {
+                result = await RegionPolicyService.EnableThirdPartyWidgetFeedAsync();
+            }
+            finally
+            {
+                LoadingOverlayRequested?.Invoke(this, false);
+            }
 
             switch (result)
             {

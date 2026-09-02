@@ -281,6 +281,10 @@
     <value>Open Source URL</value>
     <comment>"Open Source URL" heading on the About page</comment>
   </data>
+  <data name="AboutContributors.Text" xml:space="preserve">
+    <value>Contributors</value>
+    <comment>"Contributors" heading on the About page</comment>
+  </data>
   <data name="AboutAppName.Text" xml:space="preserve">
     <value>Widget Feed Customizer</value>
     <comment>Display text for the app name on the About page</comment>
