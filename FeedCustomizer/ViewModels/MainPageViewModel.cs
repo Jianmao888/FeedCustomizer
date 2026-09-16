@@ -106,7 +106,6 @@ namespace FeedCustomizer.ViewModels
         /// </summary>
         private async Task InitializeRegionStateAsync()
         {
-            // TODO 稍后要修改这里的横幅展示逻辑
             // 如果系统策略已解限，则不展示地区限制警告横幅。
             bool? cachedIsNonEu = RegionDataService.IsNonEuropeanUnionRegion;
             bool? cachedIsPolicyEnabled = RegionDataService.IsThirdPartyWidgetFeedEnabled;
