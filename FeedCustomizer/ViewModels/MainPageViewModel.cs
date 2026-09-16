@@ -85,6 +85,12 @@ namespace FeedCustomizer.ViewModels
         /// <summary>请求打开帮助文档文件。</summary>
         public event EventHandler<StorageFile>? HelpFileReady;
 
+        /// <summary>
+        /// Provider 注册未完成时请求 UI 层处理。结果包含错误类别与诊断，
+        /// ViewModel 不直接决定对话框样式或展示时机。
+        /// </summary>
+        public event EventHandler<ProviderRegistrationResult>? ProviderRegistrationFailed;
+
         // =====================
         // 初始化逻辑
         // =====================
@@ -234,7 +240,7 @@ namespace FeedCustomizer.ViewModels
                 (!providerInstalled ||
                  !ResourcesCopier.IsRegisteredProviderCurrent()))
             {
-                if (!await PackageInstaller.InstallFeedProvider())
+                if (!await TryInstallFeedProviderAsync())
                 {
                     IsFeedProviderEnabled = false;
                 }
@@ -404,7 +410,7 @@ namespace FeedCustomizer.ViewModels
 
                 if (IsFeedProviderEnabled)
                 {
-                    await PackageInstaller.InstallFeedProviderFromStagedResources();
+                    await TryInstallFeedProviderFromStagedResourcesAsync();
                 }
 
                 _deleteFeeds.Clear();
@@ -456,7 +462,7 @@ namespace FeedCustomizer.ViewModels
                 {
                     await PackageInstaller.UninstallFeedProvider();
                 }
-                else if (!await PackageInstaller.InstallFeedProviderFromStagedResources())
+                else if (!await TryInstallFeedProviderFromStagedResourcesAsync())
                 {
                     IsFeedProviderEnabled = false;
                 }
@@ -465,6 +471,51 @@ namespace FeedCustomizer.ViewModels
             {
                 EndLoading();
             }
+        }
+
+        /// <summary>
+        /// 用户在 UI 层确认后开启自动开发者模式，并重新尝试 Provider 注册。
+        /// 重试结果直接返回给 UI 层，避免针对同一次失败重复触发错误提示事件。
+        /// </summary>
+        public async Task<ProviderRegistrationResult> RetryProviderRegistrationWithAutoDeveloperModeAsync()
+        {
+            SettingsLoader.SetAutoEnableDeveloperMode(true);
+            ProviderRegistrationResult result = await PackageInstaller.InstallFeedProvider();
+            if (result.Succeeded)
+            {
+                IsFeedProviderEnabled = true;
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// 执行完整资源检查后的注册，并将失败交给 UI 层展示。
+        /// </summary>
+        private async Task<bool> TryInstallFeedProviderAsync()
+        {
+            ProviderRegistrationResult result = await PackageInstaller.InstallFeedProvider();
+            return ReportProviderRegistrationResult(result);
+        }
+
+        /// <summary>
+        /// 注册已经使用暂存资源时的失败处理入口。
+        /// </summary>
+        private async Task<bool> TryInstallFeedProviderFromStagedResourcesAsync()
+        {
+            ProviderRegistrationResult result = await PackageInstaller.InstallFeedProviderFromStagedResources();
+            return ReportProviderRegistrationResult(result);
+        }
+
+        private bool ReportProviderRegistrationResult(ProviderRegistrationResult result)
+        {
+            if (result.Succeeded)
+            {
+                return true;
+            }
+
+            ProviderRegistrationFailed?.Invoke(this, result);
+            return false;
         }
 
         /// <summary>

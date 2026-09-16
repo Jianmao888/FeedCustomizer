@@ -78,6 +78,22 @@ namespace FeedCustomizer.Core.Tools
             return confirmed;
         }
 
+        /// <summary>
+        /// 在启动阶段安全地显示确认框。它先等待启动视觉状态和首次运行说明结束，
+        /// 防止后台初始化请求的对话框遮住 Splash 或与首次运行对话框竞争顺序。
+        /// </summary>
+        public static async Task<bool> ShowAfterStartupConfirmAsync(
+            string title,
+            string content,
+            string primaryButtonText,
+            string closeButtonText)
+        {
+            EnsureInitialized();
+            await _waitForSplashHidden!();
+            await _firstRunDialogFinished!.Task;
+            return await ShowConfirmAsync(title, content, primaryButtonText, closeButtonText);
+        }
+
         public static async Task ShowStartupFailureAsync(string title, string details)
         {
             EnsureInitialized();

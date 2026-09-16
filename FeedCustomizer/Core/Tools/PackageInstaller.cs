@@ -27,7 +27,7 @@ namespace FeedCustomizer.Core.Tools
         /// 安装源提供程序
         /// </summary>
         /// <returns></returns>
-        public static async Task<bool> InstallFeedProvider()
+        public static async Task<ProviderRegistrationResult> InstallFeedProvider()
         {
             await RegistrationGate.WaitAsync();
             try
@@ -44,7 +44,7 @@ namespace FeedCustomizer.Core.Tools
         /// 将已经准备好的包内暂存资源发布到真实目录并注册源提供程序。
         /// 开关和应用源配置时调用；资源准备工作由启动流程负责。
         /// </summary>
-        public static async Task<bool> InstallFeedProviderFromStagedResources()
+        public static async Task<ProviderRegistrationResult> InstallFeedProviderFromStagedResources()
         {
             await RegistrationGate.WaitAsync();
             try
@@ -57,7 +57,7 @@ namespace FeedCustomizer.Core.Tools
             }
         }
 
-        private static async Task<bool> InstallFeedProviderCoreAsync()
+        private static async Task<ProviderRegistrationResult> InstallFeedProviderCoreAsync()
         {
             try
             {
@@ -67,7 +67,7 @@ namespace FeedCustomizer.Core.Tools
                 {
                     if (ResourcesCopier.IsRegisteredProviderCurrent())
                     {
-                        return true;
+                        return ProviderRegistrationResult.Success(ManifestXmlPath);
                     }
 
                     // InstallFeedProvider 已经持有 RegistrationGate（信号量），
@@ -84,12 +84,15 @@ namespace FeedCustomizer.Core.Tools
             catch (Exception ex)
             {
                 Debug.WriteLine(ex.ToString());
-                await ShowInstallErrorAsync(ex.ToString(), null, string.Empty);
-                return false;
+                return ProviderRegistrationResult.Failed(
+                    ManifestXmlPath,
+                    null,
+                    ex.ToString(),
+                    string.Empty);
             }
         }
 
-        private static async Task<bool> InstallFeedProviderFromStagedResourcesCoreAsync()
+        private static async Task<ProviderRegistrationResult> InstallFeedProviderFromStagedResourcesCoreAsync()
         {
             try
             {
@@ -107,12 +110,15 @@ namespace FeedCustomizer.Core.Tools
             catch (Exception ex)
             {
                 Debug.WriteLine(ex.ToString());
-                await ShowInstallErrorAsync(ex.ToString(), null, string.Empty);
-                return false;
+                return ProviderRegistrationResult.Failed(
+                    ManifestXmlPath,
+                    null,
+                    ex.ToString(),
+                    string.Empty);
             }
         }
 
-        private static async Task<bool> PublishAndRegisterProviderAsync()
+        private static async Task<ProviderRegistrationResult> PublishAndRegisterProviderAsync()
         {
             // 在注册前，将应用包内的文件同步到真实的
             // %LocalAppData%\FeedCustomProvider 路径，避免应用写入被重定向导致
@@ -124,45 +130,52 @@ namespace FeedCustomizer.Core.Tools
             var result = await RegisterProviderAsync(realManifestPath);
             if (result.ExitCode == 0)
             {
-                return true;
+                return ProviderRegistrationResult.Success(realManifestPath);
             }
 
             Debug.WriteLine($"Feed provider registration failed ({result.ExitCode}): {result.Error}");
 
             if (!IsDeveloperModeError(result))
             {
-                await ShowInstallErrorAsync(result.Error, result.ExitCode, result.Output);
-                return false;
+                return ProviderRegistrationResult.Failed(
+                    realManifestPath,
+                    result.ExitCode,
+                    result.Error,
+                    result.Output);
             }
 
-            // 开发者模式未开启。开关关闭时先询问用户是否启用自动开启，
-            // 开关打开或用户同意后，通过单次提权临时开启开发者模式完成注册。
+            // 开发者模式未开启时，由调用方决定是否向用户请求授权；基础设施层不显示 UI。
             if (!SettingsLoader.GetAutoEnableDeveloperMode())
             {
-                if (!await PromptEnableAutoDeveloperModeAsync())
-                {
-                    return false;
-                }
-
-                SettingsLoader.SetAutoEnableDeveloperMode(true);
+                return new ProviderRegistrationResult(
+                    ProviderRegistrationStatus.DeveloperModeConfirmationRequired,
+                    result.ExitCode,
+                    result.Error,
+                    result.Output,
+                    realManifestPath);
             }
 
             var elevatedResult = await DeveloperModeService.RegisterWithTemporaryDeveloperModeAsync(realManifestPath);
             if (elevatedResult.ExitCode == 0)
             {
-                return true;
+                return ProviderRegistrationResult.Success(realManifestPath);
             }
 
             if (elevatedResult.ExitCode == DeveloperModeService.ElevationCancelledExitCode)
             {
-                await ShowDeveloperModeElevationCancelledAsync();
-            }
-            else
-            {
-                await ShowInstallErrorAsync(elevatedResult.Error, elevatedResult.ExitCode, elevatedResult.Output);
+                return new ProviderRegistrationResult(
+                    ProviderRegistrationStatus.ElevationCancelled,
+                    elevatedResult.ExitCode,
+                    elevatedResult.Error,
+                    elevatedResult.Output,
+                    realManifestPath);
             }
 
-            return false;
+            return ProviderRegistrationResult.Failed(
+                realManifestPath,
+                elevatedResult.ExitCode,
+                elevatedResult.Error,
+                elevatedResult.Output);
         }
 
         // 构建用于在 PowerShell 中注册 Appx 包的命令字符串。
@@ -192,26 +205,6 @@ namespace FeedCustomizer.Core.Tools
         private static bool IsDeveloperModeError(PowerShellResult result) =>
             (result.Error?.Contains("0x80073CFF", StringComparison.OrdinalIgnoreCase) == true) ||
             (result.Output?.Contains("0x80073CFF", StringComparison.OrdinalIgnoreCase) == true);
-
-        private static async Task<bool> PromptEnableAutoDeveloperModeAsync()
-        {
-            var resourceLoader = new Microsoft.Windows.ApplicationModel.Resources.ResourceLoader();
-            return await DialogService.ShowConfirmAsync(
-                resourceLoader.GetString("EnableProviderFail"),
-                resourceLoader.GetString("DeveloperModeDisabled"),
-                resourceLoader.GetString("EnableAutoDeveloperMode"),
-                resourceLoader.GetString("DialogCancel"));
-        }
-
-        private static Task ShowDeveloperModeElevationCancelledAsync()
-        {
-            var resourceLoader = new Microsoft.Windows.ApplicationModel.Resources.ResourceLoader();
-            return DialogService.ShowMessageAsync(
-                resourceLoader.GetString("EnableProviderFail"),
-                resourceLoader.GetString("DeveloperModeElevationCancelled"),
-                resourceLoader.GetString("DialogOK"));
-        }
-
 
         /// <summary>
         /// 卸载源提供程序
@@ -478,29 +471,6 @@ namespace FeedCustomizer.Core.Tools
             }
 
             return manifestPath;
-        }
-
-        private static Task ShowInstallErrorAsync(string? error, int? exitCode, string output)
-        {
-            var resourceLoader = new Microsoft.Windows.ApplicationModel.Resources.ResourceLoader();
-            string content = resourceLoader.GetString("SomethingErrorsOccurred");
-
-            string details = string.Join(
-                Environment.NewLine,
-                $"ExitCode: {(exitCode?.ToString() ?? "n/a")}",
-                $"SourceManifest: {ManifestXmlPath}",
-                $"Error: {error ?? string.Empty}",
-                $"Output: {output}");
-
-            Debug.WriteLine($"Feed provider error ({exitCode}): {details}");
-
-            if (App.MainWindow is MainWindow)
-            {
-                string title = resourceLoader.GetString("EnableProviderFail");
-                _ = DialogService.ShowStartupFailureAsync(title, $"{content}{Environment.NewLine}{Environment.NewLine}{details}");
-            }
-
-            return Task.CompletedTask;
         }
 
         private static async Task<PowerShellResult> RunPowerShellViaProcess(string command)

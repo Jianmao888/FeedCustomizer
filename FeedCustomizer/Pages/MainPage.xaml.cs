@@ -1,9 +1,12 @@
+using FeedCustomizer.Core.Models;
 using FeedCustomizer.Core.Tools;
 using FeedCustomizer.ViewModels;
+using Microsoft.Windows.ApplicationModel.Resources;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
 using System;
+using System.Diagnostics;
 using System.Threading.Tasks;
 using Windows.Storage;
 
@@ -45,6 +48,7 @@ namespace FeedCustomizer.Pages
             ViewModel.NavigationRequested += OnNavigationRequested;
             ViewModel.LoadingOverlayRequested += OnLoadingOverlayRequested;
             ViewModel.HelpFileReady += OnHelpFileReady;
+            ViewModel.ProviderRegistrationFailed += OnProviderRegistrationFailed;
 
             if (App.MainWindow is MainWindow)
             {
@@ -103,6 +107,74 @@ namespace FeedCustomizer.Pages
             {
                 await window.ExternalLaunch.OpenFileAsync(file);
             }
+        }
+
+        /// <summary>
+        /// 将 Provider 注册失败转换为用户可理解的对话框。此处是基础设施诊断进入 UI 的唯一入口，
+        /// 因此 PackageInstaller 不再依赖窗口、资源加载器或 DialogService。
+        /// </summary>
+        private async void OnProviderRegistrationFailed(object? sender, ProviderRegistrationResult result)
+        {
+            _ = sender;
+
+            try
+            {
+                if (result.Status == ProviderRegistrationStatus.DeveloperModeConfirmationRequired)
+                {
+                    var resourceLoader = new ResourceLoader();
+                    bool confirmed = await DialogService.ShowAfterStartupConfirmAsync(
+                        resourceLoader.GetString("EnableProviderFail"),
+                        resourceLoader.GetString("DeveloperModeDisabled"),
+                        resourceLoader.GetString("EnableAutoDeveloperMode"),
+                        resourceLoader.GetString("DialogCancel"));
+                    if (!confirmed)
+                    {
+                        return;
+                    }
+
+                    result = await ViewModel.RetryProviderRegistrationWithAutoDeveloperModeAsync();
+                    if (result.Succeeded)
+                    {
+                        return;
+                    }
+                }
+
+                await ShowProviderRegistrationFailureAsync(result);
+            }
+            catch (Exception ex)
+            {
+                // 事件处理器不能让展示失败的异常脱离 UI 同步上下文。
+                Debug.WriteLine($"显示 Provider 注册错误失败：{ex}");
+            }
+        }
+
+        /// <summary>
+        /// 按结果类别选择简短提示或可复制诊断对话框。
+        /// </summary>
+        private static async Task ShowProviderRegistrationFailureAsync(ProviderRegistrationResult result)
+        {
+            var resourceLoader = new ResourceLoader();
+            string title = resourceLoader.GetString("EnableProviderFail");
+
+            if (result.Status == ProviderRegistrationStatus.ElevationCancelled)
+            {
+                await DialogService.ShowMessageAsync(
+                    title,
+                    resourceLoader.GetString("DeveloperModeElevationCancelled"),
+                    resourceLoader.GetString("DialogOK"));
+                return;
+            }
+
+            string details = string.Join(
+                Environment.NewLine,
+                $"ExitCode: {(result.ExitCode?.ToString() ?? "n/a")}",
+                $"SourceManifest: {result.ManifestPath}",
+                $"Error: {result.Error}",
+                $"Output: {result.Output}");
+            string content = resourceLoader.GetString("SomethingErrorsOccurred");
+            await DialogService.ShowStartupFailureAsync(
+                title,
+                $"{content}{Environment.NewLine}{Environment.NewLine}{details}");
         }
 
         /// <summary>
