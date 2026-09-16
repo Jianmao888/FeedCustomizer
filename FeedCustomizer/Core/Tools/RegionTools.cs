@@ -1,4 +1,5 @@
 using FeedCustomizer.Core.Models;
+using FeedCustomizer.Core.Infrastructure.PowerShell;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -146,17 +147,11 @@ namespace FeedCustomizer.Core.Tools
         /// </summary>
         public static async Task<RegionPolicyOperationResult> EnableThirdPartyWidgetFeedAsync()
         {
-            string script = BuildScript(
+            // 业务层只按适配器定义的稳定退出码分类，不解析本地化的 PowerShell 错误文本。
+            PowerShellResult result = await PowerShellInfrastructure.RegionPolicy.EnablePolicyAsync(
                 PolicyFileName,
                 WidgetsThirdPartyFeedGuid,
                 Path.Combine(AppDataPaths.PackageLocalLogPath, "RegionPolicyError"));
-
-            Debug.WriteLine("[RegionPolicyService] 开始执行提权脚本：");
-            Debug.WriteLine(script);
-
-            PowerShellResult result = await ElevatedScriptRunner.RunAsync(
-                "EnableThirdPartyWidgetFeed.ps1",
-                script);
 
             LastDiagnostics =
                 $"ExitCode = {result.ExitCode}" + Environment.NewLine +
@@ -173,7 +168,7 @@ namespace FeedCustomizer.Core.Tools
                 return RegionPolicyOperationResult.Success;
             }
 
-            if (result.ExitCode == ElevatedScriptRunner.ElevationCancelledExitCode)
+            if (result.ExitCode == PowerShellExitCodes.ElevationCancelled)
             {
                 return RegionPolicyOperationResult.Cancelled;
             }
@@ -184,99 +179,6 @@ namespace FeedCustomizer.Core.Tools
             }
 
             return RegionPolicyOperationResult.Failed;
-        }
-
-        /// <summary>
-        /// 在管理员 PowerShell 中对目标策略做定位替换，只改动 defaultState，
-        /// 保留 $schema、$comment 与文件其余部分的原始格式。写回使用 UTF-8 无 BOM。
-        /// !!!脚本里面绝对不能有中文，否则会有奇怪的Bug
-        /// </summary>
-        private static string BuildScript(string policyFileName, string targetGuid, string errorPath)
-        {
-            string[] lines =
-            [
-                @"$ErrorActionPreference = 'Stop'",
-                @$"$policyFileName = '{policyFileName}'",
-                @$"$targetGuid = '{targetGuid}'",
-                @$"$errorPath = '{errorPath}'",
-                @"$policyPath = [System.IO.Path]::Combine([System.Environment]::SystemDirectory, $policyFileName)",
-                @"$script:diagnostics = New-Object System.Collections.Generic.List[string]",
-                @"function Add-Diagnostics([string]$message) {",
-                @"    [void]$script:diagnostics.Add($message)",
-                @"}",
-                @"function Write-ErrorOutput {",
-                @"    $null = New-Item -ItemType Directory -Path (Split-Path $errorPath -Parent) -Force",
-                @"    ($script:diagnostics -join [Environment]::NewLine) | Out-File -FilePath $errorPath -Encoding UTF8",
-                @"}",
-                @"Add-Diagnostics (""policyPath = "" + $policyPath)",
-                @"Add-Diagnostics (""Now User = "" + [System.Security.Principal.WindowsIdentity]::GetCurrent().Name)",
-                @"if (-not (Test-Path -LiteralPath $policyPath)) {",
-                @"    Add-Diagnostics (""File not found: "" + $policyPath)",
-                @"    Write-ErrorOutput",
-                @"    exit 3",
-                @"}",
-                @"$aclBackup = Join-Path $env:TEMP ('FeedCustomizer_acl_' + [guid]::NewGuid().ToString('N') + '.txt')",
-                @"Add-Diagnostics (""aclBackup = "" + $aclBackup)",
-                @"$owner = $null",
-                @"try {",
-                @"    $acl = Get-Acl -LiteralPath $policyPath",
-                @"    $owner = $acl.Owner",
-                @"    Add-Diagnostics (""owner = "" + $owner)",
-                @"}",
-                @"catch {",
-                @"    Add-Diagnostics (""Failed to read the original owner: "" + $_.Exception.Message)",
-                @"}",
-                @"$aclChanged = $false",
-                @"try {",
-                @"    (icacls $policyPath /save $aclBackup /c 2>&1) | ForEach-Object { Add-Diagnostics (""icacls save: "" + $_.ToString()) }",
-                @"    $aclChanged = $true",
-                @"    (takeown /f $policyPath /a 2>&1) | ForEach-Object { Add-Diagnostics (""takeown: "" + $_.ToString()) }",
-                @"    (icacls $policyPath /grant 'Administrators:(F)' 2>&1) | ForEach-Object { Add-Diagnostics (""icacls grant: "" + $_.ToString()) }",
-                @"    (attrib -R $policyPath 2>&1) | ForEach-Object { Add-Diagnostics (""attrib: "" + $_.ToString()) }",
-                @"    $content = [System.IO.File]::ReadAllText($policyPath)",
-                @"    Add-Diagnostics (""contentLength = "" + $content.Length)",
-                @"    $jsonContent = Get-Content $policyPath -Raw | ConvertFrom-Json",
-                @"    $policy = $jsonContent.policies | Where-Object { $_.guid -eq $targetGuid }",
-                @"    if ($policy) {",
-                @"        Add-Diagnostics (""Find policy: "" + $($policy.'$comment'))",
-                @"        Add-Diagnostics (""Before edit defaultState: "" + $($policy.defaultState))",
-                @"        $policy.defaultState = ""enabled""",
-                @"        Add-Diagnostics (""After edit defaultState: "" + $($policy.defaultState))",
-                @"    } else {",
-                @"        Write-Host ""Not found GUID: $targetGuid"" -ForegroundColor Red",
-                @"    }",
-                @"    $jsonOutput = $jsonContent | ConvertTo-Json -Depth 10",
-                @"    [System.IO.File]::WriteAllText($policyPath, $jsonOutput, [System.Text.UTF8Encoding]::new($true))",
-                @"    ""The regional restriction policy for third-party Widgets feed has been set to enabled."" | Out-File -FilePath $outputPath -Encoding UTF8",
-                @"    exit 0",
-                @"}",
-                @"catch {",
-                @"    Add-Diagnostics (""Error type: "" + $_.Exception.GetType().FullName)",
-                @"    Add-Diagnostics (""Error message: "" + $_.Exception.Message)",
-                @"    Add-Diagnostics (""Error Stack: "" + $_.ScriptStackTrace)",
-                @"    Add-Diagnostics (""Error details: "" + ($_ | Out-String))",
-                @"    Write-ErrorOutput",
-                @"    exit 1",
-                @"}",
-                @"finally {",
-                @"    if ($aclChanged) {",
-                @"        try {",
-                @"            if (Test-Path -LiteralPath $aclBackup) {",
-                @"                (icacls $policyPath /restore $aclBackup 2>&1) | ForEach-Object { Add-Diagnostics (""icacls restore: "" + $_.ToString()) }",
-                @"            }",
-                @"            if (-not [string]::IsNullOrEmpty($owner)) {",
-                @"                (icacls $policyPath /setowner $owner 2>&1) | ForEach-Object { Add-Diagnostics (""icacls setowner: "" + $_.ToString()) }",
-                @"            }",
-                @"            Remove-Item -LiteralPath $aclBackup -ErrorAction SilentlyContinue",
-                @"        }",
-                @"        catch {",
-                @"            Add-Diagnostics (""Failed to restore ACL: "" + $_.Exception.Message)",
-                @"        }",
-                @"    }",
-                @"}",
-            ];
-
-            return string.Join(Environment.NewLine, lines);
         }
 
         /// <summary>

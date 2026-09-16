@@ -1,4 +1,5 @@
 ﻿using FeedCustomizer.Core.Models;
+using FeedCustomizer.Core.Infrastructure.PowerShell;
 using System;
 using System.Diagnostics;
 using System.IO;
@@ -9,6 +10,7 @@ namespace FeedCustomizer.Core.Tools
 {
     public class PackageInstaller
     {
+        private const string ProviderPackageNamePattern = "*D454B137.Jianmao.FeedCustomizerContainer*";
         private static string ManifestXmlPath => AppDataPaths.ManifestPath;
         // 注册操作是外部的 AppX 操作。对其进行序列化，
         // 防止启动时的刷新、用户的应用（Apply）操作和切换操作重叠，
@@ -24,9 +26,11 @@ namespace FeedCustomizer.Core.Tools
 
 
         /// <summary>
-        /// 安装源提供程序
+        /// <summary>
+        /// 检查 Provider 资源、必要时重建部署副本并注册源提供程序。
+        /// 同一时刻只允许一个注册流程运行，防止发布目录和 AppX 状态相互覆盖。
         /// </summary>
-        /// <returns></returns>
+        /// <returns>包含成功状态或可由 UI 层展示的失败诊断。</returns>
         public static async Task<ProviderRegistrationResult> InstallFeedProvider()
         {
             await RegistrationGate.WaitAsync();
@@ -125,9 +129,11 @@ namespace FeedCustomizer.Core.Tools
             // Add-AppxPackage 无法访问到真实文件的问题。只复制已修改的文件
             //（使用 robocopy），并在第一次失败时尝试备份模式重试以应对被占用的文件。
             await StopProviderProcessesAsync();
-            string realManifestPath = await CopyPackageFilesToRealLocalAppDataAsync();
+            string realManifestPath = await PowerShellInfrastructure.ProviderFiles.PublishAsync(
+                AppDataPaths.PackageLocalFeedProviderFolder,
+                AppDataPaths.FeedProviderFolder);
 
-            var result = await RegisterProviderAsync(realManifestPath);
+            PowerShellResult result = await PowerShellInfrastructure.AppxPackages.RegisterAsync(realManifestPath);
             if (result.ExitCode == 0)
             {
                 return ProviderRegistrationResult.Success(realManifestPath);
@@ -178,28 +184,6 @@ namespace FeedCustomizer.Core.Tools
                 elevatedResult.Output);
         }
 
-        // 构建用于在 PowerShell 中注册 Appx 包的命令字符串。
-        // 参数 escapedManifestPath 应当已经对单引号进行重复转义（' -> ''），
-        // 以便安全地嵌入到单引号包裹的 PowerShell 字面量中。
-        //
-        // 额外注释：命令中使用 -Register 来注册清单，
-        // -ForceApplicationShutdown 尝试关闭使用该包的应用以便顺利注册，
-        // 并设置 $ErrorActionPreference 以便出现错误时抛出异常并由调用方处理。
-        private static string BuildRegistrationCommand(string escapedManifestPath)
-        {
-            return
-                "$ErrorActionPreference = 'Stop'; " +
-                $"Add-AppxPackage -Register -ForceApplicationShutdown -ErrorAction Stop '{escapedManifestPath}'";
-        }
-
-        // 使用独立进程运行 PowerShell 命令来执行注册，避免在当前进程中直接调用 PowerShell API
-        // 以减少环境副作用。manifestPath 中的单引号会被替换为两个单引号以进行 PowerShell 字符串转义。
-        private static async Task<PowerShellResult> RegisterProviderAsync(string manifestPath)
-        {
-            string escapedManifestPath = manifestPath.Replace("'", "''");
-            return await RunPowerShellViaProcess(BuildRegistrationCommand(escapedManifestPath));
-        }
-
         // 检查 PowerShell 返回结果中是否包含表示未启用开发者模式的错误代码（0x80073CFF）。
         // 如果在标准错误或标准输出中发现该代码，则视为开发者模式相关的错误。
         private static bool IsDeveloperModeError(PowerShellResult result) =>
@@ -238,8 +222,8 @@ namespace FeedCustomizer.Core.Tools
                 return;
             }
 
-            var result = await RunPowerShellViaProcess(
-                "Get-AppxPackage -Name '*D454B137.Jianmao.FeedCustomizerContainer*' | Remove-AppxPackage");
+            PowerShellResult result = await PowerShellInfrastructure.AppxPackages.RemoveAsync(
+                ProviderPackageNamePattern);
             if (result.ExitCode != 0)
             {
                 Debug.WriteLine($"Feed provider removal failed ({result.ExitCode}): {result.Error}");
@@ -358,148 +342,10 @@ namespace FeedCustomizer.Core.Tools
         /// <returns></returns>
         public static async Task<bool> IsFeedProviderInstalled()
         {
-            var result = await RunPowerShellViaProcess(
-                "Get-AppxPackage -Name '*D454B137.Jianmao.FeedCustomizerContainer*' | Select-Object -ExpandProperty PackageFullName");
+            PowerShellResult result = await PowerShellInfrastructure.AppxPackages.QueryFullNameAsync(
+                ProviderPackageNamePattern);
             Debug.WriteLine(result.Output);
             return result.ExitCode == 0 && !string.IsNullOrWhiteSpace(result.Output);
-        }
-
-        // 将包内已准备好的用户文件从应用私有目录同步到真正的
-        // %LocalAppData%\FeedCustomProvider 并返回目标清单路径。使用
-        // robocopy 只复制已更改的文件，遇到失败时尝试备份模式重试。
-        private static async Task<string> CopyPackageFilesToRealLocalAppDataAsync()
-        {
-            // 源目录为应用的私有目录（包内的 LocalCache/Local/FeedCustomProvider），
-            // 而不是全局 LocalAppData 路径。
-            string source = AppDataPaths.PackageLocalFeedProviderFolder;
-            string dest = AppDataPaths.FeedProviderFolder;
-
-            // 构造 PowerShell 命令，使用 /COPY:DAT 只复制数据/属性/时间戳，避免复制审计信息导致权限错误
-            string BuildRobocopyCommand(string extraOptions) =>
-                "$src = \"" + source.Replace("\"", "\\\"") + "\"; " +
-                "$dst = \"" + dest.Replace("\"", "\\\"") + "\"; " +
-                "if (-not (Test-Path -Path $dst)) { New-Item -ItemType Directory -Path $dst | Out-Null }; " +
-                "robocopy \"$src\" \"$dst\" /E /COPY:DAT /R:0 /W:0 /MT:8 " + extraOptions + "; exit $LASTEXITCODE";
-
-            string cmd = BuildRobocopyCommand(string.Empty);
-            if (!Directory.Exists(source))
-            {
-                throw new DirectoryNotFoundException($"源目录不存在：{source}");
-            }
-
-            // 如果源与目标路径相同，则跳过复制
-            string normSource = Path.GetFullPath(source).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-            string normDest = Path.GetFullPath(dest).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-            if (string.Equals(normSource, normDest, StringComparison.OrdinalIgnoreCase))
-            {
-                Debug.WriteLine($"源与目标路径相同，跳过复制：{normSource}");
-                string manifestPathSame = Path.Combine(dest, "AppxManifest.xml");
-                if (!File.Exists(manifestPathSame))
-                {
-                    throw new FileNotFoundException($"目标路径缺少清单文件：{manifestPathSame}");
-                }
-
-                return manifestPathSame;
-            }
-
-            var result = await RunPowerShellViaProcess(cmd);
-
-            // Robocopy 返回值小于 8 表示成功或轻微问题，>=8 表示失败
-            if (result.ExitCode >= 8)
-            {
-                Debug.WriteLine($"robocopy first attempt failed ({result.ExitCode}). Output: {result.Output}. Error: {result.Error}");
-
-                // 如果因为文件被占用导致复制失败，最常见的被占用文件是 dest 下的 resources.pri。
-                // 与其反复尝试 robocopy 的备份模式，不如直接尝试删除该文件再重试一次复制；
-                // 如果 targeted 删除无效，再尝试强制删除目标目录内容后再重试一次。
-
-                string priPath = Path.Combine(dest, "resources.pri");
-
-                // 尝试有针对性地删除 resources.pri
-                try
-                {
-                    string removePriCmd = "$path = \"" + priPath.Replace("\"", "\\\"") + "\"; " +
-                        "if (Test-Path -LiteralPath $path) { Remove-Item -LiteralPath $path -Force -ErrorAction SilentlyContinue }; exit 0";
-                    await RunPowerShellViaProcess(removePriCmd);
-                }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine($"尝试删除 resources.pri 时发生错误：{ex}");
-                }
-
-                // 再次尝试一次 robocopy
-                var retryResult = await RunPowerShellViaProcess(cmd);
-                if (retryResult.ExitCode < 8)
-                {
-                    result = retryResult;
-                }
-                else
-                {
-                    Debug.WriteLine($"robocopy retry after deleting resources.pri failed ({retryResult.ExitCode}). Output: {retryResult.Output}. Error: {retryResult.Error}");
-
-                    // 作为最终手段，强制删除目标目录下的所有内容后再重试一次
-                    try
-                    {
-                        string removeAllCmd = "$dst = \"" + dest.Replace("\"", "\\\"") + "\"; " +
-                            "if (Test-Path -Path $dst) { Remove-Item -Path (Join-Path $dst '*') -Force -Recurse -ErrorAction SilentlyContinue }; exit 0";
-                        await RunPowerShellViaProcess(removeAllCmd);
-                    }
-                    catch (Exception ex)
-                    {
-                        Debug.WriteLine($"尝试强制清空目标目录时发生错误：{ex}");
-                    }
-
-                    // 最后一次尝试
-                    var finalResult = await RunPowerShellViaProcess(cmd);
-                    if (finalResult.ExitCode >= 8)
-                    {
-                        Debug.WriteLine($"robocopy final attempt failed ({finalResult.ExitCode}). Output: {finalResult.Output}. Error: {finalResult.Error}");
-                        throw new IOException($"无法将包文件复制到 {dest}，robocopy 多次尝试失败：第一次: " +
-                            $"ExitCode={result.ExitCode}; Output={result.Output}; Error={result.Error} || 重试: " +
-                            $"ExitCode={retryResult.ExitCode}; Output={retryResult.Output}; Error={retryResult.Error} || 最后一次: " +
-                            $"ExitCode={finalResult.ExitCode}; Output={finalResult.Output}; Error={finalResult.Error}");
-                    }
-
-                    result = finalResult;
-                }
-            }
-
-            string manifestPath = Path.Combine(dest, "AppxManifest.xml");
-            if (!File.Exists(manifestPath))
-            {
-                throw new FileNotFoundException($"目标路径缺少清单文件：{manifestPath}");
-            }
-
-            return manifestPath;
-        }
-
-        private static async Task<PowerShellResult> RunPowerShellViaProcess(string command)
-        {
-            ProcessStartInfo startInfo = new()
-            {
-                FileName = "powershell.exe",
-                UseShellExecute = false,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                CreateNoWindow = true
-            };
-            startInfo.ArgumentList.Add("-NoProfile");
-            startInfo.ArgumentList.Add("-NonInteractive");
-            startInfo.ArgumentList.Add("-ExecutionPolicy");
-            startInfo.ArgumentList.Add("Bypass");
-            startInfo.ArgumentList.Add("-Command");
-            startInfo.ArgumentList.Add(command);
-
-            using Process? process = Process.Start(startInfo);
-            if (process is null)
-            {
-                return new PowerShellResult(-1, string.Empty, "无法启动 PowerShell。");
-            }
-
-            Task<string> outputTask = process.StandardOutput.ReadToEndAsync();
-            Task<string> errorTask = process.StandardError.ReadToEndAsync();
-            await process.WaitForExitAsync();
-            return new PowerShellResult(process.ExitCode, await outputTask, await errorTask);
         }
 
     }

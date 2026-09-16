@@ -479,6 +479,7 @@ namespace FeedCustomizer.ViewModels
         /// </summary>
         public async Task<ProviderRegistrationResult> RetryProviderRegistrationWithAutoDeveloperModeAsync()
         {
+            // 此重试由 UI 已确认的操作触发；直接返回结果，避免再次触发同一失败事件导致重复弹窗。
             SettingsLoader.SetAutoEnableDeveloperMode(true);
             ProviderRegistrationResult result = await PackageInstaller.InstallFeedProvider();
             if (result.Succeeded)
@@ -507,6 +508,9 @@ namespace FeedCustomizer.ViewModels
             return ReportProviderRegistrationResult(result);
         }
 
+        /// <summary>
+        /// 将注册结果转换为调用方所需的布尔值，并仅在失败时通知 UI 层决定展示策略。
+        /// </summary>
         private bool ReportProviderRegistrationResult(ProviderRegistrationResult result)
         {
             if (result.Succeeded)
@@ -514,6 +518,7 @@ namespace FeedCustomizer.ViewModels
                 return true;
             }
 
+            // 事件只传递领域结果，不等待或依赖任何对话框，保持 ViewModel 与具体 UI 解耦。
             ProviderRegistrationFailed?.Invoke(this, result);
             return false;
         }

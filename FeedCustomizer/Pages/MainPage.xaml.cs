@@ -122,6 +122,7 @@ namespace FeedCustomizer.Pages
                 if (result.Status == ProviderRegistrationStatus.DeveloperModeConfirmationRequired)
                 {
                     var resourceLoader = new ResourceLoader();
+                    // 启动遮罩与首次运行说明可能仍在收尾，统一由 DialogService 排队，避免对话框竞争。
                     bool confirmed = await DialogService.ShowAfterStartupConfirmAsync(
                         resourceLoader.GetString("EnableProviderFail"),
                         resourceLoader.GetString("DeveloperModeDisabled"),

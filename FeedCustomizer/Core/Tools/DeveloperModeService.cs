@@ -1,4 +1,5 @@
 using FeedCustomizer.Core.Models;
+using FeedCustomizer.Core.Infrastructure.PowerShell;
 using Microsoft.Win32;
 using System;
 using System.Diagnostics;
@@ -17,9 +18,9 @@ namespace FeedCustomizer.Core.Tools
 
         /// <summary>
         /// 用户取消 UAC 时 Process.Start 抛出的 Win32 错误码（ERROR_CANCELLED）。
-        /// 保留以兼容现有调用方，实际定义收敛到 ElevatedScriptRunner。
+        /// 具体进程处理由 PowerShell 基础设施统一完成。
         /// </summary>
-        public const int ElevationCancelledExitCode = ElevatedScriptRunner.ElevationCancelledExitCode;
+        public const int ElevationCancelledExitCode = PowerShellExitCodes.ElevationCancelled;
 
         public static bool IsDeveloperModeEnabled()
         {
@@ -44,43 +45,8 @@ namespace FeedCustomizer.Core.Tools
         /// </summary>
         public static async Task<PowerShellResult> RegisterWithTemporaryDeveloperModeAsync(string manifestPath)
         {
-            string escapedManifestPath = manifestPath.Replace("'", "''");
-            string script = BuildScript(escapedManifestPath);
-            return await ElevatedScriptRunner.RunAsync("RegisterFeedProvider.ps1", script);
-        }
-
-        private static string BuildScript(string escapedManifestPath)
-        {
-            string[] lines =
-            [
-                "$ErrorActionPreference = 'Stop'",
-                "$keyPath = 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\AppModelUnlock'",
-                "$valueName = 'AllowDevelopmentWithoutDevLicense'",
-                string.Empty,
-                "$key = Get-Item -Path $keyPath -ErrorAction SilentlyContinue",
-                "if ($null -eq $key) { New-Item -Path $keyPath -Force | Out-Null; $key = Get-Item -Path $keyPath }",
-                "$original = $key.GetValue($valueName, $null)",
-                string.Empty,
-                "try {",
-                "    Set-ItemProperty -Path $keyPath -Name $valueName -Value 1 -Type DWord",
-                "    $output = Add-AppxPackage -Register -ForceApplicationShutdown -ErrorAction Stop '" + escapedManifestPath + "' 2>&1",
-                "    $output | Out-String | Out-File -FilePath $outputPath -Encoding UTF8",
-                "    exit 0",
-                "}",
-                "catch {",
-                "    $_ | Out-String | Out-File -FilePath $errorPath -Encoding UTF8",
-                "    exit 1",
-                "}",
-                "finally {",
-                "    if ($null -eq $original) {",
-                "        Remove-ItemProperty -Path $keyPath -Name $valueName -ErrorAction SilentlyContinue",
-                "    } else {",
-                "        Set-ItemProperty -Path $keyPath -Name $valueName -Value $original -Type DWord",
-                "    }",
-                "}"
-            ];
-
-            return string.Join(Environment.NewLine, lines);
+            // 注册表写入及 finally 恢复必须处于同一个提权脚本，避免 C# 与 PowerShell 两处维护状态机。
+            return await PowerShellInfrastructure.DeveloperMode.RegisterPackageAsync(manifestPath);
         }
     }
 }
