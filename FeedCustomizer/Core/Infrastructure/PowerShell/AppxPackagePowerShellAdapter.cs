@@ -50,10 +50,10 @@ namespace FeedCustomizer.Core.Infrastructure.PowerShell
             CancellationToken cancellationToken = default)
         {
             string script =
-                $"Get-AppxPackage -Name {PowerShellLiteral.Quote(packageNamePattern)} | " +
+                $"$ErrorActionPreference = 'Stop'; Get-AppxPackage -Name {PowerShellLiteral.Quote(packageNamePattern)} -ErrorAction Stop | " +
                 "Select-Object -ExpandProperty PackageFullName";
             return executor.ExecuteAsync(
-                new PowerShellScript("QueryAppxPackage.ps1", script),
+                new PowerShellScript("QueryAppxPackage.ps1", script, Timeout: System.TimeSpan.FromSeconds(15)),
                 cancellationToken);
         }
     }

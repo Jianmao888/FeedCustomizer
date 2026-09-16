@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+  <!-- 无额外测试依赖；直接链接不依赖 WinUI 的真实实现，用可执行回归测试覆盖副作用边界。 -->
+  <ItemGroup>
+    <Content Include="../../FeedCustomizer/Resources/AppxManifest.xml" Link="Template.xml" CopyToOutputDirectory="PreserveNewest" />
+    <Compile Include="../../FeedCustomizer/Core/Tools/ManifesXmlService.cs" Link="Core/ManifestXmlService.cs" />
+    <Compile Include="../../FeedCustomizer/Core/Infrastructure/Deployment/ProviderDeploymentStorage.cs" Link="Core/ProviderDeploymentStorage.cs" />
+    <Compile Include="../../FeedCustomizer/Core/Deployment/DeploymentContracts.cs" Link="Core/DeploymentContracts.cs" />
+    <Compile Include="../../FeedCustomizer/Core/Deployment/ProviderDeploymentCoordinator.cs" Link="Core/ProviderDeploymentCoordinator.cs" />
+    <Compile Include="../../FeedCustomizer/Core/Models/ProviderRegistrationResult.cs" Link="Core/ProviderRegistrationResult.cs" />
+    <Compile Include="../../FeedCustomizer/Core/Models/PowerShellResult.cs" Link="Core/PowerShellResult.cs" />
+    <Compile Include="../../FeedCustomizer/Core/Models/Feed.cs" Link="Core/Feed.cs" />
+    <Compile Include="../../FeedCustomizer/Core/Constants/Constants.cs" Link="Core/Constants.cs" />
+    <Compile Include="../../FeedCustomizer/Core/Infrastructure/Deployment/DeploymentFiles.cs" Link="Core/DeploymentFiles.cs" />
+    <Compile Include="../../FeedCustomizer/Core/Infrastructure/PowerShell/IPowerShellExecutor.cs" Link="Core/IPowerShellExecutor.cs" />
+    <Compile Include="../../FeedCustomizer/Core/Infrastructure/PowerShell/PowerShellScript.cs" Link="Core/PowerShellScript.cs" />
+    <Compile Include="../../FeedCustomizer/Core/Infrastructure/PowerShell/PowerShellProcessExecutor.cs" Link="Core/PowerShellProcessExecutor.cs" />
+    <Compile Include="../../FeedCustomizer/Core/Infrastructure/PowerShell/ProviderDeploymentPowerShellAdapter.cs" Link="Core/ProviderDeploymentPowerShellAdapter.cs" />
+  </ItemGroup>
+</Project>

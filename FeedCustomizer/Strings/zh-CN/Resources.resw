@@ -505,4 +505,16 @@
     <value>取消</value>
     <comment>弹窗的取消按钮</comment>
   </data>
+  <data name="ProviderConfigurationSaved" xml:space="preserve">
+    <value>订阅源配置已保存，但尚未成功部署到提供程序。</value>
+    <comment>区分配置保存成功与部署失败</comment>
+  </data>
+  <data name="ProviderDeploymentStopped" xml:space="preserve">
+    <value>未完成的提供程序注册已停止。请重新启用提供程序，重试部署当前版本。</value>
+    <comment>部署失败后关闭不完整注册，不恢复旧版本</comment>
+  </data>
+  <data name="ProviderDeploymentRecoveryFailed" xml:space="preserve">
+    <value>部署后的清理未完成，当前注册状态尚未确认。请查看下方诊断并在重试前关闭可能占用文件的小组件。</value>
+    <comment>补偿或完成清理失败时明确保留不确定状态</comment>
+  </data>
 </root>

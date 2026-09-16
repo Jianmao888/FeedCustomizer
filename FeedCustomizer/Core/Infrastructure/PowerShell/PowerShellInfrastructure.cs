@@ -9,7 +9,7 @@ namespace FeedCustomizer.Core.Infrastructure.PowerShell
 
         internal static AppxPackagePowerShellAdapter AppxPackages { get; } = new(Executor);
 
-        internal static ProviderFilesPowerShellAdapter ProviderFiles { get; } = new(Executor);
+        internal static ProviderDeploymentPowerShellAdapter DeploymentFiles { get; } = new(Executor);
 
         internal static DeveloperModePowerShellAdapter DeveloperMode { get; } = new(Executor);
 

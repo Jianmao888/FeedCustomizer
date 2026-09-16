@@ -1,6 +1,5 @@
 ﻿using Microsoft.UI.Xaml.Media.Imaging;
 using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Threading.Tasks;
@@ -122,45 +121,6 @@ namespace FeedCustomizer.Core.Tools
         }
 
         /// <summary>
-        /// 删除图片目录中不再被引用的图片（默认图片除外）。
-        /// 启动时调用，仅保留传入路径集合中的图片。
-        /// </summary>
-        /// <param name="referencedImagePaths">当前仍被引用的图片相对路径集合</param>
-        public static void DeleteUnreferencedImages(IEnumerable<string> referencedImagePaths)
-        {
-            string imageFolder = AppDataPaths.ImagesFolder;
-            if (!Directory.Exists(imageFolder))
-            {
-                return;
-            }
-
-            var referencedFileNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            foreach (string path in referencedImagePaths)
-            {
-                string? fileName = Path.GetFileName(path);
-                if (!string.IsNullOrEmpty(fileName))
-                {
-                    referencedFileNames.Add(fileName);
-                }
-            }
-
-            try
-            {
-                foreach (string imagePath in Directory.EnumerateFiles(imageFolder))
-                {
-                    if (!referencedFileNames.Contains(Path.GetFileName(imagePath)))
-                    {
-                        DeleteImage(imagePath);
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"清理图片缓存失败: {ex.Message}");
-            }
-        }
-
-        /// <summary>
         /// 获取保存图片的目录路径
         /// </summary>
         public static string GetImageFolderPath()
@@ -175,7 +135,9 @@ namespace FeedCustomizer.Core.Tools
         /// <returns>绝对路径</returns>
         public static string GetImageFullPathFromXmlRelativePath(string RelativePath)
         {
-            return Path.Combine(AppDataPaths.FeedProviderFolder, RelativePath);
+            if (string.IsNullOrWhiteSpace(RelativePath)) return string.Empty;
+            // 编辑与预览只使用私有副本，与图标上传/下载的保存目录一致。
+            return Infrastructure.Deployment.DeploymentFiles.Under(AppDataPaths.PackageLocalFeedProviderFolder, RelativePath);
         }
     }
 }

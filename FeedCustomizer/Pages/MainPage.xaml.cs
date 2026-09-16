@@ -111,7 +111,7 @@ namespace FeedCustomizer.Pages
 
         /// <summary>
         /// 将 Provider 注册失败转换为用户可理解的对话框。此处是基础设施诊断进入 UI 的唯一入口，
-        /// 因此 PackageInstaller 不再依赖窗口、资源加载器或 DialogService。
+        /// 因此部署协调器不依赖窗口、资源加载器或 DialogService。
         /// </summary>
         private async void OnProviderRegistrationFailed(object? sender, ProviderRegistrationResult result)
         {
@@ -119,7 +119,8 @@ namespace FeedCustomizer.Pages
 
             try
             {
-                if (result.Status == ProviderRegistrationStatus.DeveloperModeConfirmationRequired)
+                if (result.Status == ProviderRegistrationStatus.DeveloperModeConfirmationRequired &&
+                    result.Compensation != Core.Deployment.DeploymentCompensation.Failed)
                 {
                     var resourceLoader = new ResourceLoader();
                     // 启动遮罩与首次运行说明可能仍在收尾，统一由 DialogService 排队，避免对话框竞争。
@@ -157,7 +158,8 @@ namespace FeedCustomizer.Pages
             var resourceLoader = new ResourceLoader();
             string title = resourceLoader.GetString("EnableProviderFail");
 
-            if (result.Status == ProviderRegistrationStatus.ElevationCancelled)
+            if (result.Status == ProviderRegistrationStatus.ElevationCancelled &&
+                result.Compensation != Core.Deployment.DeploymentCompensation.Failed)
             {
                 await DialogService.ShowMessageAsync(
                     title,
@@ -170,9 +172,19 @@ namespace FeedCustomizer.Pages
                 Environment.NewLine,
                 $"ExitCode: {(result.ExitCode?.ToString() ?? "n/a")}",
                 $"SourceManifest: {result.ManifestPath}",
+                $"Stage: {result.Stage}",
+                $"ConfigurationSaved: {result.ConfigurationSaved}",
+                $"Compensation: {result.Compensation}",
+                $"CompensationError: {result.CompensationError}",
                 $"Error: {result.Error}",
                 $"Output: {result.Output}");
             string content = resourceLoader.GetString("SomethingErrorsOccurred");
+            if (result.ConfigurationSaved)
+                content += Environment.NewLine + resourceLoader.GetString("ProviderConfigurationSaved");
+            if (result.Compensation == Core.Deployment.DeploymentCompensation.ProviderDisabled)
+                content += Environment.NewLine + resourceLoader.GetString("ProviderDeploymentStopped");
+            else if (result.Compensation == Core.Deployment.DeploymentCompensation.Failed)
+                content += Environment.NewLine + resourceLoader.GetString("ProviderDeploymentRecoveryFailed");
             await DialogService.ShowStartupFailureAsync(
                 title,
                 $"{content}{Environment.NewLine}{Environment.NewLine}{details}");

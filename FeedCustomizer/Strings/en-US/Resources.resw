@@ -504,4 +504,16 @@
   <data name="DialogCancel" xml:space="preserve">
     <value>Cancel</value>
   </data>
+  <data name="ProviderConfigurationSaved" xml:space="preserve">
+    <value>Your feed configuration was saved, but deployment has not completed successfully.</value>
+    <comment>区分配置保存成功与部署失败</comment>
+  </data>
+  <data name="ProviderDeploymentStopped" xml:space="preserve">
+    <value>The incomplete provider registration has been stopped. Enable the provider again to retry deploying the current version.</value>
+    <comment>部署失败后关闭不完整注册，不恢复旧版本</comment>
+  </data>
+  <data name="ProviderDeploymentRecoveryFailed" xml:space="preserve">
+    <value>Deployment cleanup has not completed, and the registration state is not confirmed. Review the diagnostics below and close any widgets that may be using the files before retrying.</value>
+    <comment>补偿或完成清理失败时明确保留不确定状态</comment>
+  </data>
 </root>

@@ -6,18 +6,13 @@ namespace FeedCustomizer.Core.Tools
 {
     internal static class AppDataPaths
     {
-        // The provider cache is ordinary per-user data. Use the real Local
-        // AppData folder (not the package's LocalCache) so the out-of-package
-        // PowerShell registration process reads and registers the same files.
-        // This app runs full trust, so its writes here are not redirected by
-        // the MSIX container.
+        // 这是注册目录的逻辑地址，不保证应用进程直接访问时绕过 MSIX 重定向。
+        // 实际部署文件的读写由包外 PowerShell 完成；用户数据始终使用下面的私有目录。
         internal static string FeedProviderFolder => Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "FeedCustomProvider");
 
-        // Package-local folder inside the app container where the app should
-        // store user-editable copies before they are published to the real
-        // LocalAppData. Prefer LocalCacheFolder and fall back to LocalFolder.
+        // 保持已发布版本的目录选择与回退顺序，更新时无需搬迁配置或图片。
         internal static string PackageLocalBase
         {
             get
@@ -58,11 +53,11 @@ namespace FeedCustomizer.Core.Tools
             "FeedProvider.exe");
 
         internal static string ImagesFolder => Path.Combine(
-            FeedProviderFolder,
+            PackageLocalFeedProviderFolder,
             "Images");
 
         internal static string HelpDocFolder => Path.Combine(
-            FeedProviderFolder,
+            PackageLocalFeedProviderFolder,
             "HelpDoc");
     }
 }

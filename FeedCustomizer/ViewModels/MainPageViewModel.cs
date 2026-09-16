@@ -2,6 +2,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using FeedCustomizer.Core.Constants;
 using FeedCustomizer.Core.DataService;
+using FeedCustomizer.Core.Deployment;
 using FeedCustomizer.Core.Models;
 using FeedCustomizer.Core.Tools;
 using System;
@@ -15,7 +16,7 @@ namespace FeedCustomizer.ViewModels
 {
     /// <summary>
     /// 主页的视图模型：集中管理源列表、源提供程序开关以及页面状态。
-    /// 所有业务逻辑都放在这里，页面后置代码只负责导航、遮罩、对话框等 UI 交互。
+    /// 部署意图交给协调器，页面后置代码负责导航、遮罩、对话框等 UI 交互。
     /// </summary>
     public partial class MainPageViewModel : ObservableObject
     {
@@ -35,6 +36,9 @@ namespace FeedCustomizer.ViewModels
 
         /// <summary>是否存在待应用的更改。</summary>
         private bool _canApplyFeeds;
+
+        // 开关是用户意图；查询失败时只能退回最后确认的状态，不能把用户刚点击的值当作执行结果。
+        private bool _lastConfirmedProviderEnabled;
 
         /// <summary>主页初始化任务，由窗口启动协调器等待其完成。</summary>
         public Task InitializationTask { get; }
@@ -148,19 +152,15 @@ namespace FeedCustomizer.ViewModels
         {
             try
             {
-                Task<bool> providerInstalledTask = PackageInstaller.IsFeedProviderInstalled();
-                Task<bool> resourceUpToDateTask = FeedListDataService.IsEnable
-                    ? Task.FromResult(true)
-                    : ResourcesCopier.IsResourceUpToDate();
-
-                await Task.WhenAll(providerInstalledTask, resourceUpToDateTask);
-
-                bool providerInstalled = providerInstalledTask.Result;
-                bool resourceUpToDate = resourceUpToDateTask.Result;
-                bool requiresResourceSynchronization = !FeedListDataService.IsEnable && !resourceUpToDate;
+                DeploymentInspection inspection = await ProviderDeployment.Current.InspectAsync();
+                bool providerInstalled = inspection.Installed;
+                bool requiresResourceSynchronization = !inspection.ResourcesCurrent;
                 _resourceSynchronizationRequired.TrySetResult(requiresResourceSynchronization);
 
                 SetFeedProviderEnabled(providerInstalled);
+
+                // 先通知启动协调器切换加载遮罩，再执行耗时准备；准备工作不影响现有注册目录。
+                if (requiresResourceSynchronization) await ProviderDeployment.Current.PrepareAsync();
 
                 if (FeedListDataService.IsEnable)
                 {
@@ -168,14 +168,11 @@ namespace FeedCustomizer.ViewModels
                 }
                 else
                 {
-                    providerInstalled = await UpdateResourcesIfNeededAsync(
-                        providerInstalled,
-                        resourceUpToDate);
                     await LoadFeedsFromXmlAsync();
                 }
 
                 AddPendingFeed();
-                await EnsureFeedProviderRegistrationAsync(providerInstalled);
+                if (IsFeedProviderEnabled) await TryInstallFeedProviderAsync();
             }
             finally
             {
@@ -189,31 +186,10 @@ namespace FeedCustomizer.ViewModels
         /// </summary>
         private void SetFeedProviderEnabled(bool providerInstalled)
         {
+            _lastConfirmedProviderEnabled = providerInstalled;
             IsFeedProviderEnabled = FeedProviderEnableDataService.IsFeedProviderEnabled is bool cachedEnabled
                 ? cachedEnabled
                 : providerInstalled;
-        }
-
-        /// <summary>
-        /// 根据启动阶段的检测结果更新源提供程序资源。
-        /// </summary>
-        private async Task<bool> UpdateResourcesIfNeededAsync(bool providerInstalled, bool resourceUpToDate)
-        {
-            if (resourceUpToDate)
-            {
-                return providerInstalled;
-            }
-
-            // 源提供程序的可执行文件可能被小组件占用而锁定。
-            // 在替换 AOT 二进制文件前先注销它。
-            if (IsFeedProviderEnabled && providerInstalled)
-            {
-                await PackageInstaller.UninstallFeedProvider();
-                providerInstalled = false;
-            }
-
-            await ResourcesCopier.ResourcesCopyAsync();
-            return providerInstalled;
         }
 
         /// <summary>
@@ -225,25 +201,6 @@ namespace FeedCustomizer.ViewModels
             {
                 AddOrEditFeed(new FeedViewModel(feed));
                 AddOrEditFeedDataService.Feed = null;
-            }
-        }
-
-        /// <summary>
-        /// 根据启动阶段的检测结果判断是否需要重新注册源提供程序。
-        /// </summary>
-        private async Task EnsureFeedProviderRegistrationAsync(bool providerInstalled)
-        {
-            // 不要在每次页面启动时都重写/重新注册源提供程序。
-            // 小组件可能仍占用 COM 服务器；仅当包缺失或暂存文件
-            // 与当前资源不一致时才刷新注册。
-            if (IsFeedProviderEnabled &&
-                (!providerInstalled ||
-                 !ResourcesCopier.IsRegisteredProviderCurrent()))
-            {
-                if (!await TryInstallFeedProviderAsync())
-                {
-                    IsFeedProviderEnabled = false;
-                }
             }
         }
 
@@ -395,30 +352,25 @@ namespace FeedCustomizer.ViewModels
             BeginLoading();
             try
             {
-                if (IsFeedProviderEnabled)
-                {
-                    await PackageInstaller.UninstallFeedProvider();
-                }
-
                 var feedItems = new List<Feed>();
                 foreach (var feedViewModel in Feeds)
                 {
                     feedItems.Add(feedViewModel.FeedItem);
                 }
 
-                await ManifestXmlService.Write(feedItems);
-
-                if (IsFeedProviderEnabled)
+                // 保存、卸载和注册在协调器的一次串行操作内完成；失败时保留“应用”能力用于重试。
+                var result = await ProviderDeployment.Current.ApplyAsync(
+                    feedItems, IsFeedProviderEnabled, SettingsLoader.GetAutoEnableDeveloperMode());
+                if (ReportProviderRegistrationResult(result))
                 {
-                    await TryInstallFeedProviderFromStagedResourcesAsync();
+                    _deleteFeeds.Clear();
+                    _canApplyFeeds = false;
+                    await CleanUpUnusedImagesAsync();
                 }
-
-                _deleteFeeds.Clear();
-                _canApplyFeeds = false;
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error saving feeds: {ex.Message}");
+                ReportProviderRegistrationResult(ProviderRegistrationResult.Failed(string.Empty, null, ex.ToString(), string.Empty));
             }
             finally
             {
@@ -458,14 +410,13 @@ namespace FeedCustomizer.ViewModels
             BeginLoading();
             try
             {
-                if (!IsFeedProviderEnabled)
-                {
-                    await PackageInstaller.UninstallFeedProvider();
-                }
-                else if (!await TryInstallFeedProviderFromStagedResourcesAsync())
-                {
-                    IsFeedProviderEnabled = false;
-                }
+                var result = await ProviderDeployment.Current.ApplyAsync(
+                    null, IsFeedProviderEnabled, SettingsLoader.GetAutoEnableDeveloperMode());
+                ReportProviderRegistrationResult(result);
+            }
+            catch (Exception ex)
+            {
+                ReportProviderRegistrationResult(ProviderRegistrationResult.Failed(string.Empty, null, ex.ToString(), string.Empty));
             }
             finally
             {
@@ -481,11 +432,9 @@ namespace FeedCustomizer.ViewModels
         {
             // 此重试由 UI 已确认的操作触发；直接返回结果，避免再次触发同一失败事件导致重复弹窗。
             SettingsLoader.SetAutoEnableDeveloperMode(true);
-            ProviderRegistrationResult result = await PackageInstaller.InstallFeedProvider();
-            if (result.Succeeded)
-            {
-                IsFeedProviderEnabled = true;
-            }
+            ProviderRegistrationResult result = await ProviderDeployment.Current.ApplyAsync(null, true, true);
+            if (result.ProviderEnabled is bool enabled) _lastConfirmedProviderEnabled = enabled;
+            IsFeedProviderEnabled = _lastConfirmedProviderEnabled;
 
             return result;
         }
@@ -495,16 +444,8 @@ namespace FeedCustomizer.ViewModels
         /// </summary>
         private async Task<bool> TryInstallFeedProviderAsync()
         {
-            ProviderRegistrationResult result = await PackageInstaller.InstallFeedProvider();
-            return ReportProviderRegistrationResult(result);
-        }
-
-        /// <summary>
-        /// 注册已经使用暂存资源时的失败处理入口。
-        /// </summary>
-        private async Task<bool> TryInstallFeedProviderFromStagedResourcesAsync()
-        {
-            ProviderRegistrationResult result = await PackageInstaller.InstallFeedProviderFromStagedResources();
+            ProviderRegistrationResult result = await ProviderDeployment.Current.ApplyAsync(
+                null, true, SettingsLoader.GetAutoEnableDeveloperMode());
             return ReportProviderRegistrationResult(result);
         }
 
@@ -513,6 +454,9 @@ namespace FeedCustomizer.ViewModels
         /// </summary>
         private bool ReportProviderRegistrationResult(ProviderRegistrationResult result)
         {
+            // 开关反映确认过的实际状态，不因一次失败便假设包已经卸载成功。
+            if (result.ProviderEnabled is bool enabled) _lastConfirmedProviderEnabled = enabled;
+            IsFeedProviderEnabled = _lastConfirmedProviderEnabled;
             if (result.Succeeded)
             {
                 return true;
@@ -567,22 +511,18 @@ namespace FeedCustomizer.ViewModels
                 referencedPaths.Add(feed.FeedItem.ImagePath);
             }
 
-            return Task.Run(async () =>
-            {
-                try
-                {
-                    foreach (var item in await ManifestXmlService.Read())
-                    {
-                        referencedPaths.Add(item.ImagePath);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine($"清理图片缓存时读取 Xml 失败: {ex.Message}");
-                }
+            return CleanImagesAndReportAsync(referencedPaths);
+        }
 
-                ImageHelper.DeleteUnreferencedImages(referencedPaths);
-            });
+        private static async Task CleanImagesAndReportAsync(HashSet<string> references)
+        {
+            // 清理是非致命维护任务，但异常必须可观察，尤其不能从后台任务逃逸。
+            try
+            {
+                var result = await ProviderDeployment.Current.CleanImagesAsync(references);
+                foreach (string diagnostic in result.Diagnostics) Debug.WriteLine($"图片清理：{diagnostic}");
+            }
+            catch (Exception ex) { Debug.WriteLine($"图片清理未完成：{ex}"); }
         }
 
         /// <summary>

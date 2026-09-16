@@ -97,7 +97,8 @@ namespace FeedCustomizer.Core.Tools
         }
 
         /// <summary>
-        /// 将FeedItem列表写入XML文件（每个源使用独立的FeedProvider扩展）
+        /// 将订阅源写入同一个 FeedProvider 的 Definitions 集合。
+        /// 部署调用方传入候选文件路径，完成校验后再原子替换用户配置。
         /// </summary>
         /// <param name="xmlFilePath">XML文件路径</param>
         /// <param name="definitions">要写入的FeedItem列表</param>
@@ -136,11 +137,8 @@ namespace FeedCustomizer.Core.Tools
         }
 
         /// <summary>
-        /// Migrates manifests produced by older builds. Older builds emitted
-        /// one AppExtension/FeedProvider for every feed, but Widgets treats the
-        /// package as one provider whose Definitions collection contains all
-        /// feeds. This migration is intentionally synchronous so it can run
-        /// while the registration manifest is being refreshed at startup.
+        /// 兼容旧版每个源一个 AppExtension 的清单格式，将所有源归并为同一个 Provider。
+        /// 这是清单结构规范化，不改变用户文件的目录或配置来源。
         /// </summary>
         internal static void NormalizeProviderManifest(XDocument document)
         {
@@ -162,19 +160,19 @@ namespace FeedCustomizer.Core.Tools
         }
 
         /// <summary>
-        /// Rewrites presentation metadata (architecture, display names, logos
-        /// and executable path) in the staged provider manifest so it matches
-        /// the current package before registration.
+        /// 在候选清单中同步当前架构、显示名称、徽标和可执行路径，保持模板与运行时清单职责独立。
         /// </summary>
-        internal static void SynchronizePresentation()
+        internal static void SynchronizePresentation(string? manifestPath = null)
         {
+            // 可在尚未发布的候选清单中完成变换，避免更新过程中直接覆盖唯一的用户配置。
+            manifestPath ??= AppDataPaths.PackageLocalManifestPath;
             string processorArchitecture = RuntimeInformation.ProcessArchitecture.ToString().ToLowerInvariant();
             string displayName = ProviderPackageDisplayName;
             string relativeExecutablePath = Path.Combine(
                 "FeedProvider",
                 "FeedProvider.exe").Replace(Path.DirectorySeparatorChar, '\\');
 
-            var document = XDocument.Load(AppDataPaths.PackageLocalManifestPath);
+            var document = XDocument.Load(manifestPath);
             var root = document.Root
                 ?? throw new InvalidDataException("源提供程序清单缺少 Package 根节点。");
             var identity = root.Element(DefaultNs + "Identity")
@@ -254,7 +252,7 @@ namespace FeedCustomizer.Core.Tools
             // toggling the provider can still leave only the switch visible.
             NormalizeProviderManifest(document);
 
-            document.Save(AppDataPaths.PackageLocalManifestPath);
+            document.Save(manifestPath);
         }
 
         /// <summary>
