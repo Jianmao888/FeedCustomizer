@@ -4,6 +4,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
 using System;
+using System.Threading.Tasks;
 using Windows.Storage;
 
 // To learn more about WinUI, the WinUI project structure,
@@ -19,6 +20,12 @@ namespace FeedCustomizer.Pages
     {
         /// <summary>页面视图模型，供 XAML 通过 x:Bind 绑定。</summary>
         public MainPageViewModel ViewModel { get; } = new();
+
+        /// <summary>供窗口启动协调器等待资源同步判定。</summary>
+        public Task<bool> ResourceSynchronizationRequiredTask => ViewModel.ResourceSynchronizationRequiredTask;
+
+        /// <summary>供窗口启动协调器等待业务初始化完成。</summary>
+        public Task InitializationTask => ViewModel.InitializationTask;
 
         /// <summary>是否需要在启动完成后展示首次运行安全说明。</summary>
         private readonly bool _showFirstRunDialog = SettingsLoader.GetIsFirstRun();
@@ -154,34 +161,15 @@ namespace FeedCustomizer.Pages
         }
 
         /// <summary>
-        /// 页面加载完成后的启动流程编排（UI 生命周期，保留在代码后置）。
+        /// 由窗口启动协调器在启动视觉状态结束后调用，只处理页面专属的首次运行和失败提示。
         /// </summary>
-        public async void MainPage_Loaded(object sender, RoutedEventArgs e)
+        public async Task ShowStartupCompletionDialogsAsync(Exception? initializationException)
         {
-            _ = sender;
-            _ = e;
-
-            if (App.MainWindow is not MainWindow window)
-            {
-                return;
-            }
-
-            Exception? initializationException = null;
-            try
-            {
-                await ViewModel.InitializationTask;
-            }
-            catch (Exception ex)
-            {
-                initializationException = ex;
-            }
-
-            window.NotifyInitialContentReady();
-
             // 数据已加载完成，主页即将展示。后台清理孤儿图片，避免阻塞启动流程。
-            _ = ViewModel.CleanUpUnusedImagesAsync();
-
-            await window.WaitForSplashHiddenAsync();
+            if (initializationException is null)
+            {
+                _ = ViewModel.CleanUpUnusedImagesAsync();
+            }
 
             if (_showFirstRunDialog)
             {

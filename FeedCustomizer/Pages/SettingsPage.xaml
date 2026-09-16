@@ -119,7 +119,7 @@
                         </StackPanel>
                         <StackPanel>
                             <TextBlock x:Uid="AboutContributors" FontSize="13" Opacity="0.6" Padding="0,8,0,4"/>
-                            <ItemsControl ItemsSource="{x:Bind ViewModel.Contributors, Mode=OneWay}">
+                            <ItemsControl ItemsSource="{x:Bind ViewModel.Contributors, Mode=OneTime}">
                                 <ItemsControl.ItemsPanel>
                                     <ItemsPanelTemplate>
                                         <WrapGrid Orientation="Horizontal"/>
@@ -128,7 +128,7 @@
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate x:DataType="constants:Contributor">
                                         <HyperlinkButton
-                                            Content="{x:Bind Name, Mode=OneWay}"
+                                            Content="{x:Bind Name, Mode=OneTime}"
                                             Click="OnContributorLinkClicked"
                                             Tag="{x:Bind}"
                                             Margin="0,0,12,0"

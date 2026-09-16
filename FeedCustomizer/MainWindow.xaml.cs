@@ -3,6 +3,8 @@ using FeedCustomizer.Core.Tools;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Navigation;
+using FeedCustomizer.Pages;
 using System;
 using System.Diagnostics;
 using System.Threading;
@@ -22,10 +24,10 @@ namespace FeedCustomizer
     public partial class MainWindow : Window
     {
         private readonly SemaphoreSlim _dialogGate = new(1, 1);
-        private readonly TaskCompletionSource<bool> _initialContentReady =
+        private readonly TaskCompletionSource<bool> _startupVisualsHidden =
             new(TaskCreationOptions.RunContinuationsAsynchronously);
-        private readonly TaskCompletionSource<bool> _splashHidden =
-            new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private bool _startupHasBegun;
+        private bool _startupUsesLoadingOverlay;
 
         public ExternalLaunchService ExternalLaunch { get; }
 
@@ -39,8 +41,8 @@ namespace FeedCustomizer
                 root.Loaded += Root_Loaded;
             }
 
-            DialogService.Initialize(DispatcherQueue, GetXamlRoot, WaitForSplashHiddenAsync, _dialogGate);
-            ExternalLaunch = new ExternalLaunchService(DispatcherQueue, GetXamlRoot, WaitForSplashHiddenAsync, _dialogGate);
+            DialogService.Initialize(DispatcherQueue, GetXamlRoot, WaitForStartupVisualsHiddenAsync, _dialogGate);
+            ExternalLaunch = new ExternalLaunchService(DispatcherQueue, GetXamlRoot, WaitForStartupVisualsHiddenAsync, _dialogGate);
 
             // 获取窗口信息
             IntPtr hWnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
@@ -78,21 +80,39 @@ namespace FeedCustomizer
         }
 
         /// <summary>
-        /// Loads the initial page after the first window frame has been rendered.
+        /// 加载主页并启动唯一的窗口级启动编排。
         /// </summary>
         public void StartLoadingContent()
         {
-            if (rootFrame.Content is null)
+            if (_startupHasBegun || rootFrame.Content is not null)
             {
-                rootFrame.Navigate(typeof(Pages.MainPage));
+                return;
             }
+
+            _startupHasBegun = true;
+            rootFrame.Navigated += OnInitialPageNavigated;
+            rootFrame.Navigate(typeof(Pages.MainPage));
         }
 
-        public Task WaitForInitialContentReadyAsync() => _initialContentReady.Task;
+        private void OnInitialPageNavigated(object sender, NavigationEventArgs e)
+        {
+            _ = sender;
+            rootFrame.Navigated -= OnInitialPageNavigated;
 
-        public void NotifyInitialContentReady() => _initialContentReady.TrySetResult(true);
+            if (e.Content is MainPage mainPage)
+            {
+                _ = RunStartupAsync(mainPage);
+                return;
+            }
 
-        public Task WaitForSplashHiddenAsync() => _splashHidden.Task;
+            // 理论上不会发生；仍需解除启动遮罩，避免导航异常时窗口永久停在徽标页。
+            _ = CompleteStartupAsync();
+        }
+
+        /// <summary>
+        /// 等待启动遮罩完全退出。首次运行和启动失败对话框必须在此之后显示。
+        /// </summary>
+        public Task WaitForStartupVisualsHiddenAsync() => _startupVisualsHidden.Task;
 
         public void SetLoadingOverlayVisible(bool isVisible)
         {
@@ -101,17 +121,81 @@ namespace FeedCustomizer
         }
 
         /// <summary>
-        /// Fades out the startup overlay after the initial page is ready.
+        /// 在窗口层编排主页初始化。资源同步判定一旦完成，就立即把徽标覆盖层切换为
+        /// 可反馈进度的加载覆盖层；无论初始化成功还是失败，最终都会释放启动遮罩。
         /// </summary>
-        public async Task FinishLoadingAndHideSplashAsync()
+        private async Task RunStartupAsync(MainPage mainPage)
         {
-            await Task.Delay(500);
+            Exception? initializationException = null;
+            try
+            {
+                if (await mainPage.ResourceSynchronizationRequiredTask)
+                {
+                    ShowStartupLoadingOverlay();
+                }
+
+                await mainPage.InitializationTask;
+            }
+            catch (Exception ex)
+            {
+                initializationException = ex;
+                Debug.WriteLine($"应用启动初始化失败：{ex}");
+            }
+            finally
+            {
+                await CompleteStartupAsync();
+            }
+
+            try
+            {
+                await mainPage.ShowStartupCompletionDialogsAsync(initializationException);
+            }
+            catch (Exception ex)
+            {
+                // 对话框失败不能影响已完成的启动状态；保留诊断以便后续排查。
+                Debug.WriteLine($"启动完成后的页面交互失败：{ex}");
+            }
+        }
+
+        /// <summary>
+        /// 资源同步属于长耗时操作。此时保留已加载的主页，并以加载覆盖层替代静态徽标。
+        /// </summary>
+        private void ShowStartupLoadingOverlay()
+        {
+            if (SplashOverlay.Visibility == Visibility.Visible)
+            {
+                SplashOverlay.Visibility = Visibility.Collapsed;
+            }
+
+            _startupUsesLoadingOverlay = true;
+            SetLoadingOverlayVisible(true);
+        }
+
+        /// <summary>
+        /// 统一结束启动视觉状态。未发生资源同步时保留淡出；发生同步时直接关闭加载覆盖层。
+        /// </summary>
+        private Task CompleteStartupAsync()
+        {
+            if (_startupUsesLoadingOverlay)
+            {
+                SetLoadingOverlayVisible(false);
+                _startupVisualsHidden.TrySetResult(true);
+                return Task.CompletedTask;
+            }
+
+            if (SplashOverlay.Visibility != Visibility.Visible)
+            {
+                _startupVisualsHidden.TrySetResult(true);
+                return Task.CompletedTask;
+            }
+
             SplashFadeOut.Completed += (_, _) =>
             {
                 SplashOverlay.Visibility = Visibility.Collapsed;
-                _splashHidden.TrySetResult(true);
+                _startupVisualsHidden.TrySetResult(true);
             };
             SplashFadeOut.Begin();
+            return Task.CompletedTask;
         }
 
         private void AppTitleBar_BackRequested(TitleBar sender, object args)

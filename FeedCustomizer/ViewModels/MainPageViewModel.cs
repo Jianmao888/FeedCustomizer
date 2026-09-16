@@ -36,8 +36,17 @@ namespace FeedCustomizer.ViewModels
         /// <summary>是否存在待应用的更改。</summary>
         private bool _canApplyFeeds;
 
-        /// <summary>初始化任务，页面 Loaded 时等待其完成。</summary>
+        /// <summary>主页初始化任务，由窗口启动协调器等待其完成。</summary>
         public Task InitializationTask { get; }
+
+        /// <summary>
+        /// 资源同步需求的早期判定结果。窗口据此在长时间文件复制前切换启动覆盖层，
+        /// 不依赖 ViewModel 的具体初始化实现或 UI 事件订阅时机。
+        /// </summary>
+        public Task<bool> ResourceSynchronizationRequiredTask => _resourceSynchronizationRequired.Task;
+
+        private readonly TaskCompletionSource<bool> _resourceSynchronizationRequired =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
 
         // =====================
         // UI 状态绑定
@@ -131,32 +140,42 @@ namespace FeedCustomizer.ViewModels
         /// </summary>
         private async Task InitAsync()
         {
-            Task<bool> providerInstalledTask = PackageInstaller.IsFeedProviderInstalled();
-            Task<bool> resourceUpToDateTask = FeedListDataService.IsEnable
-                ? Task.FromResult(true)
-                : ResourcesCopier.IsResourceUpToDate();
-
-            await Task.WhenAll(providerInstalledTask, resourceUpToDateTask);
-
-            bool providerInstalled = providerInstalledTask.Result;
-            bool resourceUpToDate = resourceUpToDateTask.Result;
-
-            SetFeedProviderEnabled(providerInstalled);
-
-            if (FeedListDataService.IsEnable)
+            try
             {
-                LoadFeedsFromDataService();
-            }
-            else
-            {
-                providerInstalled = await UpdateResourcesIfNeededAsync(
-                    providerInstalled,
-                    resourceUpToDate);
-                await LoadFeedsFromXmlAsync();
-            }
+                Task<bool> providerInstalledTask = PackageInstaller.IsFeedProviderInstalled();
+                Task<bool> resourceUpToDateTask = FeedListDataService.IsEnable
+                    ? Task.FromResult(true)
+                    : ResourcesCopier.IsResourceUpToDate();
 
-            AddPendingFeed();
-            await EnsureFeedProviderRegistrationAsync(providerInstalled);
+                await Task.WhenAll(providerInstalledTask, resourceUpToDateTask);
+
+                bool providerInstalled = providerInstalledTask.Result;
+                bool resourceUpToDate = resourceUpToDateTask.Result;
+                bool requiresResourceSynchronization = !FeedListDataService.IsEnable && !resourceUpToDate;
+                _resourceSynchronizationRequired.TrySetResult(requiresResourceSynchronization);
+
+                SetFeedProviderEnabled(providerInstalled);
+
+                if (FeedListDataService.IsEnable)
+                {
+                    LoadFeedsFromDataService();
+                }
+                else
+                {
+                    providerInstalled = await UpdateResourcesIfNeededAsync(
+                        providerInstalled,
+                        resourceUpToDate);
+                    await LoadFeedsFromXmlAsync();
+                }
+
+                AddPendingFeed();
+                await EnsureFeedProviderRegistrationAsync(providerInstalled);
+            }
+            finally
+            {
+                // 前置探测异常时也必须解除窗口等待；初始化异常会由调用方展示。
+                _resourceSynchronizationRequired.TrySetResult(false);
+            }
         }
 
         /// <summary>

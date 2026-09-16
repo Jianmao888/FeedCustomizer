@@ -9,14 +9,14 @@ using Microsoft.Windows.AppLifecycle;
 using System;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
-using System.Threading.Tasks;
 using Windows.UI;
 
 namespace FeedCustomizer
 {
     public partial class App : Application
     {
-        public static Window? MainWindow { get; private set; }
+        /// <summary>应用唯一主窗口。使用具体类型以暴露启动协调和窗口服务能力。</summary>
+        public static MainWindow? MainWindow { get; private set; }
 
         public App() => InitializeComponent();
 
@@ -41,26 +41,19 @@ namespace FeedCustomizer
             MainWindow = new MainWindow();
             AppThemeManager.SetupTitleBar();
             MainWindow.Activate();
-            _ = InitializeAppAfterSplashAsync();
+            InitializeMainWindow(MainWindow);
         }
 
-        private static async Task InitializeAppAfterSplashAsync()
+        /// <summary>
+        /// 完成窗口激活后的轻量 UI 配置，并将后续启动流程交给主窗口协调。
+        /// App 不再等待页面回传信号，避免启动完成条件分散在 App、窗口和页面中。
+        /// </summary>
+        private static void InitializeMainWindow(MainWindow window)
         {
-            await Task.Delay(50);
-            if (MainWindow is not MainWindow window) return;
-
-            window.DispatcherQueue.TryEnqueue(() =>
-            {
-                try { window.AppWindow.SetIcon("Assets/AppIcon.ico"); } catch { }
-                AppThemeManager.ApplyMaterial();
-                try { window.AppWindow.Title = new ResourceLoader().GetString("Title/Title"); } catch { }
-                window.StartLoadingContent();
-            });
-
-            // 主页面会在数据源初始化完成（或失败）后通知这里。
-            // 在此之前保持 Splash，避免用户看到尚未准备好的禁用控件。
-            await window.WaitForInitialContentReadyAsync();
-            await window.FinishLoadingAndHideSplashAsync();
+            try { window.AppWindow.SetIcon("Assets/AppIcon.ico"); } catch { }
+            AppThemeManager.ApplyMaterial();
+            try { window.AppWindow.Title = new ResourceLoader().GetString("Title/Title"); } catch { }
+            window.StartLoadingContent();
         }
 
         [LibraryImport("user32.dll")]
