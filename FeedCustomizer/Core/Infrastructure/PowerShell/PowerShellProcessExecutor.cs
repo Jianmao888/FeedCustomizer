@@ -26,8 +26,10 @@ namespace FeedCustomizer.Core.Infrastructure.PowerShell
             string tempDirectory = Path.Combine(
                 Path.GetTempPath(),
                 $"FeedCustomizer_PowerShell_{Guid.NewGuid():N}");
+            // 每次调用使用独立目录，避免并发执行时脚本和输出文件互相覆盖。
             Directory.CreateDirectory(tempDirectory);
 
+            // 业务脚本只需写入预先注入的两个路径；提权启动无法重定向标准流时仍可回传诊断。
             string scriptPath = Path.Combine(tempDirectory, script.FileName);
             string outputPath = Path.Combine(tempDirectory, "stdout.txt");
             string errorPath = Path.Combine(tempDirectory, "stderr.txt");
@@ -45,12 +47,14 @@ namespace FeedCustomizer.Core.Infrastructure.PowerShell
                     scriptWithContext,
                     new UTF8Encoding(encoderShouldEmitUTF8Identifier: true),
                     cancellationToken);
+                // 提权进程必须启用 Shell 才能触发 UAC，因而不能直接重定向标准输出；两条路径分别处理。
                 return script.RequiresElevation
                     ? await ExecuteElevatedAsync(scriptPath, outputPath, errorPath, script.Timeout, cancellationToken)
                     : await ExecuteStandardAsync(scriptPath, outputPath, errorPath, script.Timeout, cancellationToken);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
+                // 写入临时脚本阶段也可能被调用方取消，统一映射为基础设施约定的结果。
                 return new PowerShellResult(
                     PowerShellExitCodes.Cancelled,
                     string.Empty,
@@ -58,6 +62,7 @@ namespace FeedCustomizer.Core.Infrastructure.PowerShell
             }
             finally
             {
+                // 无论启动、执行或写入失败都回收脚本与诊断，避免临时目录逐次累积。
                 await TryDeleteDirectoryAsync(tempDirectory);
             }
         }
@@ -79,6 +84,7 @@ namespace FeedCustomizer.Core.Infrastructure.PowerShell
                     "无法启动 PowerShell。");
             }
 
+            // 进程仍在运行时并行排空两个管道，防止任一缓冲区写满而让子进程和父进程相互等待。
             Task<string> standardOutputTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
             Task<string> standardErrorTask = process.StandardError.ReadToEndAsync(cancellationToken);
             PowerShellResult? interruptedResult = await WaitForExitAsync(
@@ -93,6 +99,7 @@ namespace FeedCustomizer.Core.Infrastructure.PowerShell
 
             string standardOutput = await standardOutputTask;
             string standardError = await standardErrorTask;
+            // 普通进程同时收集标准流和脚本显式写入的文件，以兼容不同脚本的输出习惯。
             return new PowerShellResult(
                 process.ExitCode,
                 JoinOutput(standardOutput, await ReadAllTextIfExistsAsync(outputPath)),
@@ -108,6 +115,7 @@ namespace FeedCustomizer.Core.Infrastructure.PowerShell
         {
             try
             {
+                // UseShellExecute=true 是 runas 的前提；因此诊断由脚本写入临时文件，而非标准流。
                 ProcessStartInfo startInfo = CreateStartInfo(scriptPath, requiresElevation: true);
                 using Process? process = Process.Start(startInfo);
                 if (process is null)
@@ -134,6 +142,7 @@ namespace FeedCustomizer.Core.Infrastructure.PowerShell
             }
             catch (Win32Exception ex) when (ex.NativeErrorCode == PowerShellExitCodes.ElevationCancelled)
             {
+                // UAC 取消发生在进程创建之前，转换为领域层可稳定识别的结果而不是异常。
                 return new PowerShellResult(
                     PowerShellExitCodes.ElevationCancelled,
                     string.Empty,
@@ -153,6 +162,7 @@ namespace FeedCustomizer.Core.Infrastructure.PowerShell
                 RedirectStandardError = !requiresElevation,
                 Verb = requiresElevation ? "runas" : string.Empty
             };
+            // ArgumentList 负责逐项传参，避免路径或参数被拼进命令字符串后再次被 PowerShell 解析。
             startInfo.ArgumentList.Add("-NoProfile");
             startInfo.ArgumentList.Add("-NonInteractive");
             startInfo.ArgumentList.Add("-ExecutionPolicy");
@@ -167,6 +177,7 @@ namespace FeedCustomizer.Core.Infrastructure.PowerShell
             TimeSpan? timeout,
             CancellationToken cancellationToken)
         {
+            // 将调用方取消和操作超时合并等待，随后仍可从原始令牌判断到底是哪一种终止原因。
             using var timeoutSource = new CancellationTokenSource(timeout ?? DefaultTimeout);
             using var linkedSource = CancellationTokenSource.CreateLinkedTokenSource(
                 cancellationToken,
@@ -195,6 +206,7 @@ namespace FeedCustomizer.Core.Infrastructure.PowerShell
             {
                 if (!process.HasExited)
                 {
+                    // 只终止本次创建的 powershell.exe；其脚本操作均受单次超时约束。
                     process.Kill();
                 }
             }
@@ -208,6 +220,7 @@ namespace FeedCustomizer.Core.Infrastructure.PowerShell
         {
             try
             {
+                // 提权进程可能未创建输出文件；缺失输出是可预期情况，不应覆盖原始操作结果。
                 return File.Exists(path)
                     ? await File.ReadAllTextAsync(path)
                     : string.Empty;
@@ -228,6 +241,7 @@ namespace FeedCustomizer.Core.Infrastructure.PowerShell
 
         private static void ValidateScriptFileName(string fileName)
         {
+            // 禁止目录片段，确保临时脚本路径始终位于本执行器刚创建的专用目录中。
             if (string.IsNullOrWhiteSpace(fileName) ||
                 !string.Equals(fileName, Path.GetFileName(fileName), StringComparison.Ordinal) ||
                 !string.Equals(Path.GetExtension(fileName), ".ps1", StringComparison.OrdinalIgnoreCase))
