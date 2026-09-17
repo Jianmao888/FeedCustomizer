@@ -473,6 +473,14 @@
     <value>Cancel</value>
     <comment>Close button text of the clear Widgets web data warning dialog</comment>
   </data>
+  <data name="WidgetDataSuccessTitle" xml:space="preserve">
+    <value>Cleanup complete</value>
+    <comment>Title of the clear Widgets web data success dialog</comment>
+  </data>
+  <data name="WidgetDataSuccessMessage" xml:space="preserve">
+    <value>Local web data saved in the Widgets board has been cleared. Fresh web data will be created the next time Widgets is opened.</value>
+    <comment>Content of the clear Widgets web data success dialog</comment>
+  </data>
   <data name="WidgetDataFailureTitle" xml:space="preserve">
     <value>Unable to clear data</value>
     <comment>Title of the clear Widgets web data failure dialog</comment>

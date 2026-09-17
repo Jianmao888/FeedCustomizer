@@ -473,6 +473,14 @@
     <value>取消</value>
     <comment>清除小组件网页数据警告弹窗关闭按钮文本</comment>
   </data>
+  <data name="WidgetDataSuccessTitle" xml:space="preserve">
+    <value>清理成功</value>
+    <comment>清除小组件网页数据成功弹窗标题</comment>
+  </data>
+  <data name="WidgetDataSuccessMessage" xml:space="preserve">
+    <value>已清除小组件面板中网页保存的本地数据。下次打开小组件时会创建新的网页数据。</value>
+    <comment>清除小组件网页数据成功弹窗内容</comment>
+  </data>
   <data name="WidgetDataFailureTitle" xml:space="preserve">
     <value>无法清除数据</value>
     <comment>清除小组件网页数据失败弹窗标题</comment>

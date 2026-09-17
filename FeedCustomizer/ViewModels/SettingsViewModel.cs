@@ -444,15 +444,21 @@ namespace FeedCustomizer.ViewModels
                     LoadingOverlayRequested?.Invoke(this, false);
                 }
 
-                if (result.Status != WidgetDataClearStatus.Succeeded)
+                if (result.Status == WidgetDataClearStatus.Succeeded)
                 {
                     await DialogService.ShowMessageAsync(
-                        _resourceLoader.GetString("WidgetDataFailureTitle"),
-                        _resourceLoader.GetString(result.Status == WidgetDataClearStatus.Locked
-                            ? "WidgetDataLockedMessage"
-                            : "WidgetDataFailureMessage"),
+                        _resourceLoader.GetString("WidgetDataSuccessTitle"),
+                        _resourceLoader.GetString("WidgetDataSuccessMessage"),
                         _resourceLoader.GetString("DialogOK"));
+                    return;
                 }
+
+                await DialogService.ShowMessageAsync(
+                    _resourceLoader.GetString("WidgetDataFailureTitle"),
+                    _resourceLoader.GetString(result.Status == WidgetDataClearStatus.Locked
+                        ? "WidgetDataLockedMessage"
+                        : "WidgetDataFailureMessage"),
+                    _resourceLoader.GetString("DialogOK"));
             }
             finally
             {
