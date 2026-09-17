@@ -445,6 +445,46 @@
     <value>Could not modify the system configuration file. Please handle it manually with administrator privileges.</value>
     <comment>Content of the remove custom feed region restriction failure dialog</comment>
   </data>
+  <data name="Settings_ClearWidgetDataCard.Header" xml:space="preserve">
+    <value>Clear Widgets web data</value>
+    <comment>Header of the clear Widgets web data card on the settings page</comment>
+  </data>
+  <data name="Settings_ClearWidgetDataCard.Description" xml:space="preserve">
+    <value>Delete local data saved by web pages in the Widgets board</value>
+    <comment>Description of the clear Widgets web data card on the settings page</comment>
+  </data>
+  <data name="ClearWidgetDataButton.Content" xml:space="preserve">
+    <value>Clear data</value>
+    <comment>Text of the clear Widgets web data button on the settings page</comment>
+  </data>
+  <data name="WidgetDataWarningTitle" xml:space="preserve">
+    <value>Clear Widgets web data</value>
+    <comment>Title of the clear Widgets web data warning dialog</comment>
+  </data>
+  <data name="WidgetDataWarningMessage" xml:space="preserve">
+    <value>This closes the current Widgets board and clears all locally saved web data in it, including data for feeds managed by other apps. This cannot be undone. Continue?</value>
+    <comment>Content of the clear Widgets web data warning dialog</comment>
+  </data>
+  <data name="WidgetDataWarningPrimaryButtonText" xml:space="preserve">
+    <value>Clear</value>
+    <comment>Primary button text of the clear Widgets web data warning dialog</comment>
+  </data>
+  <data name="WidgetDataWarningCloseButtonText" xml:space="preserve">
+    <value>Cancel</value>
+    <comment>Close button text of the clear Widgets web data warning dialog</comment>
+  </data>
+  <data name="WidgetDataFailureTitle" xml:space="preserve">
+    <value>Unable to clear data</value>
+    <comment>Title of the clear Widgets web data failure dialog</comment>
+  </data>
+  <data name="WidgetDataLockedMessage" xml:space="preserve">
+    <value>The Widgets process is still using this data, so it cannot be deleted. Close the Widgets board and try again.</value>
+    <comment>Failure message when Widgets web data remains locked</comment>
+  </data>
+  <data name="WidgetDataFailureMessage" xml:space="preserve">
+    <value>Unable to delete Widgets web data. Please try again later.</value>
+    <comment>Failure message when clearing Widgets web data fails for another reason</comment>
+  </data>
   <data name="AboutGroup.Text" xml:space="preserve">
     <value>About</value>
     <comment>Group heading for about information on the settings page</comment>

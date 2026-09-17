@@ -14,6 +14,7 @@
     <Compile Include="../../FeedCustomizer/Core/Deployment/ProviderDeploymentCoordinator.cs" Link="Core/ProviderDeploymentCoordinator.cs" />
     <Compile Include="../../FeedCustomizer/Core/Models/ProviderRegistrationResult.cs" Link="Core/ProviderRegistrationResult.cs" />
     <Compile Include="../../FeedCustomizer/Core/Models/PowerShellResult.cs" Link="Core/PowerShellResult.cs" />
+    <Compile Include="../../FeedCustomizer/Core/Models/WidgetDataClearResult.cs" Link="Core/WidgetDataClearResult.cs" />
     <Compile Include="../../FeedCustomizer/Core/Models/Feed.cs" Link="Core/Feed.cs" />
     <Compile Include="../../FeedCustomizer/Core/Constants/Constants.cs" Link="Core/Constants.cs" />
     <Compile Include="../../FeedCustomizer/Core/Infrastructure/Deployment/DeploymentFiles.cs" Link="Core/DeploymentFiles.cs" />
@@ -21,5 +22,7 @@
     <Compile Include="../../FeedCustomizer/Core/Infrastructure/PowerShell/PowerShellScript.cs" Link="Core/PowerShellScript.cs" />
     <Compile Include="../../FeedCustomizer/Core/Infrastructure/PowerShell/PowerShellProcessExecutor.cs" Link="Core/PowerShellProcessExecutor.cs" />
     <Compile Include="../../FeedCustomizer/Core/Infrastructure/PowerShell/ProviderDeploymentPowerShellAdapter.cs" Link="Core/ProviderDeploymentPowerShellAdapter.cs" />
+    <Compile Include="../../FeedCustomizer/Core/WidgetData/IWidgetDataResetPlatform.cs" Link="Core/IWidgetDataResetPlatform.cs" />
+    <Compile Include="../../FeedCustomizer/Core/WidgetData/WidgetDataResetCoordinator.cs" Link="Core/WidgetDataResetCoordinator.cs" />
   </ItemGroup>
 </Project>

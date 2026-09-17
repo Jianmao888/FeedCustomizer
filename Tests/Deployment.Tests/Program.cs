@@ -3,6 +3,7 @@ using FeedCustomizer.Core.Infrastructure.Deployment;
 using FeedCustomizer.Core.Infrastructure.PowerShell;
 using FeedCustomizer.Core.Models;
 using FeedCustomizer.Core.Tools;
+using FeedCustomizer.Core.WidgetData;
 
 // 所有真实文件写入均限制在本次生成的临时目录；AppX/注册表/UAC 只使用替身，绝不改动机器注册状态。
 var tests = new (string Name, Func<Task> Run)[]
@@ -110,7 +111,8 @@ var tests = new (string Name, Func<Task> Run)[]
     }),
     ("包外发布与清理脚本在临时目录实际执行", ScriptIntegrationAsync),
     ("旧安装原位更新保留配置和私有图片", WorkspaceUpgradeAsync),
-    ("损坏用户清单阻止模板覆盖", CorruptWorkspaceAsync)
+    ("损坏用户清单阻止模板覆盖", CorruptWorkspaceAsync),
+    ("小组件数据清理跨调用串行且保留锁定结果", WidgetDataResetCoordinatorAsync)
 };
 
 foreach (var test in tests)
@@ -242,6 +244,23 @@ static async Task CorruptWorkspaceAsync()
     Check(File.ReadAllText(AppDataPaths.PackageLocalManifestPath) == "broken-user-data");
 }
 
+static async Task WidgetDataResetCoordinatorAsync()
+{
+    var platform = new FakeWidgetDataPlatform();
+    var coordinator = new WidgetDataResetCoordinator(platform);
+
+    Task<WidgetDataClearResult> first = coordinator.ClearAsync();
+    await platform.FirstCallStarted.Task;
+    Task<WidgetDataClearResult> second = coordinator.ClearAsync();
+    await Task.Delay(30);
+    Check(platform.Calls == 1);
+
+    platform.FirstCallResult.TrySetResult(new WidgetDataClearResult(WidgetDataClearStatus.Locked, "locked"));
+    Check((await first).Status == WidgetDataClearStatus.Locked);
+    Check((await second).Status == WidgetDataClearStatus.Succeeded);
+    Check(platform.Calls == 2);
+}
+
 static void CreateWorkspace(string root)
 {
     AppDataPaths.TestRoot = root;
@@ -325,5 +344,24 @@ sealed class FakePlatform(List<string> trace) : IProviderRegistrationPlatform
     {
         trace.Add("Register"); Installed = RegisterStatus == ProviderRegistrationStatus.Success && RegisterVisible;
         return Task.FromResult(new ProviderRegistrationResult(RegisterStatus, 0, string.Empty, string.Empty, "test-manifest"));
+    }
+}
+
+sealed class FakeWidgetDataPlatform : IWidgetDataResetPlatform
+{
+    public int Calls;
+    public TaskCompletionSource<bool> FirstCallStarted { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    public TaskCompletionSource<WidgetDataClearResult> FirstCallResult { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    public async Task<WidgetDataClearResult> ClearAsync(CancellationToken cancellationToken = default)
+    {
+        int call = Interlocked.Increment(ref Calls);
+        if (call == 1)
+        {
+            FirstCallStarted.TrySetResult(true);
+            return await FirstCallResult.Task.WaitAsync(cancellationToken);
+        }
+
+        return new WidgetDataClearResult(WidgetDataClearStatus.Succeeded, "success");
     }
 }

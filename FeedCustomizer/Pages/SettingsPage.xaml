@@ -59,6 +59,12 @@
                     </controls:SettingsCard.HeaderIcon>
                     <Button x:Name="UnlockRegionPolicyButton" x:Uid="UnlockRegionPolicyButton" HorizontalAlignment="Right" Command="{x:Bind ViewModel.UnlockRegionPolicyCommand}"/>
                 </controls:SettingsCard>
+                <controls:SettingsCard x:Uid="Settings_ClearWidgetDataCard" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" MinHeight="70" Padding="16,0">
+                    <controls:SettingsCard.HeaderIcon>
+                        <FontIcon Glyph="&#xE74D;" />
+                    </controls:SettingsCard.HeaderIcon>
+                    <Button x:Uid="ClearWidgetDataButton" HorizontalAlignment="Right" Command="{x:Bind ViewModel.ClearWidgetDataCommand}"/>
+                </controls:SettingsCard>
             </StackPanel>
 
             <StackPanel Spacing="3">

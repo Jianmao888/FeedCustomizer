@@ -445,6 +445,46 @@
     <value>无法修改系统配置文件，请以管理员身份手动处理。</value>
     <comment>解除自定义源地区限制失败弹窗内容</comment>
   </data>
+  <data name="Settings_ClearWidgetDataCard.Header" xml:space="preserve">
+    <value>清除小组件网页数据</value>
+    <comment>设置页面清除小组件网页数据卡片标头</comment>
+  </data>
+  <data name="Settings_ClearWidgetDataCard.Description" xml:space="preserve">
+    <value>删除小组件面板中网页保存的本地数据</value>
+    <comment>设置页面清除小组件网页数据卡片描述</comment>
+  </data>
+  <data name="ClearWidgetDataButton.Content" xml:space="preserve">
+    <value>清除数据</value>
+    <comment>设置页面清除小组件网页数据按钮文本</comment>
+  </data>
+  <data name="WidgetDataWarningTitle" xml:space="preserve">
+    <value>清除小组件网页数据</value>
+    <comment>清除小组件网页数据警告弹窗标题</comment>
+  </data>
+  <data name="WidgetDataWarningMessage" xml:space="preserve">
+    <value>这会关闭当前的小组件面板，并清除其中网页保存的所有本地数据，包括由其他应用管理的源的数据。此操作无法撤销，是否继续？</value>
+    <comment>清除小组件网页数据警告弹窗内容</comment>
+  </data>
+  <data name="WidgetDataWarningPrimaryButtonText" xml:space="preserve">
+    <value>清除</value>
+    <comment>清除小组件网页数据警告弹窗主按钮文本</comment>
+  </data>
+  <data name="WidgetDataWarningCloseButtonText" xml:space="preserve">
+    <value>取消</value>
+    <comment>清除小组件网页数据警告弹窗关闭按钮文本</comment>
+  </data>
+  <data name="WidgetDataFailureTitle" xml:space="preserve">
+    <value>无法清除数据</value>
+    <comment>清除小组件网页数据失败弹窗标题</comment>
+  </data>
+  <data name="WidgetDataLockedMessage" xml:space="preserve">
+    <value>小组件进程仍在使用这些数据，无法删除。请关闭小组件面板后重试。</value>
+    <comment>小组件网页数据持续被占用时的失败提示</comment>
+  </data>
+  <data name="WidgetDataFailureMessage" xml:space="preserve">
+    <value>无法删除小组件网页数据，请稍后重试。</value>
+    <comment>清除小组件网页数据发生其他错误时的失败提示</comment>
+  </data>
   <data name="AboutGroup.Text" xml:space="preserve">
     <value>关于</value>
     <comment>设置页面关于信息分组标题</comment>

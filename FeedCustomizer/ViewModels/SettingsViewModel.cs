@@ -2,6 +2,8 @@
 using CommunityToolkit.Mvvm.Input;
 using FeedCustomizer.Core.Constants;
 using FeedCustomizer.Core.Tools;
+using FeedCustomizer.Core.Models;
+using FeedCustomizer.Core.WidgetData;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Media.Imaging;
 using Microsoft.Windows.ApplicationModel.Resources;
@@ -42,6 +44,11 @@ namespace FeedCustomizer.ViewModels
         /// <summary>是否自动启用开发者模式。</summary>
         [ObservableProperty]
         public partial bool IsAutoDeveloperModeEnabled { get; set; }
+
+        /// <summary>清理小组件数据期间禁用重复命令，避免连续确认导致用户误以为会并发执行。</summary>
+        [ObservableProperty]
+        [NotifyCanExecuteChangedFor(nameof(ClearWidgetDataCommand))]
+        public partial bool IsClearingWidgetData { get; set; }
 
         /// <summary>是否已购买捐赠者版（控制捐赠按钮与感谢文案的显隐）。</summary>
         [ObservableProperty]
@@ -407,5 +414,53 @@ namespace FeedCustomizer.ViewModels
                     break;
             }
         }
+
+        /// <summary>清除小组件面板 WebView 的本地 Profile 前显示不可逆范围警告。</summary>
+        [RelayCommand(CanExecute = nameof(CanClearWidgetData))]
+        private async Task ClearWidgetDataAsync()
+        {
+            IsClearingWidgetData = true;
+            try
+            {
+                bool confirmed = await DialogService.ShowConfirmAsync(
+                    _resourceLoader.GetString("WidgetDataWarningTitle"),
+                    _resourceLoader.GetString("WidgetDataWarningMessage"),
+                    _resourceLoader.GetString("WidgetDataWarningPrimaryButtonText"),
+                    _resourceLoader.GetString("WidgetDataWarningCloseButtonText"));
+
+                if (!confirmed)
+                {
+                    return;
+                }
+
+                LoadingOverlayRequested?.Invoke(this, true);
+                WidgetDataClearResult result;
+                try
+                {
+                    result = await WidgetDataReset.Current.ClearAsync();
+                }
+                finally
+                {
+                    LoadingOverlayRequested?.Invoke(this, false);
+                }
+
+                if (result.Status != WidgetDataClearStatus.Succeeded)
+                {
+                    await DialogService.ShowMessageAsync(
+                        _resourceLoader.GetString("WidgetDataFailureTitle"),
+                        _resourceLoader.GetString(result.Status == WidgetDataClearStatus.Locked
+                            ? "WidgetDataLockedMessage"
+                            : "WidgetDataFailureMessage"),
+                        _resourceLoader.GetString("DialogOK"));
+                }
+            }
+            finally
+            {
+                IsClearingWidgetData = false;
+            }
+        }
+
+        /// <summary>同一设置页只允许一个确认或清理流程运行，跨页面实例由协调器继续串行保护。</summary>
+        private bool CanClearWidgetData() => !IsClearingWidgetData;
     }
 }

@@ -14,5 +14,7 @@ namespace FeedCustomizer.Core.Infrastructure.PowerShell
         internal static DeveloperModePowerShellAdapter DeveloperMode { get; } = new(Executor);
 
         internal static RegionPolicyPowerShellAdapter RegionPolicy { get; } = new(Executor);
+
+        internal static WidgetDataPowerShellAdapter WidgetData { get; } = new(Executor);
     }
 }
