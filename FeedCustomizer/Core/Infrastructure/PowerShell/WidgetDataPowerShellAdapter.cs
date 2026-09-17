@@ -111,24 +111,24 @@ internal sealed class WidgetDataPowerShellAdapter(IPowerShellExecutor executor) 
             $webViewPathPattern = '(?i)--user-data-dir(?:=|\s+)"?' + [regex]::Escape($sharedRoot) + '(?:"|\s|$)'
             $allProcesses = @(Get-CimInstance Win32_Process -ErrorAction Stop)
             $candidates = New-Object System.Collections.Generic.List[object]
+            $package = Get-AppxPackage -Name 'MicrosoftWindows.Client.WebExperience' -ErrorAction SilentlyContinue | Select-Object -First 1
+            $expectedWidgetBoardPath = $null
+
+            if ($null -ne $package)
+            {
+                $expectedWidgetBoardPath = [IO.Path]::GetFullPath((Join-Path $package.InstallLocation 'WidgetBoard.exe'))
+            }
 
             foreach ($process in $allProcesses)
             {
-                if (-not (Is-CurrentUserProcess $process))
-                {
-                    continue
-                }
-
                 if ($process.Name -ieq 'WidgetBoard.exe')
                 {
-                    $package = Get-AppxPackage -Name 'MicrosoftWindows.Client.WebExperience' -ErrorAction SilentlyContinue | Select-Object -First 1
-                    if ($null -ne $package)
+                    if ($null -ne $expectedWidgetBoardPath -and
+                        $null -ne $process.ExecutablePath -and
+                        ([IO.Path]::GetFullPath($process.ExecutablePath) -ieq $expectedWidgetBoardPath) -and
+                        (Is-CurrentUserProcess $process))
                     {
-                        $expectedPath = [IO.Path]::GetFullPath((Join-Path $package.InstallLocation 'WidgetBoard.exe'))
-                        if ($null -ne $process.ExecutablePath -and ([IO.Path]::GetFullPath($process.ExecutablePath) -ieq $expectedPath))
-                        {
-                            [void]$candidates.Add($process)
-                        }
+                        [void]$candidates.Add($process)
                     }
 
                     continue
@@ -136,7 +136,8 @@ internal sealed class WidgetDataPowerShellAdapter(IPowerShellExecutor executor) 
 
                 if ($process.Name -ieq 'msedgewebview2.exe' -and
                     $null -ne $process.CommandLine -and
-                    $process.CommandLine -match $webViewPathPattern)
+                    $process.CommandLine -match $webViewPathPattern -and
+                    (Is-CurrentUserProcess $process))
                 {
                     [void]$candidates.Add($process)
                 }
