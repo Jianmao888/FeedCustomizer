@@ -16,10 +16,9 @@ namespace FeedCustomizer.Core.Infrastructure.PowerShell
         internal Task<PowerShellResult> EnablePolicyAsync(
             string policyFileName,
             string targetGuid,
-            string diagnosticsPath,
             CancellationToken cancellationToken = default)
         {
-            string script = BuildEnablePolicyScript(policyFileName, targetGuid, diagnosticsPath);
+            string script = BuildEnablePolicyScript(policyFileName, targetGuid);
             return executor.ExecuteAsync(
                 new PowerShellScript(
                     "EnableThirdPartyWidgetFeed.ps1",
@@ -33,28 +32,23 @@ namespace FeedCustomizer.Core.Infrastructure.PowerShell
         /// </summary>
         private static string BuildEnablePolicyScript(
             string policyFileName,
-            string targetGuid,
-            string diagnosticsPath)
+            string targetGuid)
         {
             string[] lines =
             [
                 @"$ErrorActionPreference = 'Stop'",
                 $"$policyFileName = {PowerShellLiteral.Quote(policyFileName)}",
                 $"$targetGuid = {PowerShellLiteral.Quote(targetGuid)}",
-                $"$diagnosticsPath = {PowerShellLiteral.Quote(diagnosticsPath)}",
                 @"$policyPath = [System.IO.Path]::Combine([System.Environment]::SystemDirectory, $policyFileName)",
                 @"$script:diagnostics = New-Object System.Collections.Generic.List[string]",
                 @"function Add-Diagnostics([string]$message) {",
                 @"    [void]$script:diagnostics.Add($message)",
                 @"}",
                 @"function Write-DiagnosticsOutput {",
-                @"    $null = New-Item -ItemType Directory -Path (Split-Path $diagnosticsPath -Parent) -Force",
                 @"    $diagnosticsText = $script:diagnostics -join [Environment]::NewLine",
-                @"    $diagnosticsText | Out-File -FilePath $diagnosticsPath -Encoding UTF8",
                 @"    $diagnosticsText | Out-File -FilePath $errorPath -Encoding UTF8",
                 @"}",
                 @"Add-Diagnostics (""policyPath = "" + $policyPath)",
-                @"Add-Diagnostics (""Now User = "" + [System.Security.Principal.WindowsIdentity]::GetCurrent().Name)",
                 @"if (-not (Test-Path -LiteralPath $policyPath)) {",
                 @"    Add-Diagnostics (""File not found: "" + $policyPath)",
                 @"    Write-DiagnosticsOutput",
@@ -118,6 +112,8 @@ namespace FeedCustomizer.Core.Infrastructure.PowerShell
                 @"        }",
                 @"        catch {",
                 @"            Add-Diagnostics (""Failed to restore ACL: "" + $_.Exception.Message)",
+                @"            Write-DiagnosticsOutput",
+                @"            throw",
                 @"        }",
                 @"    }",
                 @"}"

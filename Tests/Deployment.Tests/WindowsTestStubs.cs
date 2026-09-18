@@ -7,6 +7,7 @@ namespace FeedCustomizer.Core.Tools
         internal static string TestRoot { get; set; } = string.Empty;
         internal static string PackageLocalFeedProviderFolder => Path.Combine(TestRoot, "private", "Local", "FeedCustomProvider");
         internal static string PackageLocalManifestPath => Path.Combine(PackageLocalFeedProviderFolder, "AppxManifest.xml");
+        internal static string PackageLocalLogPath => Path.Combine(TestRoot, "private", "Local", "Logs");
         internal static string FeedProviderFolder => Path.Combine(TestRoot, "real", "FeedCustomProvider");
         internal static string ManifestPath => Path.Combine(FeedProviderFolder, "AppxManifest.xml");
     }
@@ -33,9 +34,15 @@ namespace Microsoft.Windows.ApplicationModel.Resources
     }
 }
 
-// 部署回归测试只验证业务顺序与文件副作用，不把桌面应用的 Serilog 生命周期带入纯逻辑测试。
+// 测试记录调用方提交给日志门面的结构化事件，不把桌面应用的 Serilog 文件生命周期带入纯逻辑测试。
 namespace FeedCustomizer.Core.Infrastructure.Logging
 {
+    internal sealed record TestLogEvent(
+        string Level,
+        string SourceContext,
+        string MessageTemplate,
+        object?[] PropertyValues);
+
     internal interface IAppLog
     {
         void Debug(string messageTemplate, params object?[] propertyValues);
@@ -49,46 +56,71 @@ namespace FeedCustomizer.Core.Infrastructure.Logging
 
     internal static class AppLog
     {
-        private static readonly IAppLog NullLogger = new NullAppLog();
+        private static readonly System.Collections.Concurrent.ConcurrentQueue<TestLogEvent> RecordedEvents = new();
+
+        internal static IReadOnlyCollection<TestLogEvent> Events => RecordedEvents.ToArray();
 
         internal static IAppLog For<T>()
         {
-            return NullLogger;
+            return new TestAppLog(typeof(T).FullName ?? typeof(T).Name);
         }
 
         internal static IAppLog For(string sourceContext)
         {
-            return NullLogger;
+            return new TestAppLog(sourceContext);
         }
 
-        private sealed class NullAppLog : IAppLog
+        internal static void Clear()
+        {
+            while (RecordedEvents.TryDequeue(out _))
+            {
+            }
+        }
+
+        private sealed class TestAppLog(string sourceContext) : IAppLog
         {
             public void Debug(string messageTemplate, params object?[] propertyValues)
             {
+                Record("Debug", messageTemplate, propertyValues);
             }
 
             public void Information(string messageTemplate, params object?[] propertyValues)
             {
+                Record("Information", messageTemplate, propertyValues);
             }
 
             public void Warning(string messageTemplate, params object?[] propertyValues)
             {
+                Record("Warning", messageTemplate, propertyValues);
             }
 
             public void Warning(Exception exception, string messageTemplate, params object?[] propertyValues)
             {
+                Record("Warning", messageTemplate, propertyValues);
             }
 
             public void Error(string messageTemplate, params object?[] propertyValues)
             {
+                Record("Error", messageTemplate, propertyValues);
             }
 
             public void Error(Exception exception, string messageTemplate, params object?[] propertyValues)
             {
+                Record("Error", messageTemplate, propertyValues);
             }
 
             public void Fatal(Exception exception, string messageTemplate, params object?[] propertyValues)
             {
+                Record("Fatal", messageTemplate, propertyValues);
+            }
+
+            private void Record(string level, string messageTemplate, object?[] propertyValues)
+            {
+                RecordedEvents.Enqueue(new TestLogEvent(
+                    level,
+                    sourceContext,
+                    messageTemplate,
+                    [.. propertyValues]));
             }
         }
     }

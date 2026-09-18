@@ -63,7 +63,7 @@ namespace FeedCustomizer.Core.Infrastructure.PowerShell
                     ? await ExecuteElevatedAsync(scriptPath, outputPath, errorPath, script.Timeout, cancellationToken)
                     : await ExecuteStandardAsync(scriptPath, outputPath, errorPath, script.Timeout, cancellationToken);
 
-                if (result.ExitCode == 0)
+                if (result.ExitCode == 0 && string.IsNullOrWhiteSpace(result.Error))
                 {
                     Log.Information(
                         "PowerShell 执行完成，操作={OperationId}，脚本={ScriptName}，退出码={ExitCode}，输出长度={OutputLength}，错误长度={ErrorLength}，耗时毫秒={ElapsedMilliseconds}",
@@ -76,15 +76,18 @@ namespace FeedCustomizer.Core.Infrastructure.PowerShell
                 }
                 else
                 {
-                    // 只记录长度和稳定退出码；输出可能包含用户路径、注册表内容或第三方文本，不能直接落盘。
+                    // 脚本均由应用内受控适配器生成。失败诊断先隐藏用户环境信息并限长，
+                    // 既保留 AppX/ACL/文件占用等关键上下文，也避免把无限输出直接写入日志。
                     Log.Warning(
-                        "PowerShell 执行未成功，操作={OperationId}，脚本={ScriptName}，退出码={ExitCode}，输出长度={OutputLength}，错误长度={ErrorLength}，耗时毫秒={ElapsedMilliseconds}",
+                        "PowerShell 执行产生错误诊断，操作={OperationId}，脚本={ScriptName}，退出码={ExitCode}，输出长度={OutputLength}，错误长度={ErrorLength}，耗时毫秒={ElapsedMilliseconds}，输出诊断={OutputDiagnostic}，错误诊断={ErrorDiagnostic}",
                         operationId,
                         script.FileName,
                         result.ExitCode,
                         result.Output.Length,
                         result.Error.Length,
-                        stopwatch.ElapsedMilliseconds);
+                        stopwatch.ElapsedMilliseconds,
+                        LogPrivacy.PrepareDiagnostic(result.Output),
+                        LogPrivacy.PrepareDiagnostic(result.Error));
                 }
 
                 return result;

@@ -152,8 +152,7 @@ namespace FeedCustomizer.Core.Tools
             // 业务层只按适配器定义的稳定退出码分类，不解析本地化的 PowerShell 错误文本。
             PowerShellResult result = await PowerShellInfrastructure.RegionPolicy.EnablePolicyAsync(
                 PolicyFileName,
-                WidgetsThirdPartyFeedGuid,
-                Path.Combine(AppDataPaths.PackageLocalLogPath, "RegionPolicyError"));
+                WidgetsThirdPartyFeedGuid);
 
             LastDiagnostics =
                 $"ExitCode = {result.ExitCode}" + Environment.NewLine +
@@ -166,7 +165,7 @@ namespace FeedCustomizer.Core.Tools
                 result.Output.Length,
                 result.Error.Length);
 
-            // 原始诊断可能含当前账户或系统文件信息，只保留在附加调试器中，不写入持久化日志。
+            // 调试输出保留原始返回值；持久日志由 PowerShell 执行器统一脱敏并限长后写入。
             Debug.WriteLine(result.ToString());
             Debug.WriteLine("[RegionPolicyService] 脚本执行结束：");
             Debug.WriteLine(LastDiagnostics);

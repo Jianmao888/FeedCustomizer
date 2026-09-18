@@ -114,6 +114,22 @@ var tests = new (string Name, Func<Task> Run)[]
     ("旧安装原位更新保留配置和私有图片", WorkspaceUpgradeAsync),
     ("损坏用户清单阻止模板覆盖", CorruptWorkspaceAsync),
     ("小组件数据清理跨调用串行且保留锁定结果", WidgetDataResetCoordinatorAsync),
+    ("地区策略脚本只使用执行器临时诊断", RegionPolicyUsesTemporaryDiagnosticsAsync),
+    ("开发者模式脚本捕获操作与恢复错误", DeveloperModeCapturesFailureDiagnosticsAsync),
+    ("PowerShell 失败日志包含脱敏诊断", PowerShellFailureLoggingAsync),
+    ("旧地区策略诊断文件按固定路径清理", () =>
+    {
+        using var directory = new TestDirectory();
+        AppDataPaths.TestRoot = directory.Path;
+        Directory.CreateDirectory(AppDataPaths.PackageLocalLogPath);
+        string legacyPath = System.IO.Path.Combine(
+            AppDataPaths.PackageLocalLogPath,
+            AppLogConfiguration.LegacyRegionPolicyLogFileName);
+        File.WriteAllText(legacyPath, "legacy");
+        Check(AppLogConfiguration.DeleteLegacyRegionPolicyLog());
+        Check(!File.Exists(legacyPath));
+        return Task.CompletedTask;
+    }),
     ("日志异常文本隐藏用户目录", () =>
     {
         string localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
@@ -122,6 +138,9 @@ var tests = new (string Name, Func<Task> Run)[]
         string redacted = LogPrivacy.RedactException(exception);
         Check(!redacted.Contains(localAppData, StringComparison.OrdinalIgnoreCase));
         Check(redacted.Contains("%LOCALAPPDATA%", StringComparison.Ordinal));
+        string truncated = LogPrivacy.PrepareDiagnostic(
+            new string('x', LogPrivacy.MaximumDiagnosticLength + 100));
+        Check(truncated.Contains("诊断已截断", StringComparison.Ordinal));
         return Task.CompletedTask;
     })
 };
@@ -272,6 +291,70 @@ static async Task WidgetDataResetCoordinatorAsync()
     Check(platform.Calls == 2);
 }
 
+static async Task RegionPolicyUsesTemporaryDiagnosticsAsync()
+{
+    var executor = new CapturingExecutor();
+    var adapter = new RegionPolicyPowerShellAdapter(executor);
+    string missingPolicyName = $"FeedCustomizer-test-{Guid.NewGuid():N}.json";
+    PowerShellResult result = await adapter.EnablePolicyAsync(missingPolicyName, "test-guid");
+    Check(result.ExitCode == 0);
+    PowerShellScript generatedScript = executor.Script ?? throw new Exception("未捕获地区策略脚本。");
+    Check(generatedScript.Content.Contains("$errorPath", StringComparison.Ordinal));
+    Check(!generatedScript.Content.Contains("RegionPolicyError", StringComparison.Ordinal));
+    Check(!generatedScript.Content.Contains("diagnosticsPath", StringComparison.Ordinal));
+    Check(!generatedScript.Content.Contains("WindowsIdentity", StringComparison.Ordinal));
+
+    // 使用必定不存在的策略文件以普通权限执行，只验证脚本语法和临时错误回传，不修改系统文件。
+    PowerShellResult executionResult = await new PowerShellProcessExecutor().ExecuteAsync(
+        generatedScript with
+        {
+            RequiresElevation = false
+        });
+    Check(executionResult.ExitCode == 3);
+    Check(executionResult.Error.Contains("File not found", StringComparison.Ordinal));
+}
+
+static async Task PowerShellFailureLoggingAsync()
+{
+    AppLog.Clear();
+    string localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+    string sensitivePath = System.IO.Path.Combine(localAppData, "FeedCustomizer", "private.txt");
+    string script = string.Join(
+        Environment.NewLine,
+        "'controlled-output' | Out-File -FilePath $outputPath -Encoding UTF8",
+        $"({PowerShellLiteral.Quote(sensitivePath)} + ' controlled-error') | Out-File -FilePath $errorPath -Encoding UTF8",
+        "exit 9");
+    PowerShellResult result = await new PowerShellProcessExecutor().ExecuteAsync(
+        new PowerShellScript("DiagnosticFailure.ps1", script));
+    Check(result.ExitCode == 9);
+
+    TestLogEvent failureEvent = AppLog.Events.LastOrDefault(logEvent =>
+        logEvent.Level == "Warning" &&
+        logEvent.MessageTemplate.Contains("PowerShell 执行产生错误诊断", StringComparison.Ordinal))
+        ?? throw new Exception("未记录 PowerShell 失败诊断。");
+    string loggedValues = string.Join(
+        Environment.NewLine,
+        failureEvent.PropertyValues.Select(value => value?.ToString() ?? string.Empty));
+    Check(loggedValues.Contains("controlled-output", StringComparison.Ordinal));
+    Check(loggedValues.Contains("controlled-error", StringComparison.Ordinal));
+    Check(loggedValues.Contains("%LOCALAPPDATA%", StringComparison.Ordinal));
+    Check(!loggedValues.Contains(localAppData, StringComparison.OrdinalIgnoreCase));
+}
+
+static async Task DeveloperModeCapturesFailureDiagnosticsAsync()
+{
+    var executor = new CapturingExecutor();
+    var adapter = new DeveloperModePowerShellAdapter(executor);
+    PowerShellResult result = await adapter.RegisterPackageAsync("C:\\test\\AppxManifest.xml");
+    Check(result.ExitCode == 0);
+    PowerShellScript generatedScript = executor.Script ?? throw new Exception("未捕获开发者模式脚本。");
+    Check(generatedScript.RequiresElevation);
+    Check(generatedScript.Content.Contains("$errorPath", StringComparison.Ordinal));
+    Check(generatedScript.Content.Contains("operation failure type", StringComparison.Ordinal));
+    Check(generatedScript.Content.Contains("restore failure type", StringComparison.Ordinal));
+    Check(generatedScript.Content.Contains("$originalRead", StringComparison.Ordinal));
+}
+
 static void CreateWorkspace(string root)
 {
     AppDataPaths.TestRoot = root;
@@ -295,6 +378,19 @@ sealed class SandboxExecutor(string target) : IPowerShellExecutor
         if (!script.Content.Contains(original)) throw new InvalidOperationException("测试根目录替换失败，拒绝执行。");
         return new PowerShellProcessExecutor().ExecuteAsync(script with
         { Content = script.Content.Replace(original, "$target = " + PowerShellLiteral.Quote(target)) }, cancellationToken);
+    }
+}
+
+sealed class CapturingExecutor : IPowerShellExecutor
+{
+    public PowerShellScript? Script { get; private set; }
+
+    public Task<PowerShellResult> ExecuteAsync(
+        PowerShellScript script,
+        CancellationToken cancellationToken = default)
+    {
+        Script = script;
+        return Task.FromResult(new PowerShellResult(0, string.Empty, string.Empty));
     }
 }
 

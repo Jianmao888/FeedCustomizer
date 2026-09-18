@@ -88,6 +88,7 @@ internal static class AppLog
                     AppLogConfiguration.RetainedFileTimeLimit.Days,
                     AppLogConfiguration.RetainedFileCountLimit,
                     AppLogConfiguration.FileSizeLimitBytes);
+                DeleteLegacyRegionPolicyLog();
             }
             catch (Exception ex)
             {
@@ -138,6 +139,22 @@ internal static class AppLog
             .Enrich.WithProperty("SessionId", sessionId)
             .WriteTo.Debug(outputTemplate: AppLogConfiguration.OutputTemplate)
             .CreateLogger();
+    }
+
+    private static void DeleteLegacyRegionPolicyLog()
+    {
+        try
+        {
+            if (AppLogConfiguration.DeleteLegacyRegionPolicyLog())
+            {
+                For(nameof(AppLog)).Information("已删除旧版独立地区策略诊断文件，后续诊断统一写入应用日志");
+            }
+        }
+        catch (Exception ex)
+        {
+            // 遗留诊断清理失败不应破坏新日志初始化；保留警告供下次启动继续尝试。
+            For(nameof(AppLog)).Warning(ex, "删除旧版独立地区策略诊断文件失败");
+        }
     }
 }
 
