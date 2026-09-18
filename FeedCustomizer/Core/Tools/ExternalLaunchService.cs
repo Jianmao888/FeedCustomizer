@@ -1,8 +1,8 @@
+using FeedCustomizer.Core.Infrastructure.Logging;
 using FeedCustomizer.Dialogs;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using System;
-using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using Windows.Storage;
@@ -15,6 +15,7 @@ namespace FeedCustomizer.Core.Tools
     /// </summary>
     public sealed class ExternalLaunchService
     {
+        private static readonly IAppLog Log = AppLog.For<ExternalLaunchService>();
         private readonly UiThreadRunner _uiThreadRunner;
         private readonly Func<XamlRoot?> _xamlRootProvider;
         private readonly SemaphoreSlim _dialogGate;
@@ -83,7 +84,7 @@ namespace FeedCustomizer.Core.Tools
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Failed to open {context}: {ex}");
+                Log.Warning(ex, "打开外部内容失败，类型={LaunchContext}", context);
                 return false;
             }
             finally

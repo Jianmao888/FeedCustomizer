@@ -1,5 +1,6 @@
 using FeedCustomizer.Core.Deployment;
 using FeedCustomizer.Core.Infrastructure.Deployment;
+using FeedCustomizer.Core.Infrastructure.Logging;
 using FeedCustomizer.Core.Infrastructure.PowerShell;
 using FeedCustomizer.Core.Models;
 using FeedCustomizer.Core.Tools;
@@ -112,7 +113,17 @@ var tests = new (string Name, Func<Task> Run)[]
     ("包外发布与清理脚本在临时目录实际执行", ScriptIntegrationAsync),
     ("旧安装原位更新保留配置和私有图片", WorkspaceUpgradeAsync),
     ("损坏用户清单阻止模板覆盖", CorruptWorkspaceAsync),
-    ("小组件数据清理跨调用串行且保留锁定结果", WidgetDataResetCoordinatorAsync)
+    ("小组件数据清理跨调用串行且保留锁定结果", WidgetDataResetCoordinatorAsync),
+    ("日志异常文本隐藏用户目录", () =>
+    {
+        string localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        var exception = new InvalidOperationException(
+            "测试路径：" + System.IO.Path.Combine(localAppData, "FeedCustomizer", "test.log"));
+        string redacted = LogPrivacy.RedactException(exception);
+        Check(!redacted.Contains(localAppData, StringComparison.OrdinalIgnoreCase));
+        Check(redacted.Contains("%LOCALAPPDATA%", StringComparison.Ordinal));
+        return Task.CompletedTask;
+    })
 };
 
 foreach (var test in tests)

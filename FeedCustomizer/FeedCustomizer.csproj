@@ -56,6 +56,9 @@
 		<PackageReference Include="Microsoft.WindowsAppSDK.WinUI" Version="2.3.6" />
 		<PackageReference Include="Microsoft.WindowsAppSDK.InteractiveExperiences" Version="2.1.6" />
 		<PackageReference Include="Microsoft.WindowsAppSDK.Runtime" Version="2.4.0" />
+		<PackageReference Include="Serilog" Version="4.4.0" />
+		<PackageReference Include="Serilog.Sinks.Debug" Version="3.0.0" />
+		<PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
 	</ItemGroup>
 	
 	<ItemGroup>

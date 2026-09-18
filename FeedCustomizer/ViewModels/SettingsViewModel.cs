@@ -1,6 +1,7 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using FeedCustomizer.Core.Constants;
+using FeedCustomizer.Core.Infrastructure.Logging;
 using FeedCustomizer.Core.Tools;
 using FeedCustomizer.Core.Models;
 using FeedCustomizer.Core.WidgetData;
@@ -9,7 +10,6 @@ using Microsoft.UI.Xaml.Media.Imaging;
 using Microsoft.Windows.ApplicationModel.Resources;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Threading.Tasks;
 using Windows.ApplicationModel;
 
@@ -21,6 +21,7 @@ namespace FeedCustomizer.ViewModels
     /// </summary>
     public partial class SettingsViewModel : ObservableObject
     {
+        private static readonly IAppLog Log = AppLog.For<SettingsViewModel>();
         private readonly ResourceLoader _resourceLoader = new();
 
         /// <summary>Store 购买与许可证查询所需的窗口句柄，由页面初始化时传入。</summary>
@@ -96,7 +97,7 @@ namespace FeedCustomizer.ViewModels
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"获取应用显示名失败: {ex.Message}");
+                    Log.Warning(ex, "获取应用显示名称失败");
                     return string.Empty;
                 }
             }
@@ -114,7 +115,7 @@ namespace FeedCustomizer.ViewModels
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"获取应用版本失败: {ex.Message}");
+                    Log.Warning(ex, "获取应用版本失败");
                     return string.Empty;
                 }
             }

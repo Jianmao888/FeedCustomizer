@@ -1,8 +1,8 @@
+using FeedCustomizer.Core.Infrastructure.Logging;
 using FeedCustomizer.Core.Models;
 using FeedCustomizer.Core.Infrastructure.PowerShell;
 using Microsoft.Win32;
 using System;
-using System.Diagnostics;
 using System.Threading.Tasks;
 
 namespace FeedCustomizer.Core.Tools
@@ -13,6 +13,7 @@ namespace FeedCustomizer.Core.Tools
     /// </summary>
     internal static class DeveloperModeService
     {
+        private static readonly IAppLog Log = AppLog.For(nameof(DeveloperModeService));
         private const string AppModelUnlockKeyPath = @"SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock";
         private const string AllowDevelopmentValueName = "AllowDevelopmentWithoutDevLicense";
 
@@ -34,7 +35,7 @@ namespace FeedCustomizer.Core.Tools
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"读取开发者模式状态失败：{ex.Message}");
+                Log.Warning(ex, "读取开发者模式状态失败，将按未启用处理");
                 return false;
             }
         }

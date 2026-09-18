@@ -1,7 +1,7 @@
 ﻿using FeedCustomizer.Core.Models;
+using FeedCustomizer.Core.Infrastructure.Logging;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
@@ -14,6 +14,8 @@ namespace FeedCustomizer.Core.Tools
 {
     public class ManifestXmlService
     {
+        private static readonly IAppLog Log = AppLog.For<ManifestXmlService>();
+
         // XML命名空间定义（对应文件中的xmlns声明）
         private static readonly XNamespace DefaultNs = "http://schemas.microsoft.com/appx/manifest/foundation/windows10";
         private static readonly XNamespace Uap3Ns = "http://schemas.microsoft.com/appx/manifest/uap/windows10/3";
@@ -41,7 +43,7 @@ namespace FeedCustomizer.Core.Tools
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"Failed to load provider package display name: {ex.Message}");
+                    Log.Warning(ex, "读取 Provider 包显示名称失败，将使用默认名称");
                 }
 
                 return "Feed Customization Container";
@@ -62,7 +64,7 @@ namespace FeedCustomizer.Core.Tools
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"Failed to read publisher display name: {ex.Message}");
+                    Log.Warning(ex, "读取发布者显示名称失败，将使用默认名称");
                 }
 
                 return "窗边的贱猫";
@@ -76,7 +78,7 @@ namespace FeedCustomizer.Core.Tools
         /// <returns>FeedItem列表</returns>
         public static async Task<List<Feed>> Read(string? xmlFilePath = null)
         {
-            Debug.WriteLine(xmlFilePath);
+            Log.Debug("开始读取 Provider 清单，使用自定义路径={UsesCustomPath}", xmlFilePath is not null);
             xmlFilePath ??= DefauleXmlFilePath;
             return await Task.Run(() =>
             {
@@ -307,7 +309,7 @@ namespace FeedCustomizer.Core.Tools
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Failed to inspect provider package manifest presentation: {ex.Message}");
+                Log.Warning(ex, "检查 Provider 清单展示资源失败");
                 return false;
             }
         }

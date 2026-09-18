@@ -1,3 +1,4 @@
+using FeedCustomizer.Core.Infrastructure.Logging;
 using FeedCustomizer.Core.Models;
 using FeedCustomizer.Core.Infrastructure.PowerShell;
 using System;
@@ -16,6 +17,7 @@ namespace FeedCustomizer.Core.Tools
     /// </summary>
     public static partial class DeviceRegionTool
     {
+        private static readonly IAppLog Log = AppLog.For(nameof(DeviceRegionTool));
         private const string DeviceRegionKeyPath = @"SOFTWARE\Microsoft\Windows\CurrentVersion\Control Panel\DeviceRegion";
         private const string DeviceRegionValueName = "DeviceRegion";
 
@@ -73,7 +75,7 @@ namespace FeedCustomizer.Core.Tools
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Failed to read DeviceRegion registry value: {ex.Message}");
+                Log.Warning(ex, "读取 Windows 设备区域注册表值失败");
                 return null;
             }
             finally
@@ -133,7 +135,7 @@ namespace FeedCustomizer.Core.Tools
     /// </summary>
     public static class RegionPolicyService
     {
-
+        private static readonly IAppLog Log = AppLog.For(nameof(RegionPolicyService));
         private const string PolicyFileName = "IntegratedServicesRegionPolicySet.json";
         private const string WidgetsThirdPartyFeedGuid = "{16d2b50e-fa7c-4bb1-ab17-01d766530b3b}";
 
@@ -158,8 +160,14 @@ namespace FeedCustomizer.Core.Tools
                 $"Output = {result.Output}" + Environment.NewLine +
                 $"Error = {result.Error}";
 
-            Debug.WriteLine(result.ToString());
+            Log.Information(
+                "地区策略脚本执行结束，退出码={ExitCode}，输出长度={OutputLength}，错误长度={ErrorLength}",
+                result.ExitCode,
+                result.Output.Length,
+                result.Error.Length);
 
+            // 原始诊断可能含当前账户或系统文件信息，只保留在附加调试器中，不写入持久化日志。
+            Debug.WriteLine(result.ToString());
             Debug.WriteLine("[RegionPolicyService] 脚本执行结束：");
             Debug.WriteLine(LastDiagnostics);
 
@@ -205,7 +213,7 @@ namespace FeedCustomizer.Core.Tools
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"RegionPolicyService: 检测策略状态失败: {ex.Message}");
+                Log.Warning(ex, "检测第三方小组件源地区策略状态失败");
                 return false;
             }
         }

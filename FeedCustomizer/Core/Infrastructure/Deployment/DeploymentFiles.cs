@@ -1,3 +1,4 @@
+using FeedCustomizer.Core.Infrastructure.Logging;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -10,6 +11,7 @@ namespace FeedCustomizer.Core.Infrastructure.Deployment;
 /// <summary>部署文件操作的统一路径边界、原子单文件写入和版本摘要实现。</summary>
 internal static class DeploymentFiles
 {
+    private static readonly IAppLog Log = AppLog.For(nameof(DeploymentFiles));
     internal const string VersionFile = ".deployment-version.xml";
 
     /// <summary>只接受根目录下的相对路径，拒绝跳出目录及重解析点，防止删除/覆盖落到其他目录。</summary>
@@ -87,9 +89,17 @@ internal static class DeploymentFiles
     private static void TryDeleteTemporary(string path)
     {
         // 临时文件清理属于次要诊断，不能遮蔽最初的复制/替换错误；下次原路径写入会覆盖它。
-        try { if (File.Exists(path)) File.Delete(path); }
+        try
+        {
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
+        }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        { System.Diagnostics.Debug.WriteLine($"清理部署临时文件失败：{path}; {ex.Message}"); }
+        {
+            Log.Warning(ex, "清理部署临时文件失败");
+        }
     }
 
     /// <summary>仅清理传入的应用专用事务子目录；逐个验证文件，不使用递归删除跟随链接。</summary>

@@ -1,5 +1,5 @@
+using FeedCustomizer.Core.Infrastructure.Logging;
 using System;
-using System.Diagnostics;
 using System.Threading.Tasks;
 using Windows.Services.Store;
 using DonationConstants = FeedCustomizer.Core.Constants.Constants;
@@ -19,6 +19,8 @@ namespace FeedCustomizer.Core.Tools
 
     public static class DonationService
     {
+        private static readonly IAppLog Log = AppLog.For(nameof(DonationService));
+
         public static async Task<bool> IsDonorEditionPurchasedAsync(IntPtr windowHandle)
         {
             try
@@ -38,7 +40,7 @@ namespace FeedCustomizer.Core.Tools
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"检查捐赠者版许可证失败: {ex.Message}");
+                Log.Warning(ex, "检查捐赠者版许可证失败");
             }
 
             return false;
@@ -60,7 +62,7 @@ namespace FeedCustomizer.Core.Tools
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"购买捐赠者版异常: {ex.Message}");
+                Log.Error(ex, "购买捐赠者版时发生异常");
                 return DonationPurchaseResult.Failed;
             }
         }

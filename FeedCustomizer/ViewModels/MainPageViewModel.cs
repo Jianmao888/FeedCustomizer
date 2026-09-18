@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.Input;
 using FeedCustomizer.Core.Constants;
 using FeedCustomizer.Core.DataService;
 using FeedCustomizer.Core.Deployment;
+using FeedCustomizer.Core.Infrastructure.Logging;
 using FeedCustomizer.Core.Models;
 using FeedCustomizer.Core.Tools;
 using System;
@@ -20,6 +21,8 @@ namespace FeedCustomizer.ViewModels
     /// </summary>
     public partial class MainPageViewModel : ObservableObject
     {
+        private static readonly IAppLog Log = AppLog.For<MainPageViewModel>();
+
         // =====================
         // 数据
         // =====================
@@ -220,7 +223,7 @@ namespace FeedCustomizer.ViewModels
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error loading feeds: {ex.Message}");
+                Log.Warning(ex, "从 Provider 清单加载订阅源失败");
             }
         }
 
@@ -329,7 +332,7 @@ namespace FeedCustomizer.ViewModels
         {
             if (UpdateObject(Feeds, feed))
             {
-                Debug.WriteLine($"Feed with ID {feed.Id} updated.");
+                Log.Debug("内存中的订阅源条目已更新");
                 if (feed.IsEdited)
                 {
                     feed.IsEdited = false;
@@ -520,9 +523,20 @@ namespace FeedCustomizer.ViewModels
             try
             {
                 var result = await ProviderDeployment.Current.CleanImagesAsync(references);
-                foreach (string diagnostic in result.Diagnostics) Debug.WriteLine($"图片清理：{diagnostic}");
+                Log.Information(
+                    "图片清理维护任务结束，删除数量={DeletedCount}，诊断数量={DiagnosticCount}",
+                    result.Deleted,
+                    result.Diagnostics.Count);
+                foreach (string diagnostic in result.Diagnostics)
+                {
+                    // 单条诊断可能包含用户图片文件名，仅保留在附加调试器中，不写入持久化日志。
+                    Debug.WriteLine($"图片清理：{diagnostic}");
+                }
             }
-            catch (Exception ex) { Debug.WriteLine($"图片清理未完成：{ex}"); }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "图片清理维护任务未完成");
+            }
         }
 
         /// <summary>

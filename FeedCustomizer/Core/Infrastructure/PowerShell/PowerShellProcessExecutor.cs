@@ -1,3 +1,4 @@
+using FeedCustomizer.Core.Infrastructure.Logging;
 using FeedCustomizer.Core.Models;
 using System;
 using System.ComponentModel;
@@ -15,6 +16,7 @@ namespace FeedCustomizer.Core.Infrastructure.PowerShell
     /// </summary>
     internal sealed class PowerShellProcessExecutor : IPowerShellExecutor
     {
+        private static readonly IAppLog Log = AppLog.For<PowerShellProcessExecutor>();
         private static readonly TimeSpan DefaultTimeout = TimeSpan.FromMinutes(2);
 
         public async Task<PowerShellResult> ExecuteAsync(
@@ -22,6 +24,15 @@ namespace FeedCustomizer.Core.Infrastructure.PowerShell
             CancellationToken cancellationToken = default)
         {
             ValidateScriptFileName(script.FileName);
+            string operationId = Guid.NewGuid().ToString("N")[..8];
+            Stopwatch stopwatch = Stopwatch.StartNew();
+
+            Log.Information(
+                "开始执行 PowerShell，操作={OperationId}，脚本={ScriptName}，需要提权={RequiresElevation}，超时秒={TimeoutSeconds}",
+                operationId,
+                script.FileName,
+                script.RequiresElevation,
+                (script.Timeout ?? DefaultTimeout).TotalSeconds);
 
             string tempDirectory = Path.Combine(
                 Path.GetTempPath(),
@@ -48,22 +59,64 @@ namespace FeedCustomizer.Core.Infrastructure.PowerShell
                     new UTF8Encoding(encoderShouldEmitUTF8Identifier: true),
                     cancellationToken);
                 // 提权进程必须启用 Shell 才能触发 UAC，因而不能直接重定向标准输出；两条路径分别处理。
-                return script.RequiresElevation
+                PowerShellResult result = script.RequiresElevation
                     ? await ExecuteElevatedAsync(scriptPath, outputPath, errorPath, script.Timeout, cancellationToken)
                     : await ExecuteStandardAsync(scriptPath, outputPath, errorPath, script.Timeout, cancellationToken);
+
+                if (result.ExitCode == 0)
+                {
+                    Log.Information(
+                        "PowerShell 执行完成，操作={OperationId}，脚本={ScriptName}，退出码={ExitCode}，输出长度={OutputLength}，错误长度={ErrorLength}，耗时毫秒={ElapsedMilliseconds}",
+                        operationId,
+                        script.FileName,
+                        result.ExitCode,
+                        result.Output.Length,
+                        result.Error.Length,
+                        stopwatch.ElapsedMilliseconds);
+                }
+                else
+                {
+                    // 只记录长度和稳定退出码；输出可能包含用户路径、注册表内容或第三方文本，不能直接落盘。
+                    Log.Warning(
+                        "PowerShell 执行未成功，操作={OperationId}，脚本={ScriptName}，退出码={ExitCode}，输出长度={OutputLength}，错误长度={ErrorLength}，耗时毫秒={ElapsedMilliseconds}",
+                        operationId,
+                        script.FileName,
+                        result.ExitCode,
+                        result.Output.Length,
+                        result.Error.Length,
+                        stopwatch.ElapsedMilliseconds);
+                }
+
+                return result;
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
                 // 写入临时脚本阶段也可能被调用方取消，统一映射为基础设施约定的结果。
+                Log.Warning(
+                    "PowerShell 在准备阶段被调用方取消，操作={OperationId}，脚本={ScriptName}，耗时毫秒={ElapsedMilliseconds}",
+                    operationId,
+                    script.FileName,
+                    stopwatch.ElapsedMilliseconds);
                 return new PowerShellResult(
                     PowerShellExitCodes.Cancelled,
                     string.Empty,
                     "PowerShell 操作已取消。");
             }
+            catch (Exception ex)
+            {
+                Log.Error(
+                    ex,
+                    "PowerShell 基础设施执行异常，操作={OperationId}，脚本={ScriptName}，耗时毫秒={ElapsedMilliseconds}",
+                    operationId,
+                    script.FileName,
+                    stopwatch.ElapsedMilliseconds);
+                throw;
+            }
             finally
             {
                 // 无论启动、执行或写入失败都回收脚本与诊断，避免临时目录逐次累积。
                 await TryDeleteDirectoryAsync(tempDirectory);
+                stopwatch.Stop();
             }
         }
 
@@ -212,7 +265,7 @@ namespace FeedCustomizer.Core.Infrastructure.PowerShell
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"终止 PowerShell 进程失败：{ex.Message}");
+                Log.Warning(ex, "终止 PowerShell 进程失败");
             }
         }
 
@@ -227,15 +280,23 @@ namespace FeedCustomizer.Core.Infrastructure.PowerShell
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"读取 PowerShell 输出文件失败：{ex.Message}");
+                Log.Warning(ex, "读取 PowerShell 输出文件失败");
                 return string.Empty;
             }
         }
 
         private static string JoinOutput(string first, string second)
         {
-            if (string.IsNullOrWhiteSpace(first)) return second;
-            if (string.IsNullOrWhiteSpace(second)) return first;
+            if (string.IsNullOrWhiteSpace(first))
+            {
+                return second;
+            }
+
+            if (string.IsNullOrWhiteSpace(second))
+            {
+                return first;
+            }
+
             return first.TrimEnd() + Environment.NewLine + second.TrimEnd();
         }
 
@@ -266,12 +327,15 @@ namespace FeedCustomizer.Core.Infrastructure.PowerShell
                 catch (Exception ex) when (attempt < 2)
                 {
                     // 子进程刚退出时其文件句柄可能尚未释放，有限重试不会掩盖最终清理失败。
-                    Debug.WriteLine($"清理 PowerShell 临时目录失败，将重试：{ex.Message}");
+                    Log.Warning(
+                        ex,
+                        "清理 PowerShell 临时目录失败，将进行有限重试，当前尝试={Attempt}",
+                        attempt + 1);
                     await Task.Delay(100);
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"清理 PowerShell 临时目录失败：{ex.Message}");
+                    Log.Warning(ex, "清理 PowerShell 临时目录失败，已达到重试上限");
                 }
             }
         }

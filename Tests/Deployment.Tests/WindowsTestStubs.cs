@@ -32,3 +32,64 @@ namespace Microsoft.Windows.ApplicationModel.Resources
         internal string GetString(string key) => "测试提供程序";
     }
 }
+
+// 部署回归测试只验证业务顺序与文件副作用，不把桌面应用的 Serilog 生命周期带入纯逻辑测试。
+namespace FeedCustomizer.Core.Infrastructure.Logging
+{
+    internal interface IAppLog
+    {
+        void Debug(string messageTemplate, params object?[] propertyValues);
+        void Information(string messageTemplate, params object?[] propertyValues);
+        void Warning(string messageTemplate, params object?[] propertyValues);
+        void Warning(Exception exception, string messageTemplate, params object?[] propertyValues);
+        void Error(string messageTemplate, params object?[] propertyValues);
+        void Error(Exception exception, string messageTemplate, params object?[] propertyValues);
+        void Fatal(Exception exception, string messageTemplate, params object?[] propertyValues);
+    }
+
+    internal static class AppLog
+    {
+        private static readonly IAppLog NullLogger = new NullAppLog();
+
+        internal static IAppLog For<T>()
+        {
+            return NullLogger;
+        }
+
+        internal static IAppLog For(string sourceContext)
+        {
+            return NullLogger;
+        }
+
+        private sealed class NullAppLog : IAppLog
+        {
+            public void Debug(string messageTemplate, params object?[] propertyValues)
+            {
+            }
+
+            public void Information(string messageTemplate, params object?[] propertyValues)
+            {
+            }
+
+            public void Warning(string messageTemplate, params object?[] propertyValues)
+            {
+            }
+
+            public void Warning(Exception exception, string messageTemplate, params object?[] propertyValues)
+            {
+            }
+
+            public void Error(string messageTemplate, params object?[] propertyValues)
+            {
+            }
+
+            public void Error(Exception exception, string messageTemplate, params object?[] propertyValues)
+            {
+            }
+
+            public void Fatal(Exception exception, string messageTemplate, params object?[] propertyValues)
+            {
+            }
+        }
+    }
+}

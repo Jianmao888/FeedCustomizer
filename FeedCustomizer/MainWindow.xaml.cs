@@ -1,4 +1,5 @@
 using FeedCustomizer.Core.Interface;
+using FeedCustomizer.Core.Infrastructure.Logging;
 using FeedCustomizer.Core.Tools;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
@@ -23,6 +24,7 @@ namespace FeedCustomizer
     [System.Diagnostics.CodeAnalysis.SuppressMessage("Interoperability", "CA1416:验证平台兼容性", Justification = "<挂起>")]
     public partial class MainWindow : Window
     {
+        private static readonly IAppLog Log = AppLog.For<MainWindow>();
         private readonly SemaphoreSlim _dialogGate = new(1, 1);
         private readonly TaskCompletionSource<bool> _startupVisualsHidden =
             new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -86,10 +88,12 @@ namespace FeedCustomizer
         {
             if (_startupHasBegun || rootFrame.Content is not null)
             {
+                Log.Debug("忽略重复的启动内容加载请求");
                 return;
             }
 
             _startupHasBegun = true;
+            Log.Information("开始导航主页并执行启动协调流程");
             rootFrame.Navigated += OnInitialPageNavigated;
             rootFrame.Navigate(typeof(Pages.MainPage));
         }
@@ -106,6 +110,7 @@ namespace FeedCustomizer
             }
 
             // 理论上不会发生；仍需解除启动遮罩，避免导航异常时窗口永久停在徽标页。
+            Log.Error("主页导航完成但未取得 MainPage 实例，正在强制结束启动遮罩");
             _ = CompleteStartupAsync();
         }
 
@@ -126,20 +131,24 @@ namespace FeedCustomizer
         /// </summary>
         private async Task RunStartupAsync(MainPage mainPage)
         {
+            Stopwatch stopwatch = Stopwatch.StartNew();
             Exception? initializationException = null;
             try
             {
-                if (await mainPage.ResourceSynchronizationRequiredTask)
+                bool synchronizationRequired = await mainPage.ResourceSynchronizationRequiredTask;
+                Log.Information("启动资源检查完成，需要同步={SynchronizationRequired}", synchronizationRequired);
+                if (synchronizationRequired)
                 {
                     ShowStartupLoadingOverlay();
                 }
 
                 await mainPage.InitializationTask;
+                Log.Information("主页启动初始化完成，耗时毫秒={ElapsedMilliseconds}", stopwatch.ElapsedMilliseconds);
             }
             catch (Exception ex)
             {
                 initializationException = ex;
-                Debug.WriteLine($"应用启动初始化失败：{ex}");
+                Log.Error(ex, "应用启动初始化失败，阶段耗时毫秒={ElapsedMilliseconds}", stopwatch.ElapsedMilliseconds);
             }
             finally
             {
@@ -153,7 +162,15 @@ namespace FeedCustomizer
             catch (Exception ex)
             {
                 // 对话框失败不能影响已完成的启动状态；保留诊断以便后续排查。
-                Debug.WriteLine($"启动完成后的页面交互失败：{ex}");
+                Log.Error(ex, "启动完成后的页面交互失败");
+            }
+            finally
+            {
+                stopwatch.Stop();
+                Log.Information(
+                    "启动协调流程结束，成功={Succeeded}，总耗时毫秒={ElapsedMilliseconds}",
+                    initializationException is null,
+                    stopwatch.ElapsedMilliseconds);
             }
         }
 
@@ -169,6 +186,7 @@ namespace FeedCustomizer
 
             _startupUsesLoadingOverlay = true;
             SetLoadingOverlayVisible(true);
+            Log.Information("资源同步耗时较长，启动视觉已从徽标切换为加载覆盖层");
         }
 
         /// <summary>
@@ -210,21 +228,24 @@ namespace FeedCustomizer
 
         private void OnAppWindowClosing(AppWindow sender, AppWindowClosingEventArgs args)
         {
-            Debug.WriteLine("窗口再关闭");
+            _ = sender;
+            Log.Debug("收到主窗口关闭请求");
             var currentPage = GetCurrentPage();
             if (currentPage is IWindowCloseAware awarePage)
             {
                 if (!awarePage.CanClose())
                 {
-                    args.Cancel = true; // 阻止窗口关闭
+                    // 页面仍有未完成的用户操作时保留窗口，日志生命周期也继续保持打开。
+                    args.Cancel = true;
+                    Log.Information("当前页面拒绝关闭窗口");
                     return;
                 }
-                else
-                {
-                    // 如果不阻止关闭，可以执行清理逻辑
-                    awarePage.OnWindowClosing();
-                }
+
+                awarePage.OnWindowClosing();
             }
+
+            Log.Information("主窗口即将关闭");
+            AppLog.CloseAndFlush();
         }
 
         private Page? GetCurrentPage()

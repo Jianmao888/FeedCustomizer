@@ -1,4 +1,5 @@
 using FeedCustomizer.Core.Models;
+using FeedCustomizer.Core.Infrastructure.Logging;
 using FeedCustomizer.Core.Tools;
 using FeedCustomizer.ViewModels;
 using Microsoft.Windows.ApplicationModel.Resources;
@@ -6,7 +7,6 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
 using System;
-using System.Diagnostics;
 using System.Threading.Tasks;
 using Windows.Storage;
 
@@ -21,6 +21,8 @@ namespace FeedCustomizer.Pages
     /// </summary>
     public sealed partial class MainPage : Page
     {
+        private static readonly IAppLog Log = AppLog.For<MainPage>();
+
         /// <summary>页面视图模型，供 XAML 通过 x:Bind 绑定。</summary>
         public MainPageViewModel ViewModel { get; } = new();
 
@@ -146,7 +148,7 @@ namespace FeedCustomizer.Pages
             catch (Exception ex)
             {
                 // 事件处理器不能让展示失败的异常脱离 UI 同步上下文。
-                Debug.WriteLine($"显示 Provider 注册错误失败：{ex}");
+                Log.Error(ex, "显示 Provider 注册错误对话框失败");
             }
         }
 

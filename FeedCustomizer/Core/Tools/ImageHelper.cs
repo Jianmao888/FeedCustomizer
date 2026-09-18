@@ -1,6 +1,6 @@
 ﻿using Microsoft.UI.Xaml.Media.Imaging;
+using FeedCustomizer.Core.Infrastructure.Logging;
 using System;
-using System.Diagnostics;
 using System.IO;
 using System.Threading.Tasks;
 using Windows.Storage.Pickers;
@@ -9,6 +9,8 @@ namespace FeedCustomizer.Core.Tools
 {
     public static class ImageHelper
     {
+        private static readonly IAppLog Log = AppLog.For(nameof(ImageHelper));
+
         /// <summary>
         /// 选择图片并保存到指定目录
         /// </summary>
@@ -66,7 +68,7 @@ namespace FeedCustomizer.Core.Tools
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"选择图片失败: {ex.Message}");
+                Log.Warning(ex, "选择并保存图片失败");
                 return string.Empty;
                 //throw new Exception($"选择图片失败: {ex.Message}", ex);
             }
@@ -104,7 +106,7 @@ namespace FeedCustomizer.Core.Tools
             if (fileName == Constants.Constants.DefaultImageName)
             {
                 // 不删除默认图片
-                Debug.WriteLine("尝试删除默认图片，操作已忽略。");
+                Log.Debug("尝试删除默认图片，操作已忽略");
                 return;
             }
             if (!string.IsNullOrEmpty(imagePath) && File.Exists(imagePath))

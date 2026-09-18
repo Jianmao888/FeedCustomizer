@@ -1,4 +1,5 @@
 using FeedCustomizer.Core.Deployment;
+using FeedCustomizer.Core.Infrastructure.Logging;
 using FeedCustomizer.Core.Infrastructure.PowerShell;
 using FeedCustomizer.Core.Models;
 using FeedCustomizer.Core.Tools;
@@ -21,6 +22,7 @@ namespace FeedCustomizer.Core.Infrastructure.Deployment;
 /// </summary>
 internal sealed class ProviderDeploymentStorage(ProviderDeploymentPowerShellAdapter deployed) : IProviderDeploymentStorage
 {
+    private static readonly IAppLog Log = AppLog.For<ProviderDeploymentStorage>();
     private string Work => AppDataPaths.PackageLocalFeedProviderFolder;
     private string State => DeploymentFiles.Under(Work, ".deployment");
     private string Candidate => DeploymentFiles.Under(State, "candidate");
@@ -57,7 +59,7 @@ internal sealed class ProviderDeploymentStorage(ProviderDeploymentPowerShellAdap
         catch (Exception ex) when (ex is IOException or System.Xml.XmlException or InvalidDataException)
         {
             // 版本元数据损坏允许重建；真正的用户清单会在 PrepareWork 中严格读取，失败则停止。
-            System.Diagnostics.Debug.WriteLine($"检查部署版本失败：{ex}");
+            Log.Warning(ex, "检查 Provider 部署版本失败，将重新准备工作副本");
             return Task.FromResult(false);
         }
     }
