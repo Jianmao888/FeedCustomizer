@@ -230,14 +230,25 @@ internal sealed class ProviderDeploymentStorage(ProviderDeploymentPowerShellAdap
             packageVersion = $"{version.Major}.{version.Minor}.{version.Build}.{version.Revision}";
         }
         catch (Exception ex) when (ex is InvalidOperationException or COMException)
-        { packageRoot = AppContext.BaseDirectory; packageVersion = "unpackaged"; }
+        { 
+            packageRoot = AppContext.BaseDirectory; 
+            packageVersion = "unpackaged"; 
+        }
+
         var sources = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (string relative in DeploymentFiles.Enumerate(Path.Combine(packageRoot, "Resources")))
+        {
             sources.Add(relative, DeploymentFiles.Under(Path.Combine(packageRoot, "Resources"), relative));
+        }
         foreach (string relative in DeploymentFiles.Enumerate(Path.Combine(packageRoot, "Assets")))
+        {
             sources.Add(Path.Combine("Assets", relative), DeploymentFiles.Under(Path.Combine(packageRoot, "Assets"), relative));
+        }
+        
         if (!sources.ContainsKey("AppxManifest.xml") || !sources.ContainsKey("FeedProvider\\FeedProvider.exe"))
+        {
             throw new FileNotFoundException("安装包缺少 Provider 模板或程序。");
+        }
 
         // 安装包本身不可变，模板摘要每个进程只计算一次；包含所有资源，支持同版本号重建。
         string identity = packageVersion + "|" + RuntimeInformation.ProcessArchitecture + "|" +
