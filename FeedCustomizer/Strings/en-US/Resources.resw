@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <root>
   <!-- 
     Microsoft ResX Schema 
@@ -572,17 +572,17 @@
     <value>Export diagnostic logs or contact the developer</value>
     <comment>Subtitle of the logs and feedback expander</comment>
   </data>
-  <data name="Settings_ExportLogsCard.Header" xml:space="preserve">
+  <data name="ExportLogsTitle.Text" xml:space="preserve">
     <value>Export logs</value>
-    <comment>Header of the log export card</comment>
+    <comment>Title of the flat log export row</comment>
   </data>
-  <data name="Settings_ExportLogsCard.Description" xml:space="preserve">
+  <data name="ExportLogsDescription.Text" xml:space="preserve">
     <value>Package all retained application logs in the Downloads folder</value>
-    <comment>Description of the log export card</comment>
+    <comment>Description of the flat log export row</comment>
   </data>
   <data name="ExportLogsButton.Content" xml:space="preserve"><value>Export</value></data>
-  <data name="Settings_SendFeedbackCard.Header" xml:space="preserve"><value>Send feedback</value></data>
-  <data name="Settings_SendFeedbackCard.Description" xml:space="preserve">
+  <data name="SendFeedbackTitle.Text" xml:space="preserve"><value>Send feedback</value></data>
+  <data name="SendFeedbackDescription.Text" xml:space="preserve">
     <value>Export logs and contact the developer with your email app</value>
   </data>
   <data name="SendFeedbackButton.Content" xml:space="preserve"><value>Send feedback</value></data>

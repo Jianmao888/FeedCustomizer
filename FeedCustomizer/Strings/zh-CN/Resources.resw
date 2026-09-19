@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <root>
   <!-- 
     Microsoft ResX Schema 
@@ -573,25 +573,25 @@
     <value>导出诊断日志或向开发者发送反馈</value>
     <comment>设置页面日志与反馈展开器副标题</comment>
   </data>
-  <data name="Settings_ExportLogsCard.Header" xml:space="preserve">
+  <data name="ExportLogsTitle.Text" xml:space="preserve">
     <value>提取日志</value>
-    <comment>设置页面日志导出卡片标题</comment>
+    <comment>设置页面日志导出扁平行标题</comment>
   </data>
-  <data name="Settings_ExportLogsCard.Description" xml:space="preserve">
+  <data name="ExportLogsDescription.Text" xml:space="preserve">
     <value>将当前保留的全部应用日志打包到下载目录</value>
-    <comment>设置页面日志导出卡片说明</comment>
+    <comment>设置页面日志导出扁平行说明</comment>
   </data>
   <data name="ExportLogsButton.Content" xml:space="preserve">
     <value>导出</value>
     <comment>设置页面日志导出按钮</comment>
   </data>
-  <data name="Settings_SendFeedbackCard.Header" xml:space="preserve">
+  <data name="SendFeedbackTitle.Text" xml:space="preserve">
     <value>发送反馈</value>
-    <comment>设置页面发送反馈卡片标题</comment>
+    <comment>设置页面发送反馈扁平行标题</comment>
   </data>
-  <data name="Settings_SendFeedbackCard.Description" xml:space="preserve">
+  <data name="SendFeedbackDescription.Text" xml:space="preserve">
     <value>导出日志并使用邮件客户端联系开发者</value>
-    <comment>设置页面发送反馈卡片说明</comment>
+    <comment>设置页面发送反馈扁平行说明</comment>
   </data>
   <data name="SendFeedbackButton.Content" xml:space="preserve">
     <value>发送反馈</value>

@@ -63,9 +63,9 @@
             </StackPanel>
 
             <!--
-                日志与反馈组：内容区需要承载多个 SettingsCard，因此此处使用 HorizontalContentAlignment=Stretch
-                （其余展开器沿用 Left），让卡片横向铺满。导出日志与发送反馈共用同一个运行状态标志，
-                命令的 CanExecute 由视图模型控制，任一操作进行中两个按钮会同时禁用，防止重复生成归档与邮件窗口。
+                日志与反馈组：此处使用扁平的行布局而非 SettingsCard，避免在 Expander 内再出现卡片圆角和外边距。
+                导出日志与发送反馈共用同一个运行状态标志，命令的 CanExecute 由视图模型控制；任一操作进行中
+                两个按钮会同时禁用，防止重复生成归档与邮件窗口。
             -->
             <Expander IsExpanded="False" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" MinHeight="70">
                 <Expander.Header>
@@ -77,20 +77,39 @@
                         </StackPanel>
                     </StackPanel>
                 </Expander.Header>
-                <!-- 卡片文案（标题、说明）全部来自资源文件；日志导出路径与失败提示由视图模型拼装，此处只负责触发。 -->
-                <StackPanel Spacing="3" Padding="0,0,0,12">
-                    <controls:SettingsCard x:Uid="Settings_ExportLogsCard" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" MinHeight="64" Padding="16,0">
-                        <controls:SettingsCard.HeaderIcon>
-                            <FontIcon Glyph="&#xE896;" />
-                        </controls:SettingsCard.HeaderIcon>
-                        <Button x:Uid="ExportLogsButton" HorizontalAlignment="Right" Command="{x:Bind ViewModel.ExportLogsCommand}"/>
-                    </controls:SettingsCard>
-                    <controls:SettingsCard x:Uid="Settings_SendFeedbackCard" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" MinHeight="64" Padding="16,0">
-                        <controls:SettingsCard.HeaderIcon>
-                            <FontIcon Glyph="&#xE715;" />
-                        </controls:SettingsCard.HeaderIcon>
-                        <Button x:Uid="SendFeedbackButton" HorizontalAlignment="Right" Command="{x:Bind ViewModel.SendFeedbackCommand}"/>
-                    </controls:SettingsCard>
+                <!-- 扁平行仅使用分隔线区分操作，保持与 WinUI 设置展开内容一致的层级，而不制造嵌套卡片。 -->
+                <StackPanel Padding="12,2,12,12" Spacing="0">
+                    <Border MinHeight="64" Padding="4,10">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="32"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <FontIcon Glyph="&#xE896;" FontSize="16" VerticalAlignment="Center"/>
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                                <TextBlock x:Uid="ExportLogsTitle" FontSize="14"/>
+                                <TextBlock x:Uid="ExportLogsDescription" FontSize="12" Opacity="0.8" TextWrapping="Wrap"/>
+                            </StackPanel>
+                            <Button x:Uid="ExportLogsButton" Grid.Column="2" Margin="12,0,0,0" VerticalAlignment="Center" Command="{x:Bind ViewModel.ExportLogsCommand}"/>
+                        </Grid>
+                    </Border>
+                    <Border Height="1" Background="{ThemeResource DividerStrokeColorDefaultBrush}" Margin="36,0,0,0"/>
+                    <Border MinHeight="64" Padding="4,10">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="32"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <FontIcon Glyph="&#xE715;" FontSize="16" VerticalAlignment="Center"/>
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                                <TextBlock x:Uid="SendFeedbackTitle" FontSize="14"/>
+                                <TextBlock x:Uid="SendFeedbackDescription" FontSize="12" Opacity="0.8" TextWrapping="Wrap"/>
+                            </StackPanel>
+                            <Button x:Uid="SendFeedbackButton" Grid.Column="2" Margin="12,0,0,0" VerticalAlignment="Center" Command="{x:Bind ViewModel.SendFeedbackCommand}"/>
+                        </Grid>
+                    </Border>
                 </StackPanel>
             </Expander>
 
