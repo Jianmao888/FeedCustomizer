@@ -25,6 +25,9 @@
     <Compile Include="../../FeedCustomizer/Core/Infrastructure/PowerShell/RegionPolicyPowerShellAdapter.cs" Link="Core/RegionPolicyPowerShellAdapter.cs" />
     <Compile Include="../../FeedCustomizer/Core/Infrastructure/Logging/AppLogConfiguration.cs" Link="Core/AppLogConfiguration.cs" />
     <Compile Include="../../FeedCustomizer/Core/Infrastructure/Logging/LogPrivacy.cs" Link="Core/LogPrivacy.cs" />
+    <Compile Include="../../FeedCustomizer/Core/Feedback/FeedbackContracts.cs" Link="Core/FeedbackContracts.cs" />
+    <Compile Include="../../FeedCustomizer/Core/Feedback/FeedbackMailDispatcher.cs" Link="Core/FeedbackMailDispatcher.cs" />
+    <Compile Include="../../FeedCustomizer/Core/Feedback/LogArchiveBuilder.cs" Link="Core/LogArchiveBuilder.cs" />
     <Compile Include="../../FeedCustomizer/Core/Infrastructure/PowerShell/ProviderDeploymentPowerShellAdapter.cs" Link="Core/ProviderDeploymentPowerShellAdapter.cs" />
     <Compile Include="../../FeedCustomizer/Core/WidgetData/IWidgetDataResetPlatform.cs" Link="Core/IWidgetDataResetPlatform.cs" />
     <Compile Include="../../FeedCustomizer/Core/WidgetData/WidgetDataResetCoordinator.cs" Link="Core/WidgetDataResetCoordinator.cs" />

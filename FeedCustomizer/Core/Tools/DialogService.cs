@@ -1,3 +1,6 @@
+using AppConstants = FeedCustomizer.Core.Constants.Constants;
+using FeedCustomizer.Core.Feedback;
+using FeedCustomizer.Core.Infrastructure.Logging;
 using FeedCustomizer.Dialogs;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
@@ -5,6 +8,7 @@ using Microsoft.UI.Xaml.Controls;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Windows.ApplicationModel.Resources;
 
 namespace FeedCustomizer.Core.Tools
 {
@@ -13,29 +17,42 @@ namespace FeedCustomizer.Core.Tools
     /// </summary>
     public static class DialogService
     {
+        private static readonly IAppLog Log = AppLog.For(nameof(DialogService));
         private static UiThreadRunner? _uiThreadRunner;
         private static Func<XamlRoot?>? _xamlRootProvider;
         private static Func<Task>? _waitForSplashHidden;
         private static SemaphoreSlim? _dialogGate;
         private static TaskCompletionSource<bool>? _firstRunDialogFinished;
         private static bool _firstRunDialogPending;
+        private static FeedbackService? _feedbackService;
+        private static Func<IntPtr>? _windowHandleProvider;
 
-        public static void Initialize(
+        internal static void Initialize(
             DispatcherQueue dispatcherQueue,
             Func<XamlRoot?> xamlRootProvider,
             Func<Task> waitForSplashHidden,
-            SemaphoreSlim dialogGate)
+            SemaphoreSlim dialogGate,
+            FeedbackService feedbackService,
+            Func<IntPtr> windowHandleProvider)
         {
             _uiThreadRunner = new UiThreadRunner(dispatcherQueue, waitForSplashHidden);
             _xamlRootProvider = xamlRootProvider;
             _waitForSplashHidden = waitForSplashHidden;
             _dialogGate = dialogGate;
+            _feedbackService = feedbackService;
+            _windowHandleProvider = windowHandleProvider;
             _firstRunDialogFinished = new(TaskCreationOptions.RunContinuationsAsynchronously);
         }
 
         private static void EnsureInitialized()
         {
-            if (_uiThreadRunner is null || _xamlRootProvider is null || _waitForSplashHidden is null || _dialogGate is null || _firstRunDialogFinished is null)
+            if (_uiThreadRunner is null ||
+                _xamlRootProvider is null ||
+                _waitForSplashHidden is null ||
+                _dialogGate is null ||
+                _firstRunDialogFinished is null ||
+                _feedbackService is null ||
+                _windowHandleProvider is null)
             {
                 throw new InvalidOperationException("DialogService is not initialized. Call DialogService.Initialize(...) from MainWindow during startup.");
             }
@@ -100,11 +117,51 @@ namespace FeedCustomizer.Core.Tools
             await _waitForSplashHidden!();
             await _firstRunDialogFinished!.Task;
 
-            await _uiThreadRunner!.RunAsync(async () =>
+            await ShowErrorAsync(title, details, FeedbackSource.Startup);
+        }
+
+        /// <summary>
+        /// 显示带“发送反馈”的统一错误弹窗。日志先在当前弹窗内准备，随后释放弹窗串行锁，
+        /// 再打开外部邮件客户端，避免 ContentDialog 与外部窗口相互阻塞。
+        /// </summary>
+        internal static Task ShowErrorAsync(string title, string details, FeedbackSource source)
+        {
+            EnsureInitialized();
+            return _uiThreadRunner!.RunAsync(async () =>
             {
+                var resources = new ResourceLoader();
                 var dialog = new StartupFailureDialog();
-                dialog.Configure(title, details);
-                await ShowWithGateAsync(dialog);
+                dialog.Configure(
+                    title,
+                    details,
+                    resources.GetString("FeedbackSendButtonText"),
+                    resources.GetString("FeedbackPreparingMessage"),
+                    resources.GetString("FeedbackArchiveFailureInlineMessage"),
+                    () => _feedbackService!.PrepareAsync(source));
+
+                ContentDialogResult result = await ShowWithGateAsync(dialog);
+                if (result != ContentDialogResult.Primary || dialog.PreparedFeedback is null)
+                {
+                    return;
+                }
+
+                FeedbackOperationResult launchResult = await _feedbackService!.LaunchPreparedAsync(
+                    dialog.PreparedFeedback,
+                    _windowHandleProvider!());
+                if (!launchResult.MailClientLaunched)
+                {
+                    Log.Warning(
+                        "所有反馈邮件通道均未能打开客户端，诊断={Diagnostic}",
+                        LogPrivacy.PrepareDiagnostic(launchResult.Diagnostic));
+                    string message = string.Format(
+                        resources.GetString("FeedbackMailClientFailureMessageFormat"),
+                        launchResult.Archive.FullPath,
+                        AppConstants.FeedbackEmailAddress);
+                    await ShowMessageCoreAsync(
+                        resources.GetString("FeedbackMailClientFailureTitle"),
+                        message,
+                        resources.GetString("DialogOK"));
+                }
             });
         }
 
@@ -141,13 +198,18 @@ namespace FeedCustomizer.Core.Tools
 
         public static Task ShowWebIconFetchErrorAsync(string details)
         {
-            EnsureInitialized();
-            return _uiThreadRunner!.RunAsync(async () =>
-            {
-                var dialog = new WebIconFetchErrorDialog();
-                dialog.Configure(details);
-                await ShowWithGateAsync(dialog);
-            });
+            var resources = new ResourceLoader();
+            return ShowErrorAsync(
+                resources.GetString("WebIconFetchErrorDialog/Title"),
+                details,
+                FeedbackSource.WebIcon);
+        }
+
+        private static async Task ShowMessageCoreAsync(string title, string content, string closeButtonText)
+        {
+            var dialog = new MessageDialog();
+            dialog.Configure(title, content, closeButtonText);
+            await ShowWithGateAsync(dialog);
         }
 
         private static async Task<ContentDialogResult> ShowWithGateAsync(ContentDialog dialog)

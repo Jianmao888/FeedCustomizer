@@ -1,4 +1,7 @@
 using FeedCustomizer.Core.Constants;
+using FeedCustomizer.Core.Feedback;
+using FeedCustomizer.Core.Infrastructure.Logging;
+using FeedCustomizer.Core.Tools;
 using FeedCustomizer.ViewModels;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -16,20 +19,58 @@ namespace FeedCustomizer.Pages
     /// </summary>
     public sealed partial class SettingsPage : Page
     {
+        private static readonly IAppLog Log = AppLog.For<SettingsPage>();
+
         /// <summary>页面视图模型，供 XAML 通过 x:Bind 绑定。</summary>
-        public SettingsViewModel ViewModel { get; } = new();
+        public SettingsViewModel ViewModel { get; }
 
         /// <summary>导航到设置页时是否请求聚焦“解除地区限制”按钮。</summary>
         private bool _focusRegionPolicyButton;
 
         public SettingsPage()
         {
+            FeedbackService feedbackService = App.MainWindow?.Feedback
+                ?? throw new InvalidOperationException("主窗口反馈服务尚未初始化。");
+            ViewModel = new SettingsViewModel(feedbackService);
             InitializeComponent();
 
             // 订阅视图模型发出的 UI 请求，让视图模型不依赖具体控件。
             ViewModel.OpenLinkRequested += OnOpenLinkRequested;
             ViewModel.LoadingOverlayRequested += OnLoadingOverlayRequested;
+            ViewModel.MessageRequested += OnMessageRequested;
+            ViewModel.ErrorRequested += OnErrorRequested;
             Loaded += SettingsPage_Loaded;
+        }
+
+        /// <summary>错误样式和反馈按钮由页面交给统一 UI 服务处理。</summary>
+        private async void OnErrorRequested(object? sender, SettingsErrorRequestedEventArgs e)
+        {
+            _ = sender;
+
+            try
+            {
+                await DialogService.ShowErrorAsync(e.Title, e.Details, e.Source);
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "显示设置页可反馈错误失败");
+            }
+        }
+
+        /// <summary>将视图模型产生的普通结果提示转换为 UI 对话框。</summary>
+        private async void OnMessageRequested(object? sender, SettingsMessageRequestedEventArgs e)
+        {
+            _ = sender;
+
+            try
+            {
+                await DialogService.ShowMessageAsync(e.Title, e.Message, e.CloseButtonText);
+            }
+            catch (Exception ex)
+            {
+                // 事件处理器必须吸收并记录展示异常，不能让通知失败变成未处理的 UI 异常。
+                Log.Error(ex, "显示设置页反馈结果失败");
+            }
         }
 
         protected override void OnNavigatedTo(NavigationEventArgs e)

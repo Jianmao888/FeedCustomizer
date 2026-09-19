@@ -1,4 +1,5 @@
 using FeedCustomizer.Core.Models;
+using FeedCustomizer.Core.Feedback;
 using FeedCustomizer.Core.Infrastructure.Logging;
 using FeedCustomizer.Core.Tools;
 using FeedCustomizer.ViewModels;
@@ -182,14 +183,23 @@ namespace FeedCustomizer.Pages
                 $"Output: {result.Output}");
             string content = resourceLoader.GetString("SomethingErrorsOccurred");
             if (result.ConfigurationSaved)
+            {
                 content += Environment.NewLine + resourceLoader.GetString("ProviderConfigurationSaved");
+            }
+
             if (result.Compensation == Core.Deployment.DeploymentCompensation.ProviderDisabled)
+            {
                 content += Environment.NewLine + resourceLoader.GetString("ProviderDeploymentStopped");
+            }
             else if (result.Compensation == Core.Deployment.DeploymentCompensation.Failed)
+            {
                 content += Environment.NewLine + resourceLoader.GetString("ProviderDeploymentRecoveryFailed");
-            await DialogService.ShowStartupFailureAsync(
+            }
+
+            await DialogService.ShowErrorAsync(
                 title,
-                $"{content}{Environment.NewLine}{Environment.NewLine}{details}");
+                $"{content}{Environment.NewLine}{Environment.NewLine}{details}",
+                FeedbackSource.ProviderRegistration);
         }
 
         /// <summary>
@@ -267,9 +277,9 @@ namespace FeedCustomizer.Pages
             if (initializationException is not null && !_startupFailureShown)
             {
                 _startupFailureShown = true;
+                var resourceLoader = new ResourceLoader();
                 await DialogService.ShowStartupFailureAsync(
-                    // TODO 稍后将这里改为本地字符串
-                    "启动失败",
+                    resourceLoader.GetString("StartupFailureDialog/Title"),
                     initializationException.ToString());
             }
         }

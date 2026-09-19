@@ -565,4 +565,95 @@
     <value>部署后的清理未完成，当前注册状态尚未确认。请查看下方诊断并在重试前关闭可能占用文件的小组件。</value>
     <comment>补偿或完成清理失败时明确保留不确定状态</comment>
   </data>
+  <data name="LogsFeedbackTitle.Text" xml:space="preserve">
+    <value>日志与反馈</value>
+    <comment>设置页面日志与反馈展开器标题</comment>
+  </data>
+  <data name="LogsFeedbackSubtitle.Text" xml:space="preserve">
+    <value>导出诊断日志或向开发者发送反馈</value>
+    <comment>设置页面日志与反馈展开器副标题</comment>
+  </data>
+  <data name="Settings_ExportLogsCard.Header" xml:space="preserve">
+    <value>提取日志</value>
+    <comment>设置页面日志导出卡片标题</comment>
+  </data>
+  <data name="Settings_ExportLogsCard.Description" xml:space="preserve">
+    <value>将当前保留的全部应用日志打包到下载目录</value>
+    <comment>设置页面日志导出卡片说明</comment>
+  </data>
+  <data name="ExportLogsButton.Content" xml:space="preserve">
+    <value>导出</value>
+    <comment>设置页面日志导出按钮</comment>
+  </data>
+  <data name="Settings_SendFeedbackCard.Header" xml:space="preserve">
+    <value>发送反馈</value>
+    <comment>设置页面发送反馈卡片标题</comment>
+  </data>
+  <data name="Settings_SendFeedbackCard.Description" xml:space="preserve">
+    <value>导出日志并使用邮件客户端联系开发者</value>
+    <comment>设置页面发送反馈卡片说明</comment>
+  </data>
+  <data name="SendFeedbackButton.Content" xml:space="preserve">
+    <value>发送反馈</value>
+    <comment>设置页面发送反馈按钮</comment>
+  </data>
+  <data name="FeedbackSendButtonText" xml:space="preserve">
+    <value>发送反馈</value>
+    <comment>错误弹窗发送反馈主按钮</comment>
+  </data>
+  <data name="FeedbackPreparingMessage" xml:space="preserve">
+    <value>正在提取日志，请稍候……</value>
+    <comment>错误弹窗准备反馈时的行内状态</comment>
+  </data>
+  <data name="FeedbackArchiveFailureInlineMessage" xml:space="preserve">
+    <value>无法提取日志。错误已经记录，请稍后重试或关闭此窗口。</value>
+    <comment>错误弹窗内日志归档失败提示</comment>
+  </data>
+  <data name="LogExportSuccessTitle" xml:space="preserve">
+    <value>日志已导出</value>
+    <comment>日志导出成功弹窗标题</comment>
+  </data>
+  <data name="LogExportSuccessMessageFormat" xml:space="preserve">
+    <value>日志已导出到：“{0}”</value>
+    <comment>日志导出成功内容，参数为 Windows 返回的完整文件路径</comment>
+  </data>
+  <data name="LogExportFailureTitle" xml:space="preserve">
+    <value>无法导出日志</value>
+    <comment>日志导出失败弹窗标题</comment>
+  </data>
+  <data name="LogExportFailureMessage" xml:space="preserve">
+    <value>无法创建日志压缩包，请稍后重试。详细原因已写入应用日志或调试输出。</value>
+    <comment>日志导出失败弹窗内容，该弹窗不再提供反馈按钮</comment>
+  </data>
+  <data name="FeedbackMailClientFailureTitle" xml:space="preserve">
+    <value>无法打开邮件客户端</value>
+    <comment>所有邮件通道均失败时的弹窗标题</comment>
+  </data>
+  <data name="FeedbackMailClientFailureMessageFormat" xml:space="preserve">
+    <value>日志已导出到：“{0}”&#x0A;&#x0A;无法打开邮件客户端。你可以手动将该文件发送至：{1}</value>
+    <comment>邮件客户端启动失败提示，参数依次为完整 ZIP 路径和反馈邮箱</comment>
+  </data>
+  <data name="FeedbackUnexpectedFailureMessage" xml:space="preserve">
+    <value>准备反馈时发生错误，请稍后重试。详细原因已写入应用日志或调试输出。</value>
+    <comment>设置页面反馈流程发生意外异常时的提示</comment>
+  </data>
+  <data name="FeedbackMailSubject" xml:space="preserve">
+    <value>FeedCustomizer 问题反馈</value>
+    <comment>反馈邮件主题</comment>
+  </data>
+  <data name="FeedbackMailBodyFormat" xml:space="preserve">
+    <value>请在这里描述问题、复现步骤以及预期结果：&#x0A;&#x0A;&#x0A;问题来源：{0}&#x0A;应用版本：{1}&#x0A;&#x0A;隐私提示：&#x0A;附件中的应用日志用于分析问题，可能包含 Windows 版本、应用版本、操作阶段、经过脱敏的文件路径以及 PowerShell 错误诊断。请在发送前检查邮件内容和附件是否合适。&#x0A;&#x0A;日志文件：{2}&#x0A;日志完整路径：{3}&#x0A;&#x0A;如果邮件客户端没有自动加入附件，请从上述路径手动添加 ZIP 文件。&#x0A;&#x0A;请不要删除下一行，此标识用于反馈邮件整理：&#x0A;FeedCustomizer-Feedback-ID: {4}</value>
+    <comment>反馈邮件纯文本正文，参数为来源、版本、文件名、完整路径和固定标识</comment>
+  </data>
+  <data name="FeedbackEmptyArchiveInformationFormat" xml:space="preserve">
+    <value>导出时间：{0:O}&#x0A;日志会话：{1}&#x0A;未找到可用的 FeedCustomizer 日志文件。日志系统可能未能初始化。</value>
+    <comment>日志目录为空时写入 ZIP 的说明</comment>
+  </data>
+  <data name="FeedbackSource_Settings" xml:space="preserve"><value>设置页面</value></data>
+  <data name="FeedbackSource_ProviderRegistration" xml:space="preserve"><value>源提供程序启用或部署</value></data>
+  <data name="FeedbackSource_Startup" xml:space="preserve"><value>应用启动或资源准备</value></data>
+  <data name="FeedbackSource_RegionPolicy" xml:space="preserve"><value>解除地区限制</value></data>
+  <data name="FeedbackSource_WidgetData" xml:space="preserve"><value>清理小组件数据</value></data>
+  <data name="FeedbackSource_WebIcon" xml:space="preserve"><value>获取网页图标</value></data>
+  <data name="FeedbackSource_Donation" xml:space="preserve"><value>捐赠者版购买</value></data>
 </root>

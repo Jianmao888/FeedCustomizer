@@ -1,5 +1,6 @@
 using FeedCustomizer.Core.Interface;
 using FeedCustomizer.Core.Infrastructure.Logging;
+using FeedCustomizer.Core.Feedback;
 using FeedCustomizer.Core.Tools;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
@@ -33,6 +34,9 @@ namespace FeedCustomizer
 
         public ExternalLaunchService ExternalLaunch { get; }
 
+        /// <summary>窗口生命周期内唯一的反馈服务，设置页和错误弹窗复用同一串行协调实例。</summary>
+        internal FeedbackService Feedback { get; }
+
         public MainWindow()
         {
             InitializeComponent();
@@ -43,7 +47,14 @@ namespace FeedCustomizer
                 root.Loaded += Root_Loaded;
             }
 
-            DialogService.Initialize(DispatcherQueue, GetXamlRoot, WaitForStartupVisualsHiddenAsync, _dialogGate);
+            Feedback = FeedbackService.CreateDefault();
+            DialogService.Initialize(
+                DispatcherQueue,
+                GetXamlRoot,
+                WaitForStartupVisualsHiddenAsync,
+                _dialogGate,
+                Feedback,
+                () => WinRT.Interop.WindowNative.GetWindowHandle(this));
             ExternalLaunch = new ExternalLaunchService(DispatcherQueue, GetXamlRoot, WaitForStartupVisualsHiddenAsync, _dialogGate);
 
             // 获取窗口信息

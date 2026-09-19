@@ -18,6 +18,10 @@
         public static readonly string DeveloperName = "窗边的贱猫";
         public static readonly string DeveloperLink = "https://gitee.com/jianmao888";
 
+        // 反馈邮件使用固定地址与固定标识。标识不会按邮件变化，便于开发者建立稳定的邮件整理规则。
+        public const string FeedbackEmailAddress = "jianmao888@outlook.com";
+        public const string FeedbackIdentifier = "7c64a21e-b32e-4ca8-b958-4e8758fe9e1b";
+
         // 贡献者名单，未来新增贡献者时在下方数组中追加即可
         public static readonly Contributor[] Contributors =
             [

@@ -564,4 +564,60 @@
     <value>Deployment cleanup has not completed, and the registration state is not confirmed. Review the diagnostics below and close any widgets that may be using the files before retrying.</value>
     <comment>补偿或完成清理失败时明确保留不确定状态</comment>
   </data>
+  <data name="LogsFeedbackTitle.Text" xml:space="preserve">
+    <value>Logs and feedback</value>
+    <comment>Title of the logs and feedback expander</comment>
+  </data>
+  <data name="LogsFeedbackSubtitle.Text" xml:space="preserve">
+    <value>Export diagnostic logs or contact the developer</value>
+    <comment>Subtitle of the logs and feedback expander</comment>
+  </data>
+  <data name="Settings_ExportLogsCard.Header" xml:space="preserve">
+    <value>Export logs</value>
+    <comment>Header of the log export card</comment>
+  </data>
+  <data name="Settings_ExportLogsCard.Description" xml:space="preserve">
+    <value>Package all retained application logs in the Downloads folder</value>
+    <comment>Description of the log export card</comment>
+  </data>
+  <data name="ExportLogsButton.Content" xml:space="preserve"><value>Export</value></data>
+  <data name="Settings_SendFeedbackCard.Header" xml:space="preserve"><value>Send feedback</value></data>
+  <data name="Settings_SendFeedbackCard.Description" xml:space="preserve">
+    <value>Export logs and contact the developer with your email app</value>
+  </data>
+  <data name="SendFeedbackButton.Content" xml:space="preserve"><value>Send feedback</value></data>
+  <data name="FeedbackSendButtonText" xml:space="preserve"><value>Send feedback</value></data>
+  <data name="FeedbackPreparingMessage" xml:space="preserve"><value>Exporting logs. Please wait…</value></data>
+  <data name="FeedbackArchiveFailureInlineMessage" xml:space="preserve">
+    <value>Logs could not be exported. The error was recorded; try again later or close this window.</value>
+  </data>
+  <data name="LogExportSuccessTitle" xml:space="preserve"><value>Logs exported</value></data>
+  <data name="LogExportSuccessMessageFormat" xml:space="preserve">
+    <value>Logs were exported to: “{0}”</value>
+  </data>
+  <data name="LogExportFailureTitle" xml:space="preserve"><value>Unable to export logs</value></data>
+  <data name="LogExportFailureMessage" xml:space="preserve">
+    <value>The log archive could not be created. Try again later. Details were written to the application log or debug output.</value>
+  </data>
+  <data name="FeedbackMailClientFailureTitle" xml:space="preserve"><value>Unable to open an email app</value></data>
+  <data name="FeedbackMailClientFailureMessageFormat" xml:space="preserve">
+    <value>Logs were exported to: “{0}”&#x0A;&#x0A;No email app could be opened. You can send the file manually to: {1}</value>
+  </data>
+  <data name="FeedbackUnexpectedFailureMessage" xml:space="preserve">
+    <value>An error occurred while preparing feedback. Try again later. Details were written to the application log or debug output.</value>
+  </data>
+  <data name="FeedbackMailSubject" xml:space="preserve"><value>FeedCustomizer Feedback</value></data>
+  <data name="FeedbackMailBodyFormat" xml:space="preserve">
+    <value>Describe the problem, reproduction steps, and expected result here:&#x0A;&#x0A;&#x0A;Source: {0}&#x0A;App version: {1}&#x0A;&#x0A;Privacy notice:&#x0A;The attached application logs are used for troubleshooting and may contain the Windows version, app version, operation stages, redacted file paths, and PowerShell error diagnostics. Review the message and attachment before sending.&#x0A;&#x0A;Log file: {2}&#x0A;Full log path: {3}&#x0A;&#x0A;If your email app did not attach the file automatically, add the ZIP file manually from the path above.&#x0A;&#x0A;Do not delete the following line; it is used to organize feedback email:&#x0A;FeedCustomizer-Feedback-ID: {4}</value>
+  </data>
+  <data name="FeedbackEmptyArchiveInformationFormat" xml:space="preserve">
+    <value>Export time: {0:O}&#x0A;Log session: {1}&#x0A;No FeedCustomizer log files were available. The logging system may not have initialized.</value>
+  </data>
+  <data name="FeedbackSource_Settings" xml:space="preserve"><value>Settings</value></data>
+  <data name="FeedbackSource_ProviderRegistration" xml:space="preserve"><value>Feed provider enablement or deployment</value></data>
+  <data name="FeedbackSource_Startup" xml:space="preserve"><value>Application startup or resource preparation</value></data>
+  <data name="FeedbackSource_RegionPolicy" xml:space="preserve"><value>Region restriction removal</value></data>
+  <data name="FeedbackSource_WidgetData" xml:space="preserve"><value>Widgets data cleanup</value></data>
+  <data name="FeedbackSource_WebIcon" xml:space="preserve"><value>Website icon retrieval</value></data>
+  <data name="FeedbackSource_Donation" xml:space="preserve"><value>Donor Edition purchase</value></data>
 </root>

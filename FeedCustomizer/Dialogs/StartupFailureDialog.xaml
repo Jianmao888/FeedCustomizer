@@ -6,8 +6,13 @@
     Style="{StaticResource DefaultContentDialogStyle}"
     x:Uid="StartupFailureDialog"
     DefaultButton="Close">
-    <Grid MinWidth="300" MaxWidth="380">
-        <ScrollViewer MaxHeight="420"
+    <Grid MinWidth="300" MaxWidth="460" RowSpacing="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        <ScrollViewer Grid.Row="0"
+                      MaxHeight="420"
                       HorizontalScrollBarVisibility="Disabled"
                       VerticalScrollBarVisibility="Auto">
             <TextBox x:Name="ErrorTextBox"
@@ -18,5 +23,9 @@
                      Padding="0"
                      FontFamily="Consolas" />
         </ScrollViewer>
+        <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="8" Visibility="Collapsed" x:Name="FeedbackStatusPanel">
+            <ProgressRing Width="16" Height="16" IsActive="False" x:Name="FeedbackProgressRing" />
+            <TextBlock x:Name="FeedbackStatusText" TextWrapping="Wrap" VerticalAlignment="Center" />
+        </StackPanel>
     </Grid>
 </ContentDialog>

@@ -1,10 +1,12 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using FeedCustomizer.Core.Constants;
+using FeedCustomizer.Core.Feedback;
 using FeedCustomizer.Core.Infrastructure.Logging;
 using FeedCustomizer.Core.Tools;
 using FeedCustomizer.Core.Models;
 using FeedCustomizer.Core.WidgetData;
+using AppConstants = FeedCustomizer.Core.Constants.Constants;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Media.Imaging;
 using Microsoft.Windows.ApplicationModel.Resources;
@@ -23,6 +25,7 @@ namespace FeedCustomizer.ViewModels
     {
         private static readonly IAppLog Log = AppLog.For<SettingsViewModel>();
         private readonly ResourceLoader _resourceLoader = new();
+        private readonly FeedbackService _feedbackService;
 
         /// <summary>Store 购买与许可证查询所需的窗口句柄，由页面初始化时传入。</summary>
         private IntPtr _windowHandle = IntPtr.Zero;
@@ -50,6 +53,12 @@ namespace FeedCustomizer.ViewModels
         [ObservableProperty]
         [NotifyCanExecuteChangedFor(nameof(ClearWidgetDataCommand))]
         public partial bool IsClearingWidgetData { get; set; }
+
+        /// <summary>日志导出或邮件启动期间禁用两个入口，避免用户重复创建归档和邮件窗口。</summary>
+        [ObservableProperty]
+        [NotifyCanExecuteChangedFor(nameof(ExportLogsCommand))]
+        [NotifyCanExecuteChangedFor(nameof(SendFeedbackCommand))]
+        public partial bool IsFeedbackOperationRunning { get; set; }
 
         /// <summary>是否已购买捐赠者版（控制捐赠按钮与感谢文案的显隐）。</summary>
         [ObservableProperty]
@@ -150,12 +159,19 @@ namespace FeedCustomizer.ViewModels
         /// <summary>请求显示或隐藏加载遮罩。</summary>
         public event EventHandler<bool>? LoadingOverlayRequested;
 
+        /// <summary>请求页面展示不带反馈按钮的普通结果，防止反馈功能自身失败后递归发送反馈。</summary>
+        public event EventHandler<SettingsMessageRequestedEventArgs>? MessageRequested;
+
+        /// <summary>请求页面展示可发送反馈的错误弹窗，视图模型不直接依赖具体 ContentDialog。</summary>
+        internal event EventHandler<SettingsErrorRequestedEventArgs>? ErrorRequested;
+
         // =====================
         // 构造函数与初始化
         // =====================
 
-        public SettingsViewModel()
+        internal SettingsViewModel(FeedbackService feedbackService)
         {
+            _feedbackService = feedbackService;
             _isInitializing = true;
             LoadSettings();
             _isInitializing = false;
@@ -298,6 +314,96 @@ namespace FeedCustomizer.ViewModels
             OpenLinkRequested?.Invoke(this, GiteeUrl);
         }
 
+        /// <summary>将全部保留日志打包到下载目录，并向用户展示 Windows 返回的实际完整路径。</summary>
+        [RelayCommand(CanExecute = nameof(CanRunFeedbackOperation))]
+        private async Task ExportLogsAsync()
+        {
+            IsFeedbackOperationRunning = true;
+            try
+            {
+                LogArchiveResult result = await _feedbackService.ExportLogsAsync();
+                if (result.Succeeded)
+                {
+                    RequestMessage(
+                        _resourceLoader.GetString("LogExportSuccessTitle"),
+                        string.Format(
+                            _resourceLoader.GetString("LogExportSuccessMessageFormat"),
+                            result.FullPath));
+                    return;
+                }
+
+                RequestMessage(
+                    _resourceLoader.GetString("LogExportFailureTitle"),
+                    _resourceLoader.GetString("LogExportFailureMessage"));
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "设置页导出日志失败");
+                RequestMessage(
+                    _resourceLoader.GetString("LogExportFailureTitle"),
+                    _resourceLoader.GetString("LogExportFailureMessage"));
+            }
+            finally
+            {
+                IsFeedbackOperationRunning = false;
+            }
+        }
+
+        /// <summary>导出日志后打开邮件客户端；客户端接管后不追踪用户是否发送。</summary>
+        [RelayCommand(CanExecute = nameof(CanRunFeedbackOperation))]
+        private async Task SendFeedbackAsync()
+        {
+            IsFeedbackOperationRunning = true;
+            try
+            {
+                FeedbackOperationResult result = await _feedbackService.SendAsync(
+                    FeedbackSource.Settings,
+                    _windowHandle);
+                if (result.MailClientLaunched)
+                {
+                    return;
+                }
+
+                if (result.Status == FeedbackOperationStatus.ArchiveFailed)
+                {
+                    RequestMessage(
+                        _resourceLoader.GetString("LogExportFailureTitle"),
+                        _resourceLoader.GetString("LogExportFailureMessage"));
+                    return;
+                }
+
+                RequestMessage(
+                    _resourceLoader.GetString("FeedbackMailClientFailureTitle"),
+                    string.Format(
+                        _resourceLoader.GetString("FeedbackMailClientFailureMessageFormat"),
+                        result.Archive.FullPath,
+                        AppConstants.FeedbackEmailAddress));
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "设置页打开反馈邮件失败");
+                RequestMessage(
+                    _resourceLoader.GetString("FeedbackMailClientFailureTitle"),
+                    _resourceLoader.GetString("FeedbackUnexpectedFailureMessage"));
+            }
+            finally
+            {
+                IsFeedbackOperationRunning = false;
+            }
+        }
+
+        private bool CanRunFeedbackOperation() => !IsFeedbackOperationRunning;
+
+        private void RequestMessage(string title, string message)
+        {
+            MessageRequested?.Invoke(
+                this,
+                new SettingsMessageRequestedEventArgs(
+                    title,
+                    message,
+                    _resourceLoader.GetString("DialogOK")));
+        }
+
         /// <summary>打开 GitHub 开源仓库链接。</summary>
         [RelayCommand]
         private void OpenGitHubLink()
@@ -349,10 +455,10 @@ namespace FeedCustomizer.ViewModels
             }
             else if (result == DonationPurchaseResult.Failed)
             {
-                await DialogService.ShowMessageAsync(
+                RequestError(
                     _resourceLoader.GetString("DonationErrorTitle"),
                     _resourceLoader.GetString("DonationErrorMessage"),
-                    _resourceLoader.GetString("DialogOK"));
+                    FeedbackSource.Donation);
             }
         }
 
@@ -401,17 +507,17 @@ namespace FeedCustomizer.ViewModels
                     break;
 
                 case RegionPolicyOperationResult.PolicyNotFound:
-                    await DialogService.ShowMessageAsync(
+                    RequestError(
                         _resourceLoader.GetString("RegionPolicyFailureTitle"),
                         BuildRegionPolicyFailureMessage(_resourceLoader.GetString("RegionPolicyPolicyNotFoundMessage")),
-                        _resourceLoader.GetString("DialogOK"));
+                        FeedbackSource.RegionPolicy);
                     break;
 
                 default:
-                    await DialogService.ShowMessageAsync(
+                    RequestError(
                         _resourceLoader.GetString("RegionPolicyFailureTitle"),
                         BuildRegionPolicyFailureMessage(_resourceLoader.GetString("RegionPolicyFailureMessage")),
-                        _resourceLoader.GetString("DialogOK"));
+                        FeedbackSource.RegionPolicy);
                     break;
             }
         }
@@ -454,12 +560,12 @@ namespace FeedCustomizer.ViewModels
                     return;
                 }
 
-                await DialogService.ShowMessageAsync(
+                RequestError(
                     _resourceLoader.GetString("WidgetDataFailureTitle"),
                     _resourceLoader.GetString(result.Status == WidgetDataClearStatus.Locked
                         ? "WidgetDataLockedMessage"
                         : "WidgetDataFailureMessage"),
-                    _resourceLoader.GetString("DialogOK"));
+                    FeedbackSource.WidgetData);
             }
             finally
             {
@@ -469,5 +575,22 @@ namespace FeedCustomizer.ViewModels
 
         /// <summary>同一设置页只允许一个确认或清理流程运行，跨页面实例由协调器继续串行保护。</summary>
         private bool CanClearWidgetData() => !IsClearingWidgetData;
+
+        private void RequestError(string title, string details, FeedbackSource source)
+        {
+            ErrorRequested?.Invoke(this, new SettingsErrorRequestedEventArgs(title, details, source));
+        }
     }
+
+    /// <summary>设置视图模型向页面请求展示的普通消息。</summary>
+    public sealed record SettingsMessageRequestedEventArgs(
+        string Title,
+        string Message,
+        string CloseButtonText);
+
+    /// <summary>设置视图模型向页面请求展示的可反馈错误。</summary>
+    internal sealed record SettingsErrorRequestedEventArgs(
+        string Title,
+        string Details,
+        FeedbackSource Source);
 }

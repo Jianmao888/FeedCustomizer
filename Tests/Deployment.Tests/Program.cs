@@ -1,10 +1,13 @@
+using FeedCustomizer.Core.Constants;
 using FeedCustomizer.Core.Deployment;
+using FeedCustomizer.Core.Feedback;
 using FeedCustomizer.Core.Infrastructure.Deployment;
 using FeedCustomizer.Core.Infrastructure.Logging;
 using FeedCustomizer.Core.Infrastructure.PowerShell;
 using FeedCustomizer.Core.Models;
 using FeedCustomizer.Core.Tools;
 using FeedCustomizer.Core.WidgetData;
+using System.IO.Compression;
 
 // 所有真实文件写入均限制在本次生成的临时目录；AppX/注册表/UAC 只使用替身，绝不改动机器注册状态。
 var tests = new (string Name, Func<Task> Run)[]
@@ -117,6 +120,17 @@ var tests = new (string Name, Func<Task> Run)[]
     ("地区策略脚本只使用执行器临时诊断", RegionPolicyUsesTemporaryDiagnosticsAsync),
     ("开发者模式脚本捕获操作与恢复错误", DeveloperModeCapturesFailureDiagnosticsAsync),
     ("PowerShell 失败日志包含脱敏诊断", PowerShellFailureLoggingAsync),
+    ("日志归档只包含顶层应用日志", LogArchiveSelectionAsync),
+    ("日志归档可读取正在追加的日志快照", ActiveLogArchiveAsync),
+    ("空日志归档包含诊断说明", EmptyLogArchiveAsync),
+    ("邮件调度在客户端接管后停止降级", FeedbackDispatcherStopsAfterHandledAsync),
+    ("邮件调度在通道不支持时继续降级", FeedbackDispatcherFallsBackAsync),
+    ("反馈邮箱与固定标识有效", () =>
+    {
+        Check(Constants.FeedbackEmailAddress == "jianmao888@outlook.com");
+        Check(Guid.TryParse(Constants.FeedbackIdentifier, out _));
+        return Task.CompletedTask;
+    }),
     ("旧地区策略诊断文件按固定路径清理", () =>
     {
         using var directory = new TestDirectory();
@@ -158,6 +172,96 @@ static void ExpectThrows(Action action)
     try { action(); } catch (InvalidDataException) { return; }
     throw new Exception("未拒绝非法路径。");
 }
+
+static async Task LogArchiveSelectionAsync()
+{
+    using var directory = new TestDirectory();
+    string nested = System.IO.Path.Combine(directory.Path, "nested");
+    Directory.CreateDirectory(nested);
+    File.WriteAllText(System.IO.Path.Combine(directory.Path, "FeedCustomizer-20260919.log"), "first");
+    File.WriteAllText(System.IO.Path.Combine(directory.Path, "unrelated.log"), "ignored");
+    File.WriteAllText(System.IO.Path.Combine(nested, "FeedCustomizer-nested.log"), "ignored");
+
+    await using var output = new MemoryStream();
+    int count = await LogArchiveBuilder.CreateAsync(directory.Path, output, "empty");
+    Check(count == 1);
+    output.Position = 0;
+    using var archive = new ZipArchive(output, ZipArchiveMode.Read, leaveOpen: true);
+    Check(archive.Entries.Count == 1);
+    Check(archive.Entries[0].Name == "FeedCustomizer-20260919.log");
+}
+
+static async Task EmptyLogArchiveAsync()
+{
+    using var directory = new TestDirectory();
+    await using var output = new MemoryStream();
+    int count = await LogArchiveBuilder.CreateAsync(directory.Path, output, "no logs");
+    Check(count == 0);
+    output.Position = 0;
+    using var archive = new ZipArchive(output, ZipArchiveMode.Read, leaveOpen: true);
+    ZipArchiveEntry information = archive.GetEntry("ExportInfo.txt")
+        ?? throw new Exception("空日志归档缺少说明文件。");
+    using var reader = new StreamReader(information.Open());
+    Check(await reader.ReadToEndAsync() == "no logs");
+}
+
+static async Task ActiveLogArchiveAsync()
+{
+    using var directory = new TestDirectory();
+    string logPath = System.IO.Path.Combine(directory.Path, "FeedCustomizer-active.log");
+    await using var activeLog = new FileStream(
+        logPath,
+        FileMode.CreateNew,
+        FileAccess.Write,
+        FileShare.ReadWrite | FileShare.Delete);
+    await activeLog.WriteAsync("active"u8.ToArray());
+    await activeLog.FlushAsync();
+
+    await using var output = new MemoryStream();
+    int count = await LogArchiveBuilder.CreateAsync(directory.Path, output, "empty");
+    Check(count == 1);
+    output.Position = 0;
+    using var archive = new ZipArchive(output, ZipArchiveMode.Read, leaveOpen: true);
+    using var reader = new StreamReader(archive.Entries.Single().Open());
+    Check(await reader.ReadToEndAsync() == "active");
+}
+
+static async Task FeedbackDispatcherStopsAfterHandledAsync()
+{
+    var first = new FakeFeedbackTransport(
+        "first",
+        FeedbackMailTransportStatus.ClientHandled,
+        attachmentRequested: true);
+    var second = new FakeFeedbackTransport(
+        "second",
+        FeedbackMailTransportStatus.Launched,
+        attachmentRequested: false);
+    var dispatcher = new FeedbackMailDispatcher([first, second]);
+    FeedbackMailTransportResult result = await dispatcher.LaunchAsync(CreateFeedbackMessage(), IntPtr.Zero);
+    Check(result.Status == FeedbackMailTransportStatus.ClientHandled);
+    Check(first.Calls == 1);
+    Check(second.Calls == 0);
+}
+
+static async Task FeedbackDispatcherFallsBackAsync()
+{
+    var first = new FakeFeedbackTransport(
+        "first",
+        FeedbackMailTransportStatus.Unsupported,
+        attachmentRequested: false);
+    var second = new FakeFeedbackTransport(
+        "second",
+        FeedbackMailTransportStatus.Launched,
+        attachmentRequested: false);
+    var dispatcher = new FeedbackMailDispatcher([first, second]);
+    FeedbackMailTransportResult result = await dispatcher.LaunchAsync(CreateFeedbackMessage(), IntPtr.Zero);
+    Check(result.Status == FeedbackMailTransportStatus.Launched);
+    Check(first.Calls == 1);
+    Check(second.Calls == 1);
+}
+
+static FeedbackMailMessage CreateFeedbackMessage() =>
+    new("feedback@example.com", "subject", "body", "archive.zip", "archive.zip");
 
 static async Task ScriptIntegrationAsync()
 {
@@ -391,6 +495,32 @@ sealed class CapturingExecutor : IPowerShellExecutor
     {
         Script = script;
         return Task.FromResult(new PowerShellResult(0, string.Empty, string.Empty));
+    }
+}
+
+sealed class FakeFeedbackTransport(
+    string name,
+    FeedbackMailTransportStatus status,
+    bool attachmentRequested) : IFeedbackMailTransport
+{
+    public string Name => name;
+
+    public int Calls { get; private set; }
+
+    public Task<FeedbackMailTransportResult> TryLaunchAsync(
+        FeedbackMailMessage message,
+        IntPtr ownerWindowHandle,
+        CancellationToken cancellationToken = default)
+    {
+        _ = message;
+        _ = ownerWindowHandle;
+        cancellationToken.ThrowIfCancellationRequested();
+        Calls++;
+        return Task.FromResult(new FeedbackMailTransportResult(
+            status,
+            name,
+            attachmentRequested,
+            string.Empty));
     }
 }
 

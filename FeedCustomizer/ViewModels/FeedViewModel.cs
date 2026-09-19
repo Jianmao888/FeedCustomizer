@@ -2,6 +2,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using FeedCustomizer.Core.Constants;
 using FeedCustomizer.Core.DataService;
+using FeedCustomizer.Core.Infrastructure.Logging;
 using FeedCustomizer.Core.Models;
 using FeedCustomizer.Core.Tools;
 using Microsoft.UI.Xaml.Media.Imaging;
@@ -18,6 +19,7 @@ namespace FeedCustomizer.ViewModels
     /// </summary>
     public partial class FeedViewModel : ObservableObject
     {
+        private static readonly IAppLog Log = AppLog.For<FeedViewModel>();
         private readonly ResourceLoader _resourceLoader = new();
 
         /// <summary>标记用户是否切换过图标模式（用于决定保存按钮是否可用）。</summary>
@@ -325,6 +327,7 @@ namespace FeedCustomizer.ViewModels
             }
             catch (Exception ex)
             {
+                Log.Error(ex, "保存源时获取网页图标失败");
                 string details = string.Join(
                     Environment.NewLine,
                     $"URL: {websiteUri?.AbsoluteUri ?? Url}",
