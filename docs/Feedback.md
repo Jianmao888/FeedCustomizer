@@ -4,9 +4,9 @@
 
 应用日志仍以 MSIX 私有数据目录中的 `Local\Logs` 为唯一来源。日志导出只读取该目录顶层的 `FeedCustomizer-*.log`，不会包含 Provider 清单、订阅源配置、用户图片或注册目录文件。
 
-ZIP 先使用随机名称在 `ApplicationData.TemporaryFolder` 中完整构建，再复制到用户下载目录。临时文件在 `finally` 中按已验证的精确路径删除；复制失败时还会尽力删除不完整的下载文件。成功导出的 ZIP 属于用户文件，不受应用日志的 14 天保留策略管理。
+ZIP 先使用随机名称在 `ApplicationData.TemporaryFolder` 中完整构建，再写入用户下载目录。临时文件在 `finally` 中按已验证的精确路径删除；写入失败时还会尽力删除不完整的下载文件。成功导出的 ZIP 属于用户文件，不受应用日志的 14 天保留策略管理。
 
-`DownloadsFolder` 返回的物理路径包含 AUMID 目录（例如 `包系列名!App`），但资源管理器会把该目录显示为应用名称。归档结果因此同时保留“物理附件路径”和“用户显示路径”：MAPI 始终读取未经修改的物理路径，界面与邮件正文将该精确 AUMID 目录段显示为 `FeedCustomizer`，避免用户按提示查找时看到不同的目录名。
+归档器通过 Windows 已知文件夹 API 读取用户实际配置的 Downloads 目录（包括用户迁移 Downloads 的情况），再直接创建 `Downloads\FeedCustomizer`。这绕过了 `DownloadsFolder` 面向沙盒应用的 AUMID 子目录规则，因此 ZIP 附件、邮件正文和界面提示都使用同一个真实路径，不会出现 `包系列名!App` 目录。
 
 当前日志仍可能由 Serilog 追加。归档器以共享读取方式打开每个文件，并且只复制打开瞬间的长度，避免中断应用日志或因为持续追加而无法结束。日志目录为空时，ZIP 中写入 `ExportInfo.txt`，用于说明日志系统可能未初始化。
 

@@ -1,4 +1,5 @@
 using AppConstants = FeedCustomizer.Core.Constants.Constants;
+using FeedCustomizer.Core.Infrastructure.Feedback;
 using FeedCustomizer.Core.Infrastructure.Logging;
 using FeedCustomizer.Core.Tools;
 using System;
@@ -6,7 +7,6 @@ using System.Globalization;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
-using Windows.ApplicationModel;
 using Windows.Storage;
 
 namespace FeedCustomizer.Core.Feedback;
@@ -19,7 +19,7 @@ internal sealed class LogArchiveService
 {
     private static readonly IAppLog Log = AppLog.For<LogArchiveService>();
 
-    /// <summary>导出日志并同时返回附件物理路径与资源管理器风格的显示路径。</summary>
+    /// <summary>将日志写入真实 Downloads\FeedCustomizer 目录，并返回可直接打开和附加的完整路径。</summary>
     internal async Task<LogArchiveResult> ExportToDownloadsAsync(
         string emptyArchiveInformation,
         CancellationToken cancellationToken = default)
@@ -30,13 +30,14 @@ internal sealed class LogArchiveService
         string temporaryPath = Path.Combine(
             temporaryFolder,
             $"FeedCustomizer-Logs-{Guid.NewGuid():N}.tmp");
-        StorageFile? exportedFile = null;
+        string exportDirectory = string.Empty;
+        string exportedPath = string.Empty;
 
         try
         {
             Log.Information("开始导出日志归档，目标文件={ArchiveName}", fileName);
             // 临时文件名完全由应用生成，并再次验证仍位于私有临时目录，避免清理路径越界。
-            EnsureChildPath(temporaryFolder, temporaryPath);
+            LogArchiveDestination.EnsureChildPath(temporaryFolder, temporaryPath);
             int logFileCount;
             await using (var temporaryStream = new FileStream(
                 temporaryPath,
@@ -54,9 +55,12 @@ internal sealed class LogArchiveService
                 await temporaryStream.FlushAsync(cancellationToken);
             }
 
-            exportedFile = await DownloadsFolder.CreateFileAsync(
-                fileName,
-                CreationCollisionOption.GenerateUniqueName);
+            string downloadsDirectory = WindowsDownloadsDirectory.GetPath();
+            exportDirectory = LogArchiveDestination.CreateDirectoryPath(
+                downloadsDirectory,
+                AppConstants.FeedbackExportFolderName);
+            Directory.CreateDirectory(exportDirectory);
+
             await using (Stream source = new FileStream(
                 temporaryPath,
                 FileMode.Open,
@@ -64,46 +68,34 @@ internal sealed class LogArchiveService
                 FileShare.Read,
                 81920,
                 FileOptions.Asynchronous | FileOptions.SequentialScan))
-            await using (Stream destination = await exportedFile.OpenStreamForWriteAsync())
+            await using (FileStream destination = CreateExportDestinationStream(
+                exportDirectory,
+                fileName,
+                out exportedPath))
             {
-                destination.SetLength(0);
                 await source.CopyToAsync(destination, cancellationToken);
                 await destination.FlushAsync(cancellationToken);
             }
 
-            string physicalPath = string.IsNullOrWhiteSpace(exportedFile.Path)
-                ? exportedFile.Name
-                : exportedFile.Path;
-            string displayPath = LogArchivePathFormatter.CreateDisplayPath(
-                physicalPath,
-                AppInfo.Current.AppUserModelId,
-                AppConstants.FeedbackExportFolderDisplayName);
             Log.Information(
                 "日志归档已导出，文件={ArchiveName}，日志数量={LogFileCount}",
-                exportedFile.Name,
+                Path.GetFileName(exportedPath),
                 logFileCount);
             return LogArchiveResult.Success(
-                exportedFile.Name,
-                physicalPath,
-                displayPath,
+                Path.GetFileName(exportedPath),
+                exportedPath,
                 logFileCount);
         }
         catch (OperationCanceledException)
         {
-            if (exportedFile is not null)
-            {
-                await DeleteIncompleteExportAsync(exportedFile);
-            }
+            DeleteIncompleteExport(exportDirectory, exportedPath);
 
             throw;
         }
         catch (Exception ex)
         {
             Log.Error(ex, "导出日志归档失败");
-            if (exportedFile is not null)
-            {
-                await DeleteIncompleteExportAsync(exportedFile);
-            }
+            DeleteIncompleteExport(exportDirectory, exportedPath);
 
             return LogArchiveResult.Failure(LogPrivacy.RedactException(ex));
         }
@@ -113,30 +105,66 @@ internal sealed class LogArchiveService
         }
     }
 
-    private static void EnsureChildPath(string parentPath, string childPath)
+    private static FileStream CreateExportDestinationStream(
+        string exportDirectory,
+        string requestedFileName,
+        out string exportedPath)
     {
-        string fullParent = Path.GetFullPath(parentPath)
-            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
-        string fullChild = Path.GetFullPath(childPath);
-        if (!fullChild.StartsWith(fullParent, StringComparison.OrdinalIgnoreCase))
+        const int maximumCollisionCount = 100;
+        string fileNameWithoutExtension = Path.GetFileNameWithoutExtension(requestedFileName);
+        string extension = Path.GetExtension(requestedFileName);
+
+        for (int collisionIndex = 0; collisionIndex < maximumCollisionCount; collisionIndex++)
         {
-            throw new InvalidOperationException("日志归档临时路径超出应用私有临时目录。");
+            string fileName = collisionIndex == 0
+                ? requestedFileName
+                : $"{fileNameWithoutExtension} ({collisionIndex}){extension}";
+            string candidatePath = Path.Combine(exportDirectory, fileName);
+            LogArchiveDestination.EnsureChildPath(exportDirectory, candidatePath);
+
+            try
+            {
+                FileStream stream = new(
+                    candidatePath,
+                    FileMode.CreateNew,
+                    FileAccess.Write,
+                    FileShare.None,
+                    81920,
+                    FileOptions.Asynchronous | FileOptions.SequentialScan);
+                exportedPath = candidatePath;
+                return stream;
+            }
+            catch (IOException) when (File.Exists(candidatePath))
+            {
+                // 与 DownloadsFolder.GenerateUniqueName 等价：只对已存在的同名文件有限次改名重试。
+            }
         }
+
+        throw new IOException("无法在下载目录中分配唯一的日志归档文件名。");
     }
 
-    private static async Task DeleteIncompleteExportAsync(StorageFile exportedFile)
+    private static void DeleteIncompleteExport(string exportDirectory, string exportedPath)
     {
+        if (string.IsNullOrWhiteSpace(exportDirectory) || string.IsNullOrWhiteSpace(exportedPath))
+        {
+            return;
+        }
+
         try
         {
-            await exportedFile.DeleteAsync(StorageDeleteOption.PermanentDelete);
+            LogArchiveDestination.EnsureChildPath(exportDirectory, exportedPath);
+            if (File.Exists(exportedPath))
+            {
+                File.Delete(exportedPath);
+            }
         }
         catch (Exception cleanupException)
         {
-            // 下载文件删除失败不能覆盖原始导出异常；文件名足以提示开发者人工检查，不记录完整用户路径。
+            // 下载文件删除失败不能覆盖原始导出异常；只记录文件名，避免将完整用户路径写入日志。
             Log.Warning(
                 cleanupException,
                 "删除不完整日志归档失败，文件={ArchiveName}",
-                exportedFile.Name);
+                Path.GetFileName(exportedPath));
         }
     }
 
@@ -144,7 +172,7 @@ internal sealed class LogArchiveService
     {
         try
         {
-            EnsureChildPath(temporaryFolder, temporaryPath);
+            LogArchiveDestination.EnsureChildPath(temporaryFolder, temporaryPath);
             if (File.Exists(temporaryPath))
             {
                 File.Delete(temporaryPath);

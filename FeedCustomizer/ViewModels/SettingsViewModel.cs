@@ -328,7 +328,7 @@ namespace FeedCustomizer.ViewModels
                         _resourceLoader.GetString("LogExportSuccessTitle"),
                         string.Format(
                             _resourceLoader.GetString("LogExportSuccessMessageFormat"),
-                            result.DisplayPath));
+                            result.FullPath));
                     return;
                 }
 
@@ -407,7 +407,7 @@ namespace FeedCustomizer.ViewModels
                     _resourceLoader.GetString("FeedbackMailClientFailureTitle"),
                     string.Format(
                         _resourceLoader.GetString("FeedbackMailClientFailureMessageFormat"),
-                        result.Archive.DisplayPath,
+                        result.Archive.FullPath,
                         AppConstants.FeedbackEmailAddress));
             }
             catch (Exception ex)

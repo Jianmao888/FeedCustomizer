@@ -123,24 +123,24 @@ var tests = new (string Name, Func<Task> Run)[]
     ("日志归档只包含顶层应用日志", LogArchiveSelectionAsync),
     ("日志归档可读取正在追加的日志快照", ActiveLogArchiveAsync),
     ("空日志归档包含诊断说明", EmptyLogArchiveAsync),
-    ("日志显示路径隐藏包身份目录", () =>
+    ("日志导出目录位于真实下载目录", () =>
     {
-        string physicalPath = @"C:\Users\test\Downloads\D454B137.Jianmao.FeedCustomizer_mkm6n7727qak2!App\FeedCustomizer-Logs.zip";
-        string displayPath = LogArchivePathFormatter.CreateDisplayPath(
-            physicalPath,
-            "D454B137.Jianmao.FeedCustomizer_mkm6n7727qak2!App",
+        string exportDirectory = LogArchiveDestination.CreateDirectoryPath(
+            @"C:\Users\test\Downloads",
             "FeedCustomizer");
-        Check(displayPath == @"C:\Users\test\Downloads\FeedCustomizer\FeedCustomizer-Logs.zip");
+        Check(exportDirectory == @"C:\Users\test\Downloads\FeedCustomizer");
+
+        string rootDirectory = LogArchiveDestination.CreateDirectoryPath(
+            @"D:\",
+            "FeedCustomizer");
+        Check(rootDirectory == @"D:\FeedCustomizer");
         return Task.CompletedTask;
     }),
-    ("日志显示路径不改写无关目录", () =>
+    ("日志导出目录拒绝越界", () =>
     {
-        string physicalPath = @"C:\Users\test\Downloads\OtherApp\FeedCustomizer-Logs.zip";
-        string displayPath = LogArchivePathFormatter.CreateDisplayPath(
-            physicalPath,
-            "D454B137.Jianmao.FeedCustomizer_mkm6n7727qak2!App",
-            "FeedCustomizer");
-        Check(displayPath == physicalPath);
+        ExpectThrows(() => LogArchiveDestination.CreateDirectoryPath(
+            @"C:\Users\test\Downloads",
+            @"..\Outside"));
         return Task.CompletedTask;
     }),
     ("邮件调度在客户端接管后停止降级", FeedbackDispatcherStopsAfterHandledAsync),
