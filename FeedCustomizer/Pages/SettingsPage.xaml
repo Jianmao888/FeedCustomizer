@@ -5,8 +5,17 @@
     xmlns:constants="using:FeedCustomizer.Core.Constants"
     xmlns:controls="using:CommunityToolkit.WinUI.Controls">
 
+    <!--
+        整页布局约定：
+        1. 页面自上而下按“外观 / 日志与反馈 / 高级 / 捐赠 / 关于”分五组，每组用 FontSize=14 + SemiBold 的标题区分；
+           分组标题与卡片文案一律通过 x:Uid 关联资源文件，不在 XAML 中写死可本地化文本。
+        2. 可重排顺序仅指组内选项：外观组的单选索引与 SettingsViewModel 中的映射表一一对应，
+           调整条目顺序会改变已保存配置的含义，新增选项只能追加在末尾。
+        3. 所有交互命令都绑定到 SettingsViewModel，页面后置代码只保留聚焦、打开外部链接等纯 UI 行为。
+    -->
     <ScrollViewer Padding="20,20,20,0">
         <StackPanel Spacing="32">
+            <!-- 外观组：主题与背景材质，用户修改后立即持久化并对主窗口生效，无需额外的“应用”按钮。 -->
             <StackPanel Spacing="3">
                 <TextBlock x:Uid="AppearanceGroup" FontSize="14" Margin="0,0,0,6" FontWeight="SemiBold"/>
 
@@ -20,6 +29,10 @@
                             </StackPanel>
                         </StackPanel>
                     </Expander.Header>
+                    <!--
+                        单选索引是页面与 SettingsViewModel.ThemeIndex 之间的隐式契约：0=跟随系统、1=浅色、2=深色。
+                        增删或调整条目顺序都会改变已持久化设置的含义，只能追加到末尾；Tag 仅作语义标记，未参与逻辑。
+                    -->
                     <RadioButtons SelectedIndex="{x:Bind ViewModel.ThemeIndex, Mode=TwoWay}" Padding="12,0,0,12">
                         <RadioButton x:Uid="ThemeSystem" Tag="System"/>
                         <RadioButton x:Uid="ThemeLight" Tag="Light"/>
@@ -37,6 +50,10 @@
                             </StackPanel>
                         </StackPanel>
                     </Expander.Header>
+                    <!--
+                        索引同样与 SettingsViewModel.MaterialIndex 绑定：0=Mica、1=Mica Alt、2=Acrylic，只能追加不能重排。
+                        Content 直接写死是因为材质名属于系统专有名词，各语言下保持一致，无需进入资源文件。
+                    -->
                     <RadioButtons SelectedIndex="{x:Bind ViewModel.MaterialIndex, Mode=TwoWay}" Padding="12,0,0,12">
                         <RadioButton Content="Mica" Tag="Mica"/>
                         <RadioButton Content="Mica Alt" Tag="MicaAlt"/>
@@ -45,6 +62,11 @@
                 </Expander>
             </StackPanel>
 
+            <!--
+                日志与反馈组：内容区需要承载多个 SettingsCard，因此此处使用 HorizontalContentAlignment=Stretch
+                （其余展开器沿用 Left），让卡片横向铺满。导出日志与发送反馈共用同一个运行状态标志，
+                命令的 CanExecute 由视图模型控制，任一操作进行中两个按钮会同时禁用，防止重复生成归档与邮件窗口。
+            -->
             <Expander IsExpanded="False" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" MinHeight="70">
                 <Expander.Header>
                     <StackPanel Orientation="Horizontal" Spacing="12">
@@ -55,6 +77,7 @@
                         </StackPanel>
                     </StackPanel>
                 </Expander.Header>
+                <!-- 卡片文案（标题、说明）全部来自资源文件；日志导出路径与失败提示由视图模型拼装，此处只负责触发。 -->
                 <StackPanel Spacing="3" Padding="0,0,0,12">
                     <controls:SettingsCard x:Uid="Settings_ExportLogsCard" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" MinHeight="64" Padding="16,0">
                         <controls:SettingsCard.HeaderIcon>
@@ -71,20 +94,27 @@
                 </StackPanel>
             </Expander>
 
+            <!-- 高级组：包含会修改系统或应用外状态的设置，均带有不可逆影响，确认流程统一放在视图模型中。 -->
             <StackPanel Spacing="3">
                 <TextBlock x:Uid="AdvancedGroup" FontSize="14" Margin="0,0,0,6" FontWeight="SemiBold"/>
+                <!-- 双向绑定到累积属性：切换后由视图模型立即写入本地设置，下次启动时再据此决定是否开启开发者模式。 -->
                 <controls:SettingsCard x:Uid="Settings_AutoDeveloperModeCard" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" MinHeight="70" Padding="16,0">
                     <controls:SettingsCard.HeaderIcon>
                         <FontIcon Glyph="&#xE7EF;" />
                     </controls:SettingsCard.HeaderIcon>
                     <ToggleSwitch IsOn="{x:Bind ViewModel.IsAutoDeveloperModeEnabled, Mode=TwoWay}" HorizontalAlignment="Right"/>
                 </controls:SettingsCard>
+                <!--
+                    解除地区限制会提权修改系统策略，属于高影响操作：确认弹窗、提权执行、加载遮罩和结果反馈
+                    全部由视图模型编排。此处必须保留 x:Name，供后置代码在带 "RegionPolicy" 导航参数进入本页时聚焦该按钮。
+                -->
                 <controls:SettingsCard x:Uid="Settings_RegionPolicyCard" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" MinHeight="70" Padding="16,0">
                     <controls:SettingsCard.HeaderIcon>
                         <FontIcon Glyph="&#xE72E;" />
                     </controls:SettingsCard.HeaderIcon>
                     <Button x:Name="UnlockRegionPolicyButton" x:Uid="UnlockRegionPolicyButton" HorizontalAlignment="Right" Command="{x:Bind ViewModel.UnlockRegionPolicyCommand}"/>
                 </controls:SettingsCard>
+                <!-- 清除小组件数据会删除 WebView 本地 Profile 且无法恢复，破坏性范围警告由视图模型在执行前给出。 -->
                 <controls:SettingsCard x:Uid="Settings_ClearWidgetDataCard" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" MinHeight="70" Padding="16,0">
                     <controls:SettingsCard.HeaderIcon>
                         <FontIcon Glyph="&#xE74D;" />
@@ -93,12 +123,17 @@
                 </controls:SettingsCard>
             </StackPanel>
 
+            <!-- 捐赠组：购买状态由 Store 许可证查询异步刷新，未完成时默认按“未购买”展示，避免误隐藏入口。 -->
             <StackPanel Spacing="3">
                 <TextBlock x:Uid="DonationGroup" FontSize="14" Margin="0,0,0,6" FontWeight="SemiBold"/>
                 <controls:SettingsCard x:Uid="DonationCard" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" MinHeight="70" Padding="16,0">
                     <controls:SettingsCard.HeaderIcon>
                         <FontIcon Glyph="&#xE00B;" />
                     </controls:SettingsCard.HeaderIcon>
+                    <!--
+                        捐赠按钮与感谢文案互斥：可见性由同一个 IsDonorEditionPurchased 派生的两个属性驱动，
+                        即使购买在 Store 侧立即完成，也不会出现两个控件同时显示的中间态。
+                    -->
                     <StackPanel Orientation="Horizontal" Spacing="12" HorizontalAlignment="Right" VerticalAlignment="Center">
                         <Button x:Uid="DonateButton" Style="{StaticResource AccentButtonStyle}" Command="{x:Bind ViewModel.DonateCommand}" Visibility="{x:Bind ViewModel.DonateButtonVisibility, Mode=OneWay}"/>
                         <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" Visibility="{x:Bind ViewModel.DonationThanksVisibility, Mode=OneWay}">
@@ -109,10 +144,15 @@
                 </controls:SettingsCard>
             </StackPanel>
 
+            <!-- 关于组：作为页面最后一组，额外留出底部外边距，避免展开后最后一个链接紧贴滚动区底部边缘。 -->
             <StackPanel Spacing="3" Margin="0,0,0,20">
                 <TextBlock x:Uid="AboutGroup" FontSize="14" Margin="0,0,0,6" FontWeight="SemiBold"/>
                 <Expander IsExpanded="False" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" MinHeight="70">
                     <Expander.Header>
+                        <!--
+                            三列布局依次容纳应用图标、名称与版权行、版本号；版本号使用 Auto 列靠右对齐，
+                            图标与名称分别通过 Image 尺寸和 Margin 手工对齐，未使用 Grid 行高约束。
+                        -->
                         <Grid HorizontalAlignment="Stretch" Margin="1,0,0,0">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto"/>
@@ -131,6 +171,7 @@
                                         Padding="5,0,5,0"
                                         FontSize="12"
                                         Opacity="0.7">
+                                        <!-- HyperlinkButton 自带的内边距使其文字基线低于相邻 TextBlock，上移 1px 让版权行视觉对齐。 -->
                                         <HyperlinkButton.RenderTransform>
                                             <TranslateTransform Y="-1" />
                                         </HyperlinkButton.RenderTransform>
@@ -144,6 +185,7 @@
                     <StackPanel Spacing="8">
                         <StackPanel>
                             <TextBlock x:Uid="AboutOpenSourceLink" FontSize="13" Opacity="0.6" Padding="0,0,0,4"/>
+                            <!-- 仓库名是品牌标识，不参与本地化，因此直接写死 Content，链接地址由视图模型常量提供。 -->
                             <StackPanel Orientation="Horizontal" Spacing="12">
                                 <HyperlinkButton Content="Gitee" Command="{x:Bind ViewModel.OpenGiteeLinkCommand}" Padding="0" FontSize="13"/>
                                 <HyperlinkButton Content="GitHub" Command="{x:Bind ViewModel.OpenGitHubLinkCommand}" Padding="0" FontSize="13"/>
@@ -151,6 +193,11 @@
                         </StackPanel>
                         <StackPanel>
                             <TextBlock x:Uid="AboutContributors" FontSize="13" Opacity="0.6" Padding="0,8,0,4"/>
+                            <!--
+                                Contributors 是只读静态列表，用 OneTime 绑定即可，无需订阅集合变更。
+                                模板内使用 Click 事件而非 Command：贡献者对象通过 Tag 回传给后置代码再交给视图模型，
+                                可避免为每个条目额外创建命令绑定或参数包装。
+                            -->
                             <ItemsControl ItemsSource="{x:Bind ViewModel.Contributors, Mode=OneTime}">
                                 <ItemsControl.ItemsPanel>
                                     <ItemsPanelTemplate>
