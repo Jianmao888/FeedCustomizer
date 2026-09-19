@@ -1,3 +1,4 @@
+using AppConstants = FeedCustomizer.Core.Constants.Constants;
 using FeedCustomizer.Core.Infrastructure.Logging;
 using FeedCustomizer.Core.Tools;
 using System;
@@ -5,6 +6,7 @@ using System.Globalization;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using Windows.ApplicationModel;
 using Windows.Storage;
 
 namespace FeedCustomizer.Core.Feedback;
@@ -17,7 +19,7 @@ internal sealed class LogArchiveService
 {
     private static readonly IAppLog Log = AppLog.For<LogArchiveService>();
 
-    /// <summary>导出日志并返回 Windows 实际创建的完整路径。</summary>
+    /// <summary>导出日志并同时返回附件物理路径与资源管理器风格的显示路径。</summary>
     internal async Task<LogArchiveResult> ExportToDownloadsAsync(
         string emptyArchiveInformation,
         CancellationToken cancellationToken = default)
@@ -69,14 +71,22 @@ internal sealed class LogArchiveService
                 await destination.FlushAsync(cancellationToken);
             }
 
-            string fullPath = string.IsNullOrWhiteSpace(exportedFile.Path)
+            string physicalPath = string.IsNullOrWhiteSpace(exportedFile.Path)
                 ? exportedFile.Name
                 : exportedFile.Path;
+            string displayPath = LogArchivePathFormatter.CreateDisplayPath(
+                physicalPath,
+                AppInfo.Current.AppUserModelId,
+                AppConstants.FeedbackExportFolderDisplayName);
             Log.Information(
                 "日志归档已导出，文件={ArchiveName}，日志数量={LogFileCount}",
                 exportedFile.Name,
                 logFileCount);
-            return LogArchiveResult.Success(exportedFile.Name, fullPath, logFileCount);
+            return LogArchiveResult.Success(
+                exportedFile.Name,
+                physicalPath,
+                displayPath,
+                logFileCount);
         }
         catch (OperationCanceledException)
         {

@@ -123,6 +123,26 @@ var tests = new (string Name, Func<Task> Run)[]
     ("日志归档只包含顶层应用日志", LogArchiveSelectionAsync),
     ("日志归档可读取正在追加的日志快照", ActiveLogArchiveAsync),
     ("空日志归档包含诊断说明", EmptyLogArchiveAsync),
+    ("日志显示路径隐藏包身份目录", () =>
+    {
+        string physicalPath = @"C:\Users\test\Downloads\D454B137.Jianmao.FeedCustomizer_mkm6n7727qak2!App\FeedCustomizer-Logs.zip";
+        string displayPath = LogArchivePathFormatter.CreateDisplayPath(
+            physicalPath,
+            "D454B137.Jianmao.FeedCustomizer_mkm6n7727qak2!App",
+            "FeedCustomizer");
+        Check(displayPath == @"C:\Users\test\Downloads\FeedCustomizer\FeedCustomizer-Logs.zip");
+        return Task.CompletedTask;
+    }),
+    ("日志显示路径不改写无关目录", () =>
+    {
+        string physicalPath = @"C:\Users\test\Downloads\OtherApp\FeedCustomizer-Logs.zip";
+        string displayPath = LogArchivePathFormatter.CreateDisplayPath(
+            physicalPath,
+            "D454B137.Jianmao.FeedCustomizer_mkm6n7727qak2!App",
+            "FeedCustomizer");
+        Check(displayPath == physicalPath);
+        return Task.CompletedTask;
+    }),
     ("邮件调度在客户端接管后停止降级", FeedbackDispatcherStopsAfterHandledAsync),
     ("邮件调度在通道不支持时继续降级", FeedbackDispatcherFallsBackAsync),
     ("反馈邮箱与固定标识有效", () =>

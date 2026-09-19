@@ -20,14 +20,14 @@ internal sealed class FeedbackMessageBuilder
             sourceText,
             GetAppVersion(),
             archive.FileName,
-            archive.FullPath,
+            archive.DisplayPath,
             AppConstants.FeedbackIdentifier);
 
         return new FeedbackMailMessage(
             AppConstants.FeedbackEmailAddress,
             _resourceLoader.GetString("FeedbackMailSubject"),
             body,
-            archive.FullPath,
+            archive.PhysicalPath,
             archive.FileName);
     }
 

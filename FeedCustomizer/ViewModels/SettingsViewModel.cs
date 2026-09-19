@@ -314,7 +314,7 @@ namespace FeedCustomizer.ViewModels
             OpenLinkRequested?.Invoke(this, GiteeUrl);
         }
 
-        /// <summary>将全部保留日志打包到下载目录，并向用户展示 Windows 返回的实际完整路径。</summary>
+        /// <summary>将全部保留日志打包到下载目录，并展示与资源管理器一致的完整路径。</summary>
         [RelayCommand(CanExecute = nameof(CanRunFeedbackOperation))]
         private async Task ExportLogsAsync()
         {
@@ -328,7 +328,7 @@ namespace FeedCustomizer.ViewModels
                         _resourceLoader.GetString("LogExportSuccessTitle"),
                         string.Format(
                             _resourceLoader.GetString("LogExportSuccessMessageFormat"),
-                            result.FullPath));
+                            result.DisplayPath));
                     return;
                 }
 
@@ -349,22 +349,19 @@ namespace FeedCustomizer.ViewModels
             }
         }
 
-        /// <summary>导出日志后打开邮件客户端；客户端接管后不追踪用户是否发送。</summary>
+        /// <summary>
+        /// 导出日志后启动邮件流程。命令只等待归档完成，不等待同步式 MAPI 返回，
+        /// 否则某些客户端会让 AsyncRelayCommand 长期处于执行中并持续禁用按钮。
+        /// </summary>
         [RelayCommand(CanExecute = nameof(CanRunFeedbackOperation))]
         private async Task SendFeedbackAsync()
         {
             IsFeedbackOperationRunning = true;
             try
             {
-                FeedbackOperationResult result = await _feedbackService.SendAsync(
-                    FeedbackSource.Settings,
-                    _windowHandle);
-                if (result.MailClientLaunched)
-                {
-                    return;
-                }
-
-                if (result.Status == FeedbackOperationStatus.ArchiveFailed)
+                FeedbackPreparationResult preparation = await _feedbackService.PrepareAsync(
+                    FeedbackSource.Settings);
+                if (!preparation.Succeeded || preparation.PreparedFeedback is null)
                 {
                     RequestMessage(
                         _resourceLoader.GetString("LogExportFailureTitle"),
@@ -372,12 +369,8 @@ namespace FeedCustomizer.ViewModels
                     return;
                 }
 
-                RequestMessage(
-                    _resourceLoader.GetString("FeedbackMailClientFailureTitle"),
-                    string.Format(
-                        _resourceLoader.GetString("FeedbackMailClientFailureMessageFormat"),
-                        result.Archive.FullPath,
-                        AppConstants.FeedbackEmailAddress));
+                // 后台观察任务内部会捕获全部异常并在必要时请求 UI 提示，不能留下未观察任务异常。
+                _ = ObserveFeedbackLaunchAsync(preparation.PreparedFeedback, _windowHandle);
             }
             catch (Exception ex)
             {
@@ -389,6 +382,40 @@ namespace FeedCustomizer.ViewModels
             finally
             {
                 IsFeedbackOperationRunning = false;
+            }
+        }
+
+        /// <summary>
+        /// 观察邮件通道最终结果，但不延长设置命令的执行时间。这样邮件客户端即使长期保持
+        /// MAPISendMailW 调用，两个设置按钮也能在日志准备完成后恢复。
+        /// </summary>
+        private async Task ObserveFeedbackLaunchAsync(
+            PreparedFeedback preparedFeedback,
+            IntPtr ownerWindowHandle)
+        {
+            try
+            {
+                FeedbackOperationResult result = await _feedbackService.LaunchPreparedAsync(
+                    preparedFeedback,
+                    ownerWindowHandle);
+                if (result.MailClientLaunched)
+                {
+                    return;
+                }
+
+                RequestMessage(
+                    _resourceLoader.GetString("FeedbackMailClientFailureTitle"),
+                    string.Format(
+                        _resourceLoader.GetString("FeedbackMailClientFailureMessageFormat"),
+                        result.Archive.DisplayPath,
+                        AppConstants.FeedbackEmailAddress));
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "设置页后台观察反馈邮件失败");
+                RequestMessage(
+                    _resourceLoader.GetString("FeedbackMailClientFailureTitle"),
+                    _resourceLoader.GetString("FeedbackUnexpectedFailureMessage"));
             }
         }
 

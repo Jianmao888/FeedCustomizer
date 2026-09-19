@@ -16,19 +16,27 @@ internal enum FeedbackSource
     Donation
 }
 
-/// <summary>日志归档结果。成功时提供 Windows 返回的实际完整路径，失败时保留安全诊断。</summary>
+/// <summary>
+/// 日志归档结果。物理路径仅供附件读取，显示路径将 DownloadsFolder 的包身份目录映射为资源管理器名称，
+/// 避免把用户在资源管理器中看不到的 AUMID 目录名直接展示给用户。
+/// </summary>
 internal sealed record LogArchiveResult(
     bool Succeeded,
     string FileName,
-    string FullPath,
+    string PhysicalPath,
+    string DisplayPath,
     int LogFileCount,
     string Error)
 {
-    internal static LogArchiveResult Success(string fileName, string fullPath, int logFileCount) =>
-        new(true, fileName, fullPath, logFileCount, string.Empty);
+    internal static LogArchiveResult Success(
+        string fileName,
+        string physicalPath,
+        string displayPath,
+        int logFileCount) =>
+        new(true, fileName, physicalPath, displayPath, logFileCount, string.Empty);
 
     internal static LogArchiveResult Failure(string error) =>
-        new(false, string.Empty, string.Empty, 0, error);
+        new(false, string.Empty, string.Empty, string.Empty, 0, error);
 }
 
 /// <summary>传递给邮件基础设施的不可变消息，不包含邮件客户端或 UI 类型。</summary>

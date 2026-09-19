@@ -155,7 +155,7 @@ namespace FeedCustomizer.Core.Tools
                         LogPrivacy.PrepareDiagnostic(launchResult.Diagnostic));
                     string message = string.Format(
                         resources.GetString("FeedbackMailClientFailureMessageFormat"),
-                        launchResult.Archive.FullPath,
+                        launchResult.Archive.DisplayPath,
                         AppConstants.FeedbackEmailAddress);
                     await ShowMessageCoreAsync(
                         resources.GetString("FeedbackMailClientFailureTitle"),

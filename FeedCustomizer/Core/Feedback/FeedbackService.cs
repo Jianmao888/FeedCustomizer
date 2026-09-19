@@ -8,13 +8,13 @@ using System.Threading.Tasks;
 namespace FeedCustomizer.Core.Feedback;
 
 /// <summary>
-/// 反馈用例的唯一编排入口：串行导出日志、构建本地化邮件并选择邮件通道。
+/// 反馈用例的唯一编排入口：串行生成日志归档、构建本地化邮件并选择邮件通道。
 /// UI 只消费结构化结果，不直接读写日志或调用 Win32 邮件 API。
 /// </summary>
 internal sealed class FeedbackService
 {
     private static readonly IAppLog Log = AppLog.For<FeedbackService>();
-    private readonly SemaphoreSlim _operationGate = new(1, 1);
+    private readonly SemaphoreSlim _archiveGate = new(1, 1);
     private readonly LogArchiveService _archiveService;
     private readonly FeedbackMessageBuilder _messageBuilder;
     private readonly FeedbackMailDispatcher _mailDispatcher;
@@ -48,14 +48,14 @@ internal sealed class FeedbackService
     /// <summary>仅导出日志，供设置页“提取日志”命令使用。</summary>
     internal async Task<LogArchiveResult> ExportLogsAsync(CancellationToken cancellationToken = default)
     {
-        await _operationGate.WaitAsync(cancellationToken);
+        await _archiveGate.WaitAsync(cancellationToken);
         try
         {
             return await ExportLogsCoreAsync(cancellationToken);
         }
         finally
         {
-            _operationGate.Release();
+            _archiveGate.Release();
         }
     }
 
@@ -67,7 +67,7 @@ internal sealed class FeedbackService
         FeedbackSource source,
         CancellationToken cancellationToken = default)
     {
-        await _operationGate.WaitAsync(cancellationToken);
+        await _archiveGate.WaitAsync(cancellationToken);
         try
         {
             Log.Information("开始准备反馈，来源={FeedbackSource}", source);
@@ -91,54 +91,50 @@ internal sealed class FeedbackService
         }
         finally
         {
-            _operationGate.Release();
+            _archiveGate.Release();
         }
     }
 
-    /// <summary>将已经准备好的反馈交给邮件客户端；接管后不追踪邮件是否发送。</summary>
+    /// <summary>
+    /// 将已经准备好的反馈交给邮件客户端；接管后不追踪邮件是否发送。
+    /// 邮件通道不占用归档锁，因为同步式 Simple MAPI 可能由客户端长时间保持，
+    /// 继续持锁会让后续日志导出和反馈准备永久等待。
+    /// </summary>
     internal async Task<FeedbackOperationResult> LaunchPreparedAsync(
         PreparedFeedback preparedFeedback,
         IntPtr ownerWindowHandle,
         CancellationToken cancellationToken = default)
     {
-        await _operationGate.WaitAsync(cancellationToken);
         try
         {
-            try
+            FeedbackMailTransportResult result = await _mailDispatcher.LaunchAsync(
+                preparedFeedback.Message,
+                ownerWindowHandle,
+                cancellationToken);
+            if (!result.WasHandled)
             {
-                FeedbackMailTransportResult result = await _mailDispatcher.LaunchAsync(
-                    preparedFeedback.Message,
-                    ownerWindowHandle,
-                    cancellationToken);
-                if (!result.WasHandled)
-                {
-                    return new FeedbackOperationResult(
-                        FeedbackOperationStatus.MailClientUnavailable,
-                        preparedFeedback.Archive,
-                        result.Diagnostic);
-                }
-
-                FeedbackOperationStatus status = result.AttachmentRequested
-                    ? FeedbackOperationStatus.LaunchedWithAttachment
-                    : FeedbackOperationStatus.LaunchedWithoutGuaranteedAttachment;
-                return new FeedbackOperationResult(status, preparedFeedback.Archive, result.Diagnostic);
-            }
-            catch (OperationCanceledException)
-            {
-                throw;
-            }
-            catch (Exception ex)
-            {
-                Log.Error(ex, "打开反馈邮件客户端失败，来源={FeedbackSource}", preparedFeedback.Source);
                 return new FeedbackOperationResult(
                     FeedbackOperationStatus.MailClientUnavailable,
                     preparedFeedback.Archive,
-                    LogPrivacy.RedactException(ex));
+                    result.Diagnostic);
             }
+
+            FeedbackOperationStatus status = result.AttachmentRequested
+                ? FeedbackOperationStatus.LaunchedWithAttachment
+                : FeedbackOperationStatus.LaunchedWithoutGuaranteedAttachment;
+            return new FeedbackOperationResult(status, preparedFeedback.Archive, result.Diagnostic);
         }
-        finally
+        catch (OperationCanceledException)
         {
-            _operationGate.Release();
+            throw;
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "打开反馈邮件客户端失败，来源={FeedbackSource}", preparedFeedback.Source);
+            return new FeedbackOperationResult(
+                FeedbackOperationStatus.MailClientUnavailable,
+                preparedFeedback.Archive,
+                LogPrivacy.RedactException(ex));
         }
     }
 
