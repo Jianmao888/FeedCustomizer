@@ -105,34 +105,41 @@ namespace FeedCustomizer.Pages
             }
         }
 
-        /// <summary>
-        /// 处理视图模型发出的应用文档打开请求。文件解析和版本自愈已经在服务层完成，
-        /// 页面只负责把路径转换为 Windows 文件对象，再交给统一外部打开服务。
-        /// </summary>
+        /// <summary>处理视图模型发出的应用文档打开请求，并将启动失败转换为统一提示。</summary>
         private async void OnDocumentOpenRequested(
             object? sender,
             ApplicationDocumentOpenRequestedEventArgs e)
         {
             _ = sender;
-            await ApplicationDocumentUi.OpenAsync(e);
+
+            bool opened = false;
+            if (App.MainWindow is MainWindow window)
+            {
+                opened = await window.ExternalLaunch.OpenFileAsync(e.FilePath);
+            }
+
+            if (opened)
+            {
+                return;
+            }
+
+            Log.Error("打开应用文档失败，类型={DocumentKind}", e.Kind);
+            await DialogService.ShowDocumentOpenFailureAsync();
         }
 
-        /// <summary>文档服务返回结构化失败后，由 UI 层加载本地化文本并展示。</summary>
+        /// <summary>记录文档生成阶段的结构化诊断，并向用户展示统一的打开失败提示。</summary>
         private async void OnDocumentPreparationFailed(
             object? sender,
             ApplicationDocumentResult result)
         {
             _ = sender;
 
-            try
-            {
-                await ApplicationDocumentUi.ShowFailureAsync(result.Diagnostic);
-            }
-            catch (Exception ex)
-            {
-                // 事件处理器必须观察展示异常，避免错误处理自身成为未处理异常。
-                Log.Error(ex, "显示应用文档错误对话框失败");
-            }
+            Log.Error(
+                "生成应用文档失败，状态={DocumentStatus}，诊断={Diagnostic}",
+                result.Status,
+                LogPrivacy.PrepareDiagnostic(result.Diagnostic));
+
+            await DialogService.ShowDocumentOpenFailureAsync();
         }
 
         /// <summary>

@@ -1,5 +1,6 @@
 using FeedCustomizer.Core.Infrastructure.Logging;
 using System;
+using System.IO;
 using System.Threading.Tasks;
 using Windows.Storage;
 using Windows.System;
@@ -40,10 +41,30 @@ namespace FeedCustomizer.Core.Tools
                 "external link");
         }
 
-        /// <summary>使用系统默认关联直接打开文件，不显示应用内确认弹窗。</summary>
-        public async Task<bool> OpenFileAsync(StorageFile file)
+        /// <summary>
+        /// 将经过业务层约束的绝对文件路径解析为 Windows 文件对象，并使用系统默认关联打开。
+        /// 路径解析失败与系统启动失败分别记录，调用方只需根据返回值决定是否提示用户。
+        /// </summary>
+        public async Task<bool> OpenFileAsync(string filePath)
         {
-            ArgumentNullException.ThrowIfNull(file);
+            if (string.IsNullOrWhiteSpace(filePath) || !Path.IsPathFullyQualified(filePath))
+            {
+                // 文件路径来自受控文档服务，但外部打开边界仍需拒绝无效输入，且不记录原始路径。
+                Log.Warning("无法解析待打开的外部文件：路径为空或不是绝对路径");
+                return false;
+            }
+
+            StorageFile file;
+            try
+            {
+                file = await StorageFile.GetFileFromPathAsync(filePath);
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "无法解析待打开的外部文件");
+                return false;
+            }
+
             return await LaunchAsync(
                 async () => await Launcher.LaunchFileAsync(file),
                 "external file");

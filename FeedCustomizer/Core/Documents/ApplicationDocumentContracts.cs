@@ -39,7 +39,7 @@ public enum ApplicationDocumentStatus
 }
 
 /// <summary>
-/// 文档准备结果。诊断只供日志和错误展示使用，文件路径仅在成功时有效。
+/// 文档准备结果。诊断只供日志使用，文件路径仅在成功时有效。
 /// </summary>
 public sealed record ApplicationDocumentResult(
     ApplicationDocumentStatus Status,

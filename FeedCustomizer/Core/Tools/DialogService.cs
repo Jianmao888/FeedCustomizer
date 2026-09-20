@@ -205,6 +205,27 @@ namespace FeedCustomizer.Core.Tools
                 FeedbackSource.WebIcon);
         }
 
+        /// <summary>
+        /// 显示统一的应用文档打开失败提示。生成与启动阶段的诊断只写入日志，
+        /// 避免向用户暴露无助于恢复操作的内部细节。
+        /// </summary>
+        public static async Task ShowDocumentOpenFailureAsync()
+        {
+            try
+            {
+                var resources = new ResourceLoader();
+                await ShowMessageAsync(
+                    resources.GetString("DocumentOpenFailureTitle"),
+                    resources.GetString("DocumentOpenFailureMessage"),
+                    resources.GetString("DialogOK"));
+            }
+            catch (Exception ex)
+            {
+                // 错误提示自身失败时只能记录，不能让页面的 async void 事件产生未处理异常。
+                Log.Error(ex, "显示应用文档打开失败对话框失败");
+            }
+        }
+
         private static async Task ShowMessageCoreAsync(string title, string content, string closeButtonText)
         {
             var dialog = new MessageDialog();

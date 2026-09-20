@@ -614,10 +614,10 @@
   <data name="FeedbackSource_Donation" xml:space="preserve"><value>Donor Edition purchase</value></data>
   <data name="DocumentOpenFailureTitle" xml:space="preserve">
     <value>Unable to open document</value>
-    <comment>Title shown when an application document cannot be prepared or opened</comment>
+    <comment>Unified title shown when an application document cannot be generated or opened</comment>
   </data>
   <data name="DocumentOpenFailureMessage" xml:space="preserve">
-    <value>The application could not prepare or open the requested document. Try again later.</value>
-    <comment>Message shown when an application document cannot be prepared or opened</comment>
+    <value>The requested document could not be opened. Try again later.</value>
+    <comment>Unified message without internal diagnostics when an application document cannot be generated or opened</comment>
   </data>
 </root>

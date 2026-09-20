@@ -142,25 +142,35 @@ namespace FeedCustomizer.Pages
             ApplicationDocumentOpenRequestedEventArgs e)
         {
             _ = sender;
-            await ApplicationDocumentUi.OpenAsync(e);
+
+            bool opened = false;
+            if (App.MainWindow is MainWindow window)
+            {
+                opened = await window.ExternalLaunch.OpenFileAsync(e.FilePath);
+            }
+
+            if (opened)
+            {
+                return;
+            }
+
+            Log.Error("打开应用文档失败，类型={DocumentKind}", e.Kind);
+            await DialogService.ShowDocumentOpenFailureAsync();
         }
 
-        /// <summary>文档准备失败时复用帮助文档的本地化错误提示。</summary>
+        /// <summary>记录文档生成阶段的结构化诊断，并向用户展示统一的打开失败提示。</summary>
         private async void OnDocumentPreparationFailed(
             object? sender,
             ApplicationDocumentResult result)
         {
             _ = sender;
 
-            try
-            {
-                await ApplicationDocumentUi.ShowFailureAsync(result.Diagnostic);
-            }
-            catch (Exception ex)
-            {
-                // 事件处理器必须观察 UI 展示失败，不能让错误提示本身形成未处理异常。
-                Log.Error(ex, "显示设置页应用文档错误对话框失败");
-            }
+            Log.Error(
+                "生成应用文档失败，状态={DocumentStatus}，诊断={Diagnostic}",
+                result.Status,
+                LogPrivacy.PrepareDiagnostic(result.Diagnostic));
+
+            await DialogService.ShowDocumentOpenFailureAsync();
         }
 
         /// <summary>打开贡献者链接：只从 UI 元素中取出数据对象，其余逻辑交给视图模型。</summary>
