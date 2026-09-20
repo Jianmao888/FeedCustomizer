@@ -305,22 +305,6 @@
     <value>我已知悉</value>
     <comment>安全警告弹窗关闭按钮</comment>
   </data>
-  <data name="ExternalOpenDialog.Title" xml:space="preserve">
-    <value>此应用尝试打开外部应用</value>
-    <comment>外部应用打开确认弹窗标题</comment>
-  </data>
-  <data name="ExternalOpenDialog.PrimaryButtonText" xml:space="preserve">
-    <value>是</value>
-    <comment>外部应用打开确认弹窗主按钮（允许）文本</comment>
-  </data>
-  <data name="ExternalOpenDialog.SecondaryButtonText" xml:space="preserve">
-    <value>否</value>
-    <comment>外部应用打开确认弹窗辅助按钮（拒绝）文本</comment>
-  </data>
-  <data name="DialogMessage.Text" xml:space="preserve">
-    <value>是否允许？</value>
-    <comment>外部应用打开确认弹窗提示内容</comment>
-  </data>
   <data name="StartupFailureDialog.Title" xml:space="preserve">
     <value>启动失败</value>
     <comment>启动失败弹窗标题</comment>

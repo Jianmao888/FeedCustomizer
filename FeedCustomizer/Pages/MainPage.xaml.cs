@@ -108,7 +108,7 @@ namespace FeedCustomizer.Pages
 
         /// <summary>
         /// 处理视图模型发出的应用文档打开请求。文件解析和版本自愈已经在服务层完成，
-        /// 页面只负责 Windows 文件对象与外部打开确认框的 UI 适配。
+        /// 页面只负责把路径转换为 Windows 文件对象，再交给统一外部打开服务。
         /// </summary>
         private async void OnDocumentOpenRequested(
             object? sender,

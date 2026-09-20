@@ -305,22 +305,6 @@
     <value>Got it</value>
     <comment>Close button text of the first-run developer mode warning dialog</comment>
   </data>
-  <data name="ExternalOpenDialog.Title" xml:space="preserve">
-    <value>This app is trying to open an external application</value>
-    <comment>Title of the external application open confirmation dialog</comment>
-  </data>
-  <data name="ExternalOpenDialog.PrimaryButtonText" xml:space="preserve">
-    <value>Yes</value>
-    <comment>Primary button (allow) text of the external application open confirmation dialog</comment>
-  </data>
-  <data name="ExternalOpenDialog.SecondaryButtonText" xml:space="preserve">
-    <value>No</value>
-    <comment>Secondary button (decline) text of the external application open confirmation dialog</comment>
-  </data>
-  <data name="DialogMessage.Text" xml:space="preserve">
-    <value>Do you allow it?</value>
-    <comment>Prompt text of the external application open confirmation dialog</comment>
-  </data>
   <data name="StartupFailureDialog.Title" xml:space="preserve">
     <value>Startup failed</value>
     <comment>Title of the startup failure dialog</comment>

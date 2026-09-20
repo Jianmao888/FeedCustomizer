@@ -63,7 +63,7 @@ namespace FeedCustomizer
                 _dialogGate,
                 Feedback,
                 () => WinRT.Interop.WindowNative.GetWindowHandle(this));
-            ExternalLaunch = new ExternalLaunchService(DispatcherQueue, GetXamlRoot, WaitForStartupVisualsHiddenAsync, _dialogGate);
+            ExternalLaunch = new ExternalLaunchService(DispatcherQueue, WaitForStartupVisualsHiddenAsync);
 
             // 获取窗口信息
             IntPtr hWnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
