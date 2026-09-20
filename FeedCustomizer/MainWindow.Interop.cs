@@ -1,3 +1,4 @@
+using FeedCustomizer.Core.Windowing;
 using System;
 using System.Runtime.InteropServices;
 
@@ -10,13 +11,9 @@ namespace FeedCustomizer
 
         private WindowProcDelegate? _windowProcDelegate;
         private IntPtr _originalWindowProc;
-        private int _minimumWindowWidth;
-        private int _minimumWindowHeight;
 
-        private void SetMinimumWindowSize(IntPtr hWnd, int minimumWidth, int minimumHeight)
+        private void SetMinimumWindowSize(IntPtr hWnd)
         {
-            _minimumWindowWidth = minimumWidth;
-            _minimumWindowHeight = minimumHeight;
             _windowProcDelegate = WindowProc;
             _originalWindowProc = SetWindowLongPtr(
                 hWnd,
@@ -28,9 +25,15 @@ namespace FeedCustomizer
         {
             if (message == WmGetMinMaxInfo)
             {
+                int dpi = GetSafeWindowDpi(hWnd);
                 var minMaxInfo = Marshal.PtrToStructure<MinMaxInfo>(lParam);
-                minMaxInfo.ptMinTrackSize.X = _minimumWindowWidth;
-                minMaxInfo.ptMinTrackSize.Y = _minimumWindowHeight;
+                // 每次按窗口当前显示器 DPI 计算，跨不同缩放比例显示器后最小视觉尺寸仍保持一致。
+                minMaxInfo.ptMinTrackSize.X = WindowPlacementPolicy.DipToPixels(
+                    WindowPlacementPolicy.MinimumWidthDip,
+                    dpi);
+                minMaxInfo.ptMinTrackSize.Y = WindowPlacementPolicy.DipToPixels(
+                    WindowPlacementPolicy.MinimumHeightDip,
+                    dpi);
                 Marshal.StructureToPtr(minMaxInfo, lParam, false);
                 return IntPtr.Zero;
             }
@@ -78,5 +81,12 @@ namespace FeedCustomizer
 
         [LibraryImport("user32.dll", SetLastError = true)]
         private static partial uint GetDpiForWindow(IntPtr hwnd);
+
+        /// <summary>Win32 在句柄无效时可能返回 0；回退 96 DPI 保证启动和窗口消息都不因换算失败中断。</summary>
+        private static int GetSafeWindowDpi(IntPtr hwnd)
+        {
+            uint dpi = GetDpiForWindow(hwnd);
+            return dpi == 0 ? WindowPlacementPolicy.DefaultDpi : checked((int)dpi);
+        }
     }
 }

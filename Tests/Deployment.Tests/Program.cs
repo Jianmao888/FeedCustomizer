@@ -9,6 +9,7 @@ using FeedCustomizer.Core.Infrastructure.PowerShell;
 using FeedCustomizer.Core.Models;
 using FeedCustomizer.Core.Tools;
 using FeedCustomizer.Core.WidgetData;
+using FeedCustomizer.Core.Windowing;
 using System.IO.Compression;
 
 // 所有真实文件写入均限制在本次生成的临时目录；AppX/注册表/UAC 只使用替身，绝不改动机器注册状态。
@@ -127,6 +128,80 @@ var tests = new (string Name, Func<Task> Run)[]
     ("文档被手动删除时只从包内自愈", MissingDocumentSelfHealingSkipsCleanupAsync),
     ("文档存储使用完整候选替换并保留相对资源", DocumentStorageReplacesCompleteCatalogAsync),
     ("旧文档清理脚本限定固定目录", LegacyDocumentCleanupScriptIsBoundedAsync),
+    ("首次窗口在工作区居中且保持默认大小", () =>
+    {
+        WindowRectangle placement = WindowPlacementPolicy.CreateCenteredDefault(
+            new WindowRectangle(0, 0, 1920, 1040),
+            96);
+        Check(placement == new WindowRectangle(680, 120, 560, 800));
+        return Task.CompletedTask;
+    }),
+    ("默认窗口大于工作区时左上角保持可见", () =>
+    {
+        WindowRectangle placement = WindowPlacementPolicy.CreateCenteredDefault(
+            new WindowRectangle(100, 50, 500, 700),
+            96);
+        Check(placement == new WindowRectangle(100, 50, 560, 800));
+        return Task.CompletedTask;
+    }),
+    ("默认窗口仅高度过大时水平居中并从顶部开始", () =>
+    {
+        WindowRectangle placement = WindowPlacementPolicy.CreateCenteredDefault(
+            new WindowRectangle(0, 40, 1920, 700),
+            96);
+        Check(placement == new WindowRectangle(680, 40, 560, 800));
+        return Task.CompletedTask;
+    }),
+    ("窗口恢复按目标DPI缩放并校正到工作区", () =>
+    {
+        var state = new WindowPlacementState(
+            WindowPlacementPolicy.CurrentSchemaVersion,
+            5000,
+            -2000,
+            560,
+            800,
+            96,
+            false);
+        WindowRectangle placement = WindowPlacementPolicy.Restore(
+            state,
+            new WindowRectangle(-1920, 0, 1920, 1040),
+            144);
+        Check(placement == new WindowRectangle(-1, 0, 840, 1200));
+        return Task.CompletedTask;
+    }),
+    ("窗口恢复只校正左上角而不改变右下方", () =>
+    {
+        var state = new WindowPlacementState(
+            WindowPlacementPolicy.CurrentSchemaVersion,
+            1800,
+            900,
+            560,
+            500,
+            96,
+            false);
+        WindowRectangle placement = WindowPlacementPolicy.Restore(
+            state,
+            new WindowRectangle(0, 0, 1920, 1040),
+            96);
+        Check(placement == new WindowRectangle(1800, 900, 560, 500));
+        return Task.CompletedTask;
+    }),
+    ("损坏窗口状态被拒绝", () =>
+    {
+        var state = new WindowPlacementState(
+            WindowPlacementPolicy.CurrentSchemaVersion,
+            0,
+            0,
+            -1,
+            800,
+            96,
+            false);
+        ExpectThrows(() => WindowPlacementPolicy.Restore(
+            state,
+            new WindowRectangle(0, 0, 1920, 1040),
+            96));
+        return Task.CompletedTask;
+    }),
     ("PowerShell 失败日志包含脱敏诊断", PowerShellFailureLoggingAsync),
     ("日志归档只包含顶层应用日志", LogArchiveSelectionAsync),
     ("日志归档可读取正在追加的日志快照", ActiveLogArchiveAsync),

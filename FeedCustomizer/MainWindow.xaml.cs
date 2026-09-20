@@ -14,7 +14,6 @@ using System;
 using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
-using Windows.Graphics;
 
 // To learn more about WinUI, the WinUI project structure,
 // and more about our project templates, see: http://aka.ms/winui-project-info.
@@ -68,20 +67,8 @@ namespace FeedCustomizer
             // 获取窗口信息
             IntPtr hWnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
 
-            // 根据缩放比例确定窗口大小
-            uint dpi = GetDpiForWindow(hWnd);
-            double scale = dpi / 96.0;
-
-            int width = (int)(560 * scale);
-            int height = (int)(800 * scale);
-            int X = (int)(520 * scale);
-            int Y = (int)(75 * scale);
-
-            SetMinimumWindowSize(hWnd, (int)(560 * scale), (int)(500 * scale));
-
-            // 调整窗口位置和大小，以屏幕像素为单位
-            AppWindow.Resize(new SizeInt32(_Width: width, _Height: height));
-            AppWindow.Move(new PointInt32(X, Y));
+            // 窗口尚未激活，此时恢复位置不会产生可见跳动；布局组件同时负责首次居中。
+            InitializeWindowPlacement(hWnd);
 
             // 自定义标题栏
             ExtendsContentIntoTitleBar = true;
@@ -280,6 +267,7 @@ namespace FeedCustomizer
                 awarePage.OnWindowClosing();
             }
 
+            SaveWindowPlacement();
             Log.Information("主窗口即将关闭");
             AppLog.CloseAndFlush();
         }

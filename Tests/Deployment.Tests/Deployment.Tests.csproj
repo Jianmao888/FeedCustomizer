@@ -16,6 +16,7 @@
     <Compile Include="../../FeedCustomizer/Core/Documents/ApplicationDocumentContracts.cs" Link="Core/ApplicationDocumentContracts.cs" />
     <Compile Include="../../FeedCustomizer/Core/Documents/ApplicationDocumentCatalog.cs" Link="Core/ApplicationDocumentCatalog.cs" />
     <Compile Include="../../FeedCustomizer/Core/Documents/ApplicationDocumentService.cs" Link="Core/ApplicationDocumentService.cs" />
+    <Compile Include="../../FeedCustomizer/Core/Windowing/WindowPlacement.cs" Link="Core/WindowPlacement.cs" />
     <Compile Include="../../FeedCustomizer/Core/Models/ProviderRegistrationResult.cs" Link="Core/ProviderRegistrationResult.cs" />
     <Compile Include="../../FeedCustomizer/Core/Models/PowerShellResult.cs" Link="Core/PowerShellResult.cs" />
     <Compile Include="../../FeedCustomizer/Core/Models/WidgetDataClearResult.cs" Link="Core/WidgetDataClearResult.cs" />
