@@ -16,6 +16,19 @@ public enum ApplicationDocumentKind
     OpenSourceLicenses,
 }
 
+/// <summary>
+/// 已由文档服务验证的打开请求。视图只负责把文件交给 Windows 关联程序，
+/// 不得重新拼接或解释其中的路径。
+/// </summary>
+public sealed class ApplicationDocumentOpenRequestedEventArgs(
+    ApplicationDocumentKind kind,
+    string filePath) : EventArgs
+{
+    public ApplicationDocumentKind Kind { get; } = kind;
+
+    public string FilePath { get; } = filePath;
+}
+
 /// <summary>文档准备结果的稳定状态，UI 只根据状态决定是否打开或提示。</summary>
 public enum ApplicationDocumentStatus
 {

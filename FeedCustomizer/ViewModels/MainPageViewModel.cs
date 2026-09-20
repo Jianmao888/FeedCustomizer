@@ -701,15 +701,4 @@ namespace FeedCustomizer.ViewModels
         public object? Parameter { get; } = parameter;
     }
 
-    /// <summary>
-    /// 已由文档服务验证的打开请求。视图只负责把文件交给 Windows 关联程序。
-    /// </summary>
-    public sealed class ApplicationDocumentOpenRequestedEventArgs(
-        ApplicationDocumentKind kind,
-        string filePath) : EventArgs
-    {
-        public ApplicationDocumentKind Kind { get; } = kind;
-
-        public string FilePath { get; } = filePath;
-    }
 }

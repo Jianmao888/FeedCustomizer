@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FeedCustomizer 开源软件许可声明</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { margin: 0; padding: 2.5rem 1.2rem; background: #f2f4f8; color: #1e293b; font-family: "Segoe UI", "Microsoft YaHei UI", system-ui, sans-serif; line-height: 1.65; }
+        .doc-container { width: 100%; max-width: 900px; margin: 0 auto; padding: 2.8rem 3.2rem; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 4px 12px rgba(0, 0, 0, .06), 0 1px 2px rgba(0, 0, 0, .04); }
+        h1, h2, h3 { color: #0b1e33; font-weight: 500; }
+        h1 { margin: 0 0 1.2rem; padding-bottom: .8rem; border-bottom: 2px solid #e9edf4; font-size: 1.8rem; }
+        h2 { margin: 2rem 0 .75rem; font-size: 1.22rem; }
+        h3 { margin: 0 0 .35rem; font-size: 1rem; }
+        p { margin: .55rem 0; }
+        a { color: #1f4f8a; font-weight: 500; text-decoration: none; border-bottom: 1px solid #bac8dd; }
+        a:hover { border-bottom-color: #1f4f8a; }
+        .subheading, .notice, .card { border: 1px solid #e2e8f0; border-radius: 6px; }
+        .subheading { margin-bottom: 1.6rem; padding: .85rem 1.2rem; background: #f8faff; border-left: 4px solid #6b7f9f; }
+        .notice { padding: .9rem 1.2rem; background: #fef6f0; border-left: 4px solid #c2410c; color: #7c2d12; }
+        .card { margin: .9rem 0; padding: 1rem 1.2rem; background: #fafcff; }
+        table { width: 100%; margin: .8rem 0; border-collapse: collapse; font-size: .94rem; }
+        th, td { padding: .65rem .75rem; border: 1px solid #dce3ec; text-align: left; vertical-align: top; }
+        th { background: #f1f5f9; color: #1e3a5f; font-weight: 600; }
+        ul { margin: .55rem 0; padding-left: 1.35rem; }
+        li { margin: .25rem 0; }
+        pre { overflow-x: auto; margin: .8rem 0; padding: 1rem 1.1rem; border: 1px solid #dce3ec; border-radius: 5px; background: #f8fafc; color: #334155; font: .82rem/1.55 Consolas, "Courier New", monospace; white-space: pre-wrap; }
+        .footer { margin-top: 2.3rem; padding-top: 1rem; border-top: 2px solid #e9edf4; color: #64748b; font-size: .9rem; }
+        @media (max-width: 640px) { .doc-container { padding: 1.6rem 1.2rem; } table { font-size: .85rem; } }
+    </style>
+</head>
+<body>
+    <main class="doc-container">
+        <h1>FeedCustomizer · 开源软件许可声明</h1>
+        <div class="subheading">
+            本声明列出 FeedCustomizer 随应用分发或构建时使用的主要第三方软件、版权信息和许可条件。
+            本页面随应用安装，可离线查看；随附组件的原始许可证与 NOTICE 优先于本页说明。
+        </div>
+
+        <div class="notice">
+            <strong>适用范围：</strong>本清单按当前应用项目的还原依赖编制。更新依赖、.NET SDK 或发布方式后，应同时更新本页面及随包许可证材料。
+        </div>
+
+        <h2>FeedCustomizer 自身</h2>
+        <div class="card">
+            <h3>FeedCustomizer</h3>
+            <p>Copyright (c) 2026 窗边的贱猫。项目源代码依据 MIT License 发布；完整文本见项目仓库根目录的 <code>LICENSE</code> 文件。</p>
+        </div>
+
+        <h2>第三方组件</h2>
+        <table>
+            <thead><tr><th>组件</th><th>版本</th><th>许可证或条款</th></tr></thead>
+            <tbody>
+                <tr><td>CommunityToolkit.Mvvm<br>CommunityToolkit.Common</td><td>8.4.2 / 8.2.1</td><td>MIT License，Copyright © .NET Foundation and Contributors</td></tr>
+                <tr><td>CommunityToolkit.WinUI.Controls.SettingsControls<br>及其 Extensions、Helpers、Triggers</td><td>8.3.260402-preview2</td><td>MIT License，Copyright © .NET Foundation and Contributors</td></tr>
+                <tr><td>Serilog<br>Serilog.Sinks.Debug<br>Serilog.Sinks.File</td><td>4.4.0 / 3.0.0 / 7.0.0</td><td>Apache License 2.0，Copyright © Serilog Contributors</td></tr>
+                <tr><td>Microsoft.Web.WebView2<br>WebView2Loader</td><td>1.0.3719.77</td><td>BSD 3-Clause License，Copyright © Microsoft Corporation</td></tr>
+                <tr><td>Microsoft.DotNet.ILCompiler<br>Microsoft.NET.ILLink.Tasks 及运行时包</td><td>10.0.12</td><td>MIT License；另含 .NET 第三方通知</td></tr>
+                <tr><td>Windows App SDK、Windows SDK BuildTools</td><td>以发布包还原版本为准</td><td>Microsoft Software License Terms（不是开源许可证）</td></tr>
+            </tbody>
+        </table>
+
+        <h2>补充归属与 NOTICE</h2>
+        <div class="card">
+            <h3>.NET Community Toolkit</h3>
+            <p>CommunityToolkit.Mvvm 的随包第三方声明还列出 DeferredEvents、UwpNotificationNetCoreTest、MVVM Light、MSTest、UniversalMarkdown、DesktopBridgeHelpers 和 ComputeSharp 等来源。相关已贡献或再许可代码适用其声明中载明的 MIT 条款。</p>
+        </div>
+        <div class="card">
+            <h3>Microsoft WebView2</h3>
+            <p>WebView2 的 NOTICE 还包含 Antlr3.Runtime 3.5.2-rc1 与 StringTemplate4 4.0.9-rc1 的 BSD 3-Clause 声明。其版权行及原始文本以 WebView2 包附带的 LICENSE.txt 和 NOTICE.txt 为准。</p>
+        </div>
+        <div class="card">
+            <h3>.NET Native AOT</h3>
+            <p>Native AOT 编译器和运行时包附带 <code>THIRD-PARTY-NOTICES.TXT</code>；其中的第三方软件声明适用于实际分发的运行时组件。</p>
+        </div>
+
+        <h2>MIT License</h2>
+        <pre>MIT License
+
+Copyright (c) the respective copyright holders
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.</pre>
+
+        <h2>Apache License 2.0</h2>
+        <div class="card">
+            <p>Serilog 组件依据 Apache License 2.0 分发。该许可证要求向接收者提供许可证副本，并保留适用的版权、专利、商标和 NOTICE 信息；如修改文件，应明确标注修改。</p>
+            <p>完整许可证原文：<a href="https://www.apache.org/licenses/LICENSE-2.0" target="_blank" rel="noopener">Apache License, Version 2.0</a>。</p>
+        </div>
+
+        <h2>BSD 3-Clause License（WebView2）</h2>
+        <pre>Copyright (C) Microsoft Corporation. All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+* Redistributions of source code must retain the above copyright notice,
+  this list of conditions and the following disclaimer.
+* Redistributions in binary form must reproduce the above copyright notice,
+  this list of conditions and the following disclaimer in the documentation
+  and/or other materials provided with the distribution.
+* The name of Microsoft Corporation, or the names of its contributors may not
+  be used to endorse or promote products derived from this software without
+  specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
+LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+POSSIBILITY OF SUCH DAMAGE.</pre>
+
+        <h2>来源与商标</h2>
+        <p>组件名称、项目名称和商标归各自权利人所有；列出它们不表示任何权利人认可或赞助 FeedCustomizer。</p>
+        <ul>
+            <li><a href="https://github.com/CommunityToolkit/dotnet" target="_blank" rel="noopener">.NET Community Toolkit</a></li>
+            <li><a href="https://github.com/CommunityToolkit/Windows" target="_blank" rel="noopener">Windows Community Toolkit</a></li>
+            <li><a href="https://github.com/serilog/serilog" target="_blank" rel="noopener">Serilog</a></li>
+            <li><a href="https://developer.microsoft.com/microsoft-edge/webview2/" target="_blank" rel="noopener">Microsoft Edge WebView2</a></li>
+            <li><a href="https://github.com/dotnet/dotnet" target="_blank" rel="noopener">.NET</a></li>
+            <li><a href="https://learn.microsoft.com/legal/windows-app/windows-app-license-terms" target="_blank" rel="noopener">Windows App SDK 软件许可条款</a></li>
+        </ul>
+
+        <div class="footer">最后更新：2026-09-20。若本页面与随附组件的原始许可证或 NOTICE 不一致，以原始文件为准。</div>
+    </main>
+</body>
+</html>
+

@@ -10,7 +10,6 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
 using System;
 using System.Threading.Tasks;
-using Windows.Storage;
 
 // To learn more about WinUI, the WinUI project structure,
 // and more about our project templates, see: http://aka.ms/winui-project-info.
@@ -115,27 +114,7 @@ namespace FeedCustomizer.Pages
             ApplicationDocumentOpenRequestedEventArgs e)
         {
             _ = sender;
-
-            try
-            {
-                StorageFile file = await StorageFile.GetFileFromPathAsync(e.FilePath);
-                if (App.MainWindow is MainWindow window)
-                {
-                    await window.ExternalLaunch.OpenFileAsync(file);
-                }
-            }
-            catch (Exception ex)
-            {
-                Log.Error(ex, "把应用文档交给 Windows 打开失败，类型={DocumentKind}", e.Kind);
-                try
-                {
-                    await ShowDocumentFailureAsync(ex.Message);
-                }
-                catch (Exception dialogException)
-                {
-                    Log.Error(dialogException, "显示应用文档打开错误对话框失败");
-                }
-            }
+            await ApplicationDocumentUi.OpenAsync(e);
         }
 
         /// <summary>文档服务返回结构化失败后，由 UI 层加载本地化文本并展示。</summary>
@@ -147,28 +126,13 @@ namespace FeedCustomizer.Pages
 
             try
             {
-                await ShowDocumentFailureAsync(result.Diagnostic);
+                await ApplicationDocumentUi.ShowFailureAsync(result.Diagnostic);
             }
             catch (Exception ex)
             {
                 // 事件处理器必须观察展示异常，避免错误处理自身成为未处理异常。
                 Log.Error(ex, "显示应用文档错误对话框失败");
             }
-        }
-
-        private static Task ShowDocumentFailureAsync(string diagnostic)
-        {
-            var resources = new ResourceLoader();
-            string content = resources.GetString("DocumentOpenFailureMessage");
-            if (!string.IsNullOrWhiteSpace(diagnostic))
-            {
-                content += Environment.NewLine + Environment.NewLine + diagnostic;
-            }
-
-            return DialogService.ShowMessageAsync(
-                resources.GetString("DocumentOpenFailureTitle"),
-                content,
-                resources.GetString("DialogOK"));
         }
 
         /// <summary>

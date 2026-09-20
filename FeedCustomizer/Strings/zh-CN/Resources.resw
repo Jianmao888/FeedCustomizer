@@ -281,6 +281,14 @@
     <value>开源地址</value>
     <comment>关于页面”开源地址“标题</comment>
   </data>
+  <data name="AboutOpenSourceLicenses.Text" xml:space="preserve">
+    <value>开源软件许可</value>
+    <comment>关于页面“开源软件许可”标题</comment>
+  </data>
+  <data name="AboutOpenSourceLicensesButton.Content" xml:space="preserve">
+    <value>查看开源软件许可声明</value>
+    <comment>打开随包开源软件许可声明的按钮文字</comment>
+  </data>
   <data name="AboutContributors.Text" xml:space="preserve">
     <value>贡献者</value>
     <comment>关于页面”贡献者“标题</comment>

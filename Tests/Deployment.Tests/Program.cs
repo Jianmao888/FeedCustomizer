@@ -650,10 +650,14 @@ static async Task DocumentStorageReplacesCompleteCatalogAsync()
     AppDataPaths.TestRoot = directory.Path;
     string source = System.IO.Path.Combine(directory.Path, "package", "Documents");
     string help = System.IO.Path.Combine(source, "Help");
+    string licenses = System.IO.Path.Combine(source, "OpenSourceLicenses");
     Directory.CreateDirectory(help);
+    Directory.CreateDirectory(licenses);
     File.WriteAllText(System.IO.Path.Combine(help, "en-US.html"), "<img src=\"winui3.png\">");
     File.WriteAllText(System.IO.Path.Combine(help, "zh-CN.html"), "中文帮助");
     File.WriteAllText(System.IO.Path.Combine(help, "winui3.png"), "image");
+    File.WriteAllText(System.IO.Path.Combine(licenses, "en-US.html"), "Open-source licenses");
+    File.WriteAllText(System.IO.Path.Combine(licenses, "zh-CN.html"), "开源软件许可");
 
     var executor = new CapturingExecutor
     {
@@ -671,9 +675,13 @@ static async Task DocumentStorageReplacesCompleteCatalogAsync()
 
     string? localized = storage.ResolveDocumentPath(ApplicationDocumentKind.Help, "zh-CN");
     string? fallback = storage.ResolveDocumentPath(ApplicationDocumentKind.Help, "fr-FR");
+    string? licenseLocalized = storage.ResolveDocumentPath(ApplicationDocumentKind.OpenSourceLicenses, "zh-CN");
+    string? licenseFallback = storage.ResolveDocumentPath(ApplicationDocumentKind.OpenSourceLicenses, "fr-FR");
     Check(localized is not null && File.ReadAllText(localized) == "中文帮助");
     Check(fallback is not null && fallback.EndsWith("en-US.html", StringComparison.Ordinal));
     Check(File.Exists(System.IO.Path.Combine(AppDataPaths.PackageLocalDocumentsFolder, "Help", "winui3.png")));
+    Check(licenseLocalized is not null && File.ReadAllText(licenseLocalized) == "开源软件许可");
+    Check(licenseFallback is not null && licenseFallback.EndsWith("en-US.html", StringComparison.Ordinal));
     Check(executor.Script is null);
 
     var state = new ApplicationDocumentState("2.0.0.0", ApplicationDocumentCatalog.SchemaVersion, string.Empty, true);

@@ -281,6 +281,14 @@
     <value>Open Source URL</value>
     <comment>"Open Source URL" heading on the About page</comment>
   </data>
+  <data name="AboutOpenSourceLicenses.Text" xml:space="preserve">
+    <value>Open-source licenses</value>
+    <comment>Heading for the open-source license notice in the About page</comment>
+  </data>
+  <data name="AboutOpenSourceLicensesButton.Content" xml:space="preserve">
+    <value>View open-source license notices</value>
+    <comment>Button text for opening the packaged open-source license notices</comment>
+  </data>
   <data name="AboutContributors.Text" xml:space="preserve">
     <value>Contributors</value>
     <comment>"Contributors" heading on the About page</comment>

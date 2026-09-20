@@ -1,4 +1,5 @@
 using FeedCustomizer.Core.Constants;
+using FeedCustomizer.Core.Documents;
 using FeedCustomizer.Core.Feedback;
 using FeedCustomizer.Core.Infrastructure.Logging;
 using FeedCustomizer.Core.Tools;
@@ -6,6 +7,7 @@ using FeedCustomizer.ViewModels;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
+using Microsoft.Windows.ApplicationModel.Resources;
 using System;
 
 // To learn more about WinUI, the WinUI project structure,
@@ -31,11 +33,18 @@ namespace FeedCustomizer.Pages
         {
             FeedbackService feedbackService = App.MainWindow?.Feedback
                 ?? throw new InvalidOperationException("主窗口反馈服务尚未初始化。");
-            ViewModel = new SettingsViewModel(feedbackService);
+            MainWindow window = App.MainWindow
+                ?? throw new InvalidOperationException("主窗口文档服务尚未初始化。");
+            ViewModel = new SettingsViewModel(
+                feedbackService,
+                window.Documents,
+                new ResourceLoader().GetString("LanguageTag"));
             InitializeComponent();
 
             // 订阅视图模型发出的 UI 请求，让视图模型不依赖具体控件。
             ViewModel.OpenLinkRequested += OnOpenLinkRequested;
+            ViewModel.DocumentOpenRequested += OnDocumentOpenRequested;
+            ViewModel.DocumentPreparationFailed += OnDocumentPreparationFailed;
             ViewModel.LoadingOverlayRequested += OnLoadingOverlayRequested;
             ViewModel.MessageRequested += OnMessageRequested;
             ViewModel.ErrorRequested += OnErrorRequested;
@@ -124,6 +133,33 @@ namespace FeedCustomizer.Pages
             if (App.MainWindow is MainWindow window)
             {
                 await window.ExternalLaunch.OpenLinkAsync(url);
+            }
+        }
+
+        /// <summary>使用与帮助文档一致的受控路径和系统关联程序打开随包文档。</summary>
+        private async void OnDocumentOpenRequested(
+            object? sender,
+            ApplicationDocumentOpenRequestedEventArgs e)
+        {
+            _ = sender;
+            await ApplicationDocumentUi.OpenAsync(e);
+        }
+
+        /// <summary>文档准备失败时复用帮助文档的本地化错误提示。</summary>
+        private async void OnDocumentPreparationFailed(
+            object? sender,
+            ApplicationDocumentResult result)
+        {
+            _ = sender;
+
+            try
+            {
+                await ApplicationDocumentUi.ShowFailureAsync(result.Diagnostic);
+            }
+            catch (Exception ex)
+            {
+                // 事件处理器必须观察 UI 展示失败，不能让错误提示本身形成未处理异常。
+                Log.Error(ex, "显示设置页应用文档错误对话框失败");
             }
         }
 

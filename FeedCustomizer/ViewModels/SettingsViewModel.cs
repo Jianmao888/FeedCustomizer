@@ -1,6 +1,7 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using FeedCustomizer.Core.Constants;
+using FeedCustomizer.Core.Documents;
 using FeedCustomizer.Core.Feedback;
 using FeedCustomizer.Core.Infrastructure.Logging;
 using FeedCustomizer.Core.Tools;
@@ -26,6 +27,8 @@ namespace FeedCustomizer.ViewModels
         private static readonly IAppLog Log = AppLog.For<SettingsViewModel>();
         private readonly ResourceLoader _resourceLoader = new();
         private readonly FeedbackService _feedbackService;
+        private readonly ApplicationDocumentService _documents;
+        private readonly string _documentLanguageTag;
 
         /// <summary>Store 购买与许可证查询所需的窗口句柄，由页面初始化时传入。</summary>
         private IntPtr _windowHandle = IntPtr.Zero;
@@ -156,6 +159,12 @@ namespace FeedCustomizer.ViewModels
         /// <summary>请求页面打开外部链接。</summary>
         public event EventHandler<string>? OpenLinkRequested;
 
+        /// <summary>请求 UI 打开已完成同步和路径验证的应用文档。</summary>
+        public event EventHandler<ApplicationDocumentOpenRequestedEventArgs>? DocumentOpenRequested;
+
+        /// <summary>请求 UI 展示应用文档同步或准备失败信息。</summary>
+        public event EventHandler<ApplicationDocumentResult>? DocumentPreparationFailed;
+
         /// <summary>请求显示或隐藏加载遮罩。</summary>
         public event EventHandler<bool>? LoadingOverlayRequested;
 
@@ -169,9 +178,14 @@ namespace FeedCustomizer.ViewModels
         // 构造函数与初始化
         // =====================
 
-        internal SettingsViewModel(FeedbackService feedbackService)
+        internal SettingsViewModel(
+            FeedbackService feedbackService,
+            ApplicationDocumentService documents,
+            string documentLanguageTag)
         {
             _feedbackService = feedbackService;
+            _documents = documents;
+            _documentLanguageTag = documentLanguageTag;
             _isInitializing = true;
             LoadSettings();
             _isInitializing = false;
@@ -312,6 +326,29 @@ namespace FeedCustomizer.ViewModels
         private void OpenGiteeLink()
         {
             OpenLinkRequested?.Invoke(this, GiteeUrl);
+        }
+
+        /// <summary>
+        /// 准备并打开随包开源许可声明。文档服务负责版本同步和缺失自愈，
+        /// ViewModel 只将成功结果作为 UI 请求转发，避免直接依赖文件或窗口 API。
+        /// </summary>
+        [RelayCommand]
+        private async Task OpenSourceLicensesAsync()
+        {
+            ApplicationDocumentResult result = await _documents.PrepareAsync(
+                ApplicationDocumentKind.OpenSourceLicenses,
+                _documentLanguageTag);
+            if (result.Succeeded)
+            {
+                DocumentOpenRequested?.Invoke(
+                    this,
+                    new ApplicationDocumentOpenRequestedEventArgs(
+                        ApplicationDocumentKind.OpenSourceLicenses,
+                        result.FilePath));
+                return;
+            }
+
+            DocumentPreparationFailed?.Invoke(this, result);
         }
 
         /// <summary>将全部保留日志打包到下载目录，并展示与资源管理器一致的完整路径。</summary>

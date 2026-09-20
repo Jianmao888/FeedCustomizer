@@ -210,6 +210,15 @@
                             </StackPanel>
                         </StackPanel>
                         <StackPanel>
+                            <TextBlock x:Uid="AboutOpenSourceLicenses" FontSize="13" Opacity="0.6" Padding="0,8,0,4"/>
+                            <!-- 许可页是随包文档，经文档服务同步到私有目录后再由系统默认浏览器打开。 -->
+                            <HyperlinkButton
+                                x:Uid="AboutOpenSourceLicensesButton"
+                                Command="{x:Bind ViewModel.OpenSourceLicensesCommand}"
+                                Padding="0"
+                                FontSize="13"/>
+                        </StackPanel>
+                        <StackPanel>
                             <TextBlock x:Uid="AboutContributors" FontSize="13" Opacity="0.6" Padding="0,8,0,4"/>
                             <!--
                                 Contributors 是只读静态列表，用 OneTime 绑定即可，无需订阅集合变更。
