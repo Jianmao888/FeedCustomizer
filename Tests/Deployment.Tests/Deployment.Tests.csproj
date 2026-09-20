@@ -10,8 +10,12 @@
     <Content Include="../../FeedCustomizer/Resources/AppxManifest.xml" Link="Template.xml" CopyToOutputDirectory="PreserveNewest" />
     <Compile Include="../../FeedCustomizer/Core/Tools/ManifesXmlService.cs" Link="Core/ManifestXmlService.cs" />
     <Compile Include="../../FeedCustomizer/Core/Infrastructure/Deployment/ProviderDeploymentStorage.cs" Link="Core/ProviderDeploymentStorage.cs" />
+    <Compile Include="../../FeedCustomizer/Core/Infrastructure/Documents/ApplicationDocumentStorage.cs" Link="Core/ApplicationDocumentStorage.cs" />
     <Compile Include="../../FeedCustomizer/Core/Deployment/DeploymentContracts.cs" Link="Core/DeploymentContracts.cs" />
     <Compile Include="../../FeedCustomizer/Core/Deployment/ProviderDeploymentCoordinator.cs" Link="Core/ProviderDeploymentCoordinator.cs" />
+    <Compile Include="../../FeedCustomizer/Core/Documents/ApplicationDocumentContracts.cs" Link="Core/ApplicationDocumentContracts.cs" />
+    <Compile Include="../../FeedCustomizer/Core/Documents/ApplicationDocumentCatalog.cs" Link="Core/ApplicationDocumentCatalog.cs" />
+    <Compile Include="../../FeedCustomizer/Core/Documents/ApplicationDocumentService.cs" Link="Core/ApplicationDocumentService.cs" />
     <Compile Include="../../FeedCustomizer/Core/Models/ProviderRegistrationResult.cs" Link="Core/ProviderRegistrationResult.cs" />
     <Compile Include="../../FeedCustomizer/Core/Models/PowerShellResult.cs" Link="Core/PowerShellResult.cs" />
     <Compile Include="../../FeedCustomizer/Core/Models/WidgetDataClearResult.cs" Link="Core/WidgetDataClearResult.cs" />
@@ -30,6 +34,7 @@
     <Compile Include="../../FeedCustomizer/Core/Feedback/LogArchiveBuilder.cs" Link="Core/LogArchiveBuilder.cs" />
     <Compile Include="../../FeedCustomizer/Core/Feedback/LogArchiveDestination.cs" Link="Core/LogArchiveDestination.cs" />
     <Compile Include="../../FeedCustomizer/Core/Infrastructure/PowerShell/ProviderDeploymentPowerShellAdapter.cs" Link="Core/ProviderDeploymentPowerShellAdapter.cs" />
+    <Compile Include="../../FeedCustomizer/Core/Infrastructure/PowerShell/LegacyDocumentPowerShellAdapter.cs" Link="Core/LegacyDocumentPowerShellAdapter.cs" />
     <Compile Include="../../FeedCustomizer/Core/WidgetData/IWidgetDataResetPlatform.cs" Link="Core/IWidgetDataResetPlatform.cs" />
     <Compile Include="../../FeedCustomizer/Core/WidgetData/WidgetDataResetCoordinator.cs" Link="Core/WidgetDataResetCoordinator.cs" />
   </ItemGroup>

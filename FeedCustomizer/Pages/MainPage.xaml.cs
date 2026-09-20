@@ -1,4 +1,5 @@
 using FeedCustomizer.Core.Models;
+using FeedCustomizer.Core.Documents;
 using FeedCustomizer.Core.Feedback;
 using FeedCustomizer.Core.Infrastructure.Logging;
 using FeedCustomizer.Core.Tools;
@@ -25,7 +26,7 @@ namespace FeedCustomizer.Pages
         private static readonly IAppLog Log = AppLog.For<MainPage>();
 
         /// <summary>页面视图模型，供 XAML 通过 x:Bind 绑定。</summary>
-        public MainPageViewModel ViewModel { get; } = new();
+        public MainPageViewModel ViewModel { get; }
 
         /// <summary>供窗口启动协调器等待资源同步判定。</summary>
         public Task<bool> ResourceSynchronizationRequiredTask => ViewModel.ResourceSynchronizationRequiredTask;
@@ -44,13 +45,19 @@ namespace FeedCustomizer.Pages
 
         public MainPage()
         {
+            MainWindow window = App.MainWindow
+                ?? throw new InvalidOperationException("主窗口尚未创建，无法构造主页文档服务。");
+            ViewModel = new MainPageViewModel(
+                window.Documents,
+                new ResourceLoader().GetString("LanguageTag"));
             InitializeComponent();
             NavigationCacheMode = NavigationCacheMode.Enabled;
 
             // 订阅视图模型发出的 UI 请求，让视图模型不依赖具体控件。
             ViewModel.NavigationRequested += OnNavigationRequested;
             ViewModel.LoadingOverlayRequested += OnLoadingOverlayRequested;
-            ViewModel.HelpFileReady += OnHelpFileReady;
+            ViewModel.DocumentOpenRequested += OnDocumentOpenRequested;
+            ViewModel.DocumentPreparationFailed += OnDocumentPreparationFailed;
             ViewModel.ProviderRegistrationFailed += OnProviderRegistrationFailed;
 
             if (App.MainWindow is MainWindow)
@@ -100,16 +107,68 @@ namespace FeedCustomizer.Pages
         }
 
         /// <summary>
-        /// 处理视图模型发出的帮助文档打开请求。
+        /// 处理视图模型发出的应用文档打开请求。文件解析和版本自愈已经在服务层完成，
+        /// 页面只负责 Windows 文件对象与外部打开确认框的 UI 适配。
         /// </summary>
-        private async void OnHelpFileReady(object? sender, StorageFile file)
+        private async void OnDocumentOpenRequested(
+            object? sender,
+            ApplicationDocumentOpenRequestedEventArgs e)
         {
             _ = sender;
 
-            if (App.MainWindow is MainWindow window)
+            try
             {
-                await window.ExternalLaunch.OpenFileAsync(file);
+                StorageFile file = await StorageFile.GetFileFromPathAsync(e.FilePath);
+                if (App.MainWindow is MainWindow window)
+                {
+                    await window.ExternalLaunch.OpenFileAsync(file);
+                }
             }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "把应用文档交给 Windows 打开失败，类型={DocumentKind}", e.Kind);
+                try
+                {
+                    await ShowDocumentFailureAsync(ex.Message);
+                }
+                catch (Exception dialogException)
+                {
+                    Log.Error(dialogException, "显示应用文档打开错误对话框失败");
+                }
+            }
+        }
+
+        /// <summary>文档服务返回结构化失败后，由 UI 层加载本地化文本并展示。</summary>
+        private async void OnDocumentPreparationFailed(
+            object? sender,
+            ApplicationDocumentResult result)
+        {
+            _ = sender;
+
+            try
+            {
+                await ShowDocumentFailureAsync(result.Diagnostic);
+            }
+            catch (Exception ex)
+            {
+                // 事件处理器必须观察展示异常，避免错误处理自身成为未处理异常。
+                Log.Error(ex, "显示应用文档错误对话框失败");
+            }
+        }
+
+        private static Task ShowDocumentFailureAsync(string diagnostic)
+        {
+            var resources = new ResourceLoader();
+            string content = resources.GetString("DocumentOpenFailureMessage");
+            if (!string.IsNullOrWhiteSpace(diagnostic))
+            {
+                content += Environment.NewLine + Environment.NewLine + diagnostic;
+            }
+
+            return DialogService.ShowMessageAsync(
+                resources.GetString("DocumentOpenFailureTitle"),
+                content,
+                resources.GetString("DialogOK"));
         }
 
         /// <summary>

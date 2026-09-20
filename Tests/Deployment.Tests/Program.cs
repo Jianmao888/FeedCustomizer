@@ -1,7 +1,9 @@
 using FeedCustomizer.Core.Constants;
 using FeedCustomizer.Core.Deployment;
+using FeedCustomizer.Core.Documents;
 using FeedCustomizer.Core.Feedback;
 using FeedCustomizer.Core.Infrastructure.Deployment;
+using FeedCustomizer.Core.Infrastructure.Documents;
 using FeedCustomizer.Core.Infrastructure.Logging;
 using FeedCustomizer.Core.Infrastructure.PowerShell;
 using FeedCustomizer.Core.Models;
@@ -119,6 +121,12 @@ var tests = new (string Name, Func<Task> Run)[]
     ("小组件数据清理跨调用串行且保留锁定结果", WidgetDataResetCoordinatorAsync),
     ("地区策略脚本只使用执行器临时诊断", RegionPolicyUsesTemporaryDiagnosticsAsync),
     ("开发者模式脚本捕获操作与恢复错误", DeveloperModeCapturesFailureDiagnosticsAsync),
+    ("同版本文档维护不启动PowerShell", CurrentDocumentMaintenanceSkipsCleanupAsync),
+    ("全新安装同步文档但不启动PowerShell", FreshDocumentInstallationSkipsCleanupAsync),
+    ("应用更新同步文档并且每版本只清理一次", UpdatedDocumentMaintenanceCleansOnceAsync),
+    ("文档被手动删除时只从包内自愈", MissingDocumentSelfHealingSkipsCleanupAsync),
+    ("文档存储使用完整候选替换并保留相对资源", DocumentStorageReplacesCompleteCatalogAsync),
+    ("旧文档清理脚本限定固定目录", LegacyDocumentCleanupScriptIsBoundedAsync),
     ("PowerShell 失败日志包含脱敏诊断", PowerShellFailureLoggingAsync),
     ("日志归档只包含顶层应用日志", LogArchiveSelectionAsync),
     ("日志归档可读取正在追加的日志快照", ActiveLogArchiveAsync),
@@ -479,6 +487,125 @@ static async Task DeveloperModeCapturesFailureDiagnosticsAsync()
     Check(generatedScript.Content.Contains("$originalRead", StringComparison.Ordinal));
 }
 
+static async Task CurrentDocumentMaintenanceSkipsCleanupAsync()
+{
+    var storage = new FakeDocumentStorage
+    {
+        State = new ApplicationDocumentState("2.0.0.0", ApplicationDocumentCatalog.SchemaVersion, "2.0.0.0", true),
+        DocumentPath = "C:\\private\\Documents\\Help\\en-US.html",
+    };
+    var service = new ApplicationDocumentService(storage);
+
+    await service.MaintainAfterStartupAsync();
+
+    Check(storage.ReplaceCalls == 0);
+    Check(storage.CleanupCalls == 0);
+    Check(storage.WriteStateCalls == 0);
+}
+
+static async Task FreshDocumentInstallationSkipsCleanupAsync()
+{
+    var storage = new FakeDocumentStorage();
+    var service = new ApplicationDocumentService(storage);
+
+    await service.MaintainAfterStartupAsync();
+
+    Check(storage.ReplaceCalls == 1);
+    Check(storage.CleanupCalls == 0);
+    Check(storage.State?.PackageVersion == storage.CurrentPackageVersion);
+}
+
+static async Task UpdatedDocumentMaintenanceCleansOnceAsync()
+{
+    var storage = new FakeDocumentStorage
+    {
+        State = new ApplicationDocumentState("1.0.0.0", ApplicationDocumentCatalog.SchemaVersion, "1.0.0.0", false),
+        DocumentPath = "C:\\private\\Documents\\Help\\en-US.html",
+    };
+    var service = new ApplicationDocumentService(storage);
+
+    await service.MaintainAfterStartupAsync();
+    await service.MaintainAfterStartupAsync();
+
+    Check(storage.ReplaceCalls == 1);
+    Check(storage.CleanupCalls == 1);
+    Check(storage.State?.PackageVersion == storage.CurrentPackageVersion);
+    Check(storage.State?.LegacyCleanupAttemptedVersion == storage.CurrentPackageVersion);
+    Check(storage.State?.LegacyCleanupCompleted == true);
+}
+
+static async Task MissingDocumentSelfHealingSkipsCleanupAsync()
+{
+    var storage = new FakeDocumentStorage
+    {
+        State = new ApplicationDocumentState("2.0.0.0", ApplicationDocumentCatalog.SchemaVersion, "2.0.0.0", true),
+    };
+    var service = new ApplicationDocumentService(storage);
+
+    ApplicationDocumentResult result = await service.PrepareAsync(
+        ApplicationDocumentKind.Help,
+        "zh-CN");
+
+    Check(result.Succeeded);
+    Check(result.FilePath.EndsWith("zh-CN.html", StringComparison.Ordinal));
+    Check(storage.ReplaceCalls == 1);
+    Check(storage.CleanupCalls == 0);
+}
+
+static async Task LegacyDocumentCleanupScriptIsBoundedAsync()
+{
+    var executor = new CapturingExecutor
+    {
+        Result = new PowerShellResult(0, "False", string.Empty),
+    };
+    var adapter = new LegacyDocumentPowerShellAdapter(executor);
+
+    Check(!await adapter.RemoveLegacyHelpAsync());
+    PowerShellScript script = executor.Script ?? throw new Exception("未捕获旧文档清理脚本。");
+    Check(script.Content.Contains("'FeedCustomProvider'", StringComparison.Ordinal));
+    Check(script.Content.Contains("'HelpDoc'", StringComparison.Ordinal));
+    Check(script.Content.Contains("ReparsePoint", StringComparison.Ordinal));
+    Check(script.Content.Contains("Remove-Item -LiteralPath $target", StringComparison.Ordinal));
+    Check(!script.Content.Contains("Remove-Item $target", StringComparison.Ordinal));
+}
+
+static async Task DocumentStorageReplacesCompleteCatalogAsync()
+{
+    using var directory = new TestDirectory();
+    AppDataPaths.TestRoot = directory.Path;
+    string source = System.IO.Path.Combine(directory.Path, "package", "Documents");
+    string help = System.IO.Path.Combine(source, "Help");
+    Directory.CreateDirectory(help);
+    File.WriteAllText(System.IO.Path.Combine(help, "en-US.html"), "<img src=\"winui3.png\">");
+    File.WriteAllText(System.IO.Path.Combine(help, "zh-CN.html"), "中文帮助");
+    File.WriteAllText(System.IO.Path.Combine(help, "winui3.png"), "image");
+
+    var executor = new CapturingExecutor
+    {
+        Result = new PowerShellResult(0, "False", string.Empty),
+    };
+    var storage = new ApplicationDocumentStorage(
+        source,
+        AppDataPaths.PackageLocalDocumentsFolder,
+        AppDataPaths.PackageLocalDocumentsStatePath,
+        AppDataPaths.LegacyPackageLocalHelpDocFolder,
+        "2.0.0.0",
+        new LegacyDocumentPowerShellAdapter(executor));
+
+    await storage.ReplaceCatalogAsync(CancellationToken.None);
+
+    string? localized = storage.ResolveDocumentPath(ApplicationDocumentKind.Help, "zh-CN");
+    string? fallback = storage.ResolveDocumentPath(ApplicationDocumentKind.Help, "fr-FR");
+    Check(localized is not null && File.ReadAllText(localized) == "中文帮助");
+    Check(fallback is not null && fallback.EndsWith("en-US.html", StringComparison.Ordinal));
+    Check(File.Exists(System.IO.Path.Combine(AppDataPaths.PackageLocalDocumentsFolder, "Help", "winui3.png")));
+    Check(executor.Script is null);
+
+    var state = new ApplicationDocumentState("2.0.0.0", ApplicationDocumentCatalog.SchemaVersion, string.Empty, true);
+    storage.WriteState(state);
+    Check(storage.ReadState() == state);
+}
+
 static void CreateWorkspace(string root)
 {
     AppDataPaths.TestRoot = root;
@@ -509,12 +636,66 @@ sealed class CapturingExecutor : IPowerShellExecutor
 {
     public PowerShellScript? Script { get; private set; }
 
+    public PowerShellResult Result { get; set; } = new(0, string.Empty, string.Empty);
+
     public Task<PowerShellResult> ExecuteAsync(
         PowerShellScript script,
         CancellationToken cancellationToken = default)
     {
         Script = script;
-        return Task.FromResult(new PowerShellResult(0, string.Empty, string.Empty));
+        return Task.FromResult(Result);
+    }
+}
+
+/// <summary>
+/// 文档协调测试替身只记录语义调用，避免测试启动真实 PowerShell 或接触用户文档目录。
+/// </summary>
+sealed class FakeDocumentStorage : IApplicationDocumentStorage
+{
+    public string CurrentPackageVersion { get; } = "2.0.0.0";
+
+    public ApplicationDocumentState? State { get; set; }
+
+    public string? DocumentPath { get; set; }
+
+    public bool LegacyHelpExists { get; set; }
+
+    public int ReplaceCalls { get; private set; }
+
+    public int CleanupCalls { get; private set; }
+
+    public int WriteStateCalls { get; private set; }
+
+    public ApplicationDocumentState? ReadState() => State;
+
+    public void WriteState(ApplicationDocumentState state)
+    {
+        WriteStateCalls++;
+        State = state;
+    }
+
+    public bool LegacyPrivateHelpExists() => LegacyHelpExists;
+
+    public Task ReplaceCatalogAsync(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        ReplaceCalls++;
+        DocumentPath ??= "C:\\private\\Documents\\Help\\zh-CN.html";
+        return Task.CompletedTask;
+    }
+
+    public string? ResolveDocumentPath(ApplicationDocumentKind kind, string languageTag)
+    {
+        _ = kind;
+        _ = languageTag;
+        return DocumentPath;
+    }
+
+    public Task<LegacyDocumentCleanupResult> RemoveLegacyHelpAsync(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        CleanupCalls++;
+        return Task.FromResult(new LegacyDocumentCleanupResult(true, true, []));
     }
 }
 

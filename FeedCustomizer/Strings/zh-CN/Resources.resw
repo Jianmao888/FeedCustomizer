@@ -656,4 +656,12 @@
   <data name="FeedbackSource_WidgetData" xml:space="preserve"><value>清理小组件数据</value></data>
   <data name="FeedbackSource_WebIcon" xml:space="preserve"><value>获取网页图标</value></data>
   <data name="FeedbackSource_Donation" xml:space="preserve"><value>捐赠者版购买</value></data>
+  <data name="DocumentOpenFailureTitle" xml:space="preserve">
+    <value>无法打开文档</value>
+    <comment>应用文档准备或交给系统打开失败时的标题</comment>
+  </data>
+  <data name="DocumentOpenFailureMessage" xml:space="preserve">
+    <value>应用无法准备或打开所需文档，请稍后重试。</value>
+    <comment>应用文档准备或打开失败时的用户提示</comment>
+  </data>
 </root>

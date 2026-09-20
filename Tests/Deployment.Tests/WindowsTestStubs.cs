@@ -6,6 +6,10 @@ namespace FeedCustomizer.Core.Tools
     {
         internal static string TestRoot { get; set; } = string.Empty;
         internal static string PackageLocalFeedProviderFolder => Path.Combine(TestRoot, "private", "Local", "FeedCustomProvider");
+        internal static string PackageLocalBase => Path.Combine(TestRoot, "private");
+        internal static string PackageLocalDocumentsFolder => Path.Combine(PackageLocalBase, "Local", "Documents");
+        internal static string PackageLocalDocumentsStatePath => Path.Combine(PackageLocalBase, "Local", ".application-documents.xml");
+        internal static string LegacyPackageLocalHelpDocFolder => Path.Combine(PackageLocalFeedProviderFolder, "HelpDoc");
         internal static string PackageLocalManifestPath => Path.Combine(PackageLocalFeedProviderFolder, "AppxManifest.xml");
         internal static string PackageLocalLogPath => Path.Combine(TestRoot, "private", "Local", "Logs");
         internal static string FeedProviderFolder => Path.Combine(TestRoot, "real", "FeedCustomProvider");

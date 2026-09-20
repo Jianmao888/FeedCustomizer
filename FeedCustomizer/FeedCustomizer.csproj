@@ -62,6 +62,12 @@
 	</ItemGroup>
 	
 	<ItemGroup>
+		<Content Include="Documents\**">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</Content>
+	</ItemGroup>
+
+	<ItemGroup>
 	  <Content Update="Assets\AppIcon.ico">
 	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
 	  </Content>

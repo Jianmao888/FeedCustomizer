@@ -43,6 +43,14 @@ namespace FeedCustomizer.Core.Tools
 
         internal static string PackageLocalLogPath => Path.Combine(PackageLocalBase, "Local", "Logs");
 
+        // 文档与 Provider 工作副本彻底分离，后续 Provider 全量准备不会再复制或覆盖文档。
+        internal static string PackageLocalDocumentsFolder => Path.Combine(PackageLocalBase, "Local", "Documents");
+
+        internal static string PackageLocalDocumentsStatePath => Path.Combine(
+            PackageLocalBase,
+            "Local",
+            ".application-documents.xml");
+
         internal static string ManifestPath => Path.Combine(
             FeedProviderFolder,
             "AppxManifest.xml");
@@ -56,7 +64,8 @@ namespace FeedCustomizer.Core.Tools
             PackageLocalFeedProviderFolder,
             "Images");
 
-        internal static string HelpDocFolder => Path.Combine(
+        // 仅供应用更新后清理已发布版本留下的三副本文档，不再作为帮助文档读取来源。
+        internal static string LegacyPackageLocalHelpDocFolder => Path.Combine(
             PackageLocalFeedProviderFolder,
             "HelpDoc");
     }

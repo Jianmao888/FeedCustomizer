@@ -11,6 +11,8 @@ namespace FeedCustomizer.Core.Infrastructure.PowerShell
 
         internal static ProviderDeploymentPowerShellAdapter DeploymentFiles { get; } = new(Executor);
 
+        internal static LegacyDocumentPowerShellAdapter LegacyDocuments { get; } = new(Executor);
+
         internal static DeveloperModePowerShellAdapter DeveloperMode { get; } = new(Executor);
 
         internal static RegionPolicyPowerShellAdapter RegionPolicy { get; } = new(Executor);

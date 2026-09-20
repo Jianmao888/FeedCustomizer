@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.Input;
 using FeedCustomizer.Core.Constants;
 using FeedCustomizer.Core.DataService;
 using FeedCustomizer.Core.Deployment;
+using FeedCustomizer.Core.Documents;
 using FeedCustomizer.Core.Infrastructure.Logging;
 using FeedCustomizer.Core.Models;
 using FeedCustomizer.Core.Tools;
@@ -11,7 +12,6 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Threading.Tasks;
-using Windows.Storage;
 
 namespace FeedCustomizer.ViewModels
 {
@@ -22,6 +22,8 @@ namespace FeedCustomizer.ViewModels
     public partial class MainPageViewModel : ObservableObject
     {
         private static readonly IAppLog Log = AppLog.For<MainPageViewModel>();
+        private readonly ApplicationDocumentService _documents;
+        private readonly string _documentLanguageTag;
 
         // =====================
         // 数据
@@ -89,8 +91,11 @@ namespace FeedCustomizer.ViewModels
         /// <summary>请求显示或隐藏加载遮罩。</summary>
         public event EventHandler<bool>? LoadingOverlayRequested;
 
-        /// <summary>请求打开帮助文档文件。</summary>
-        public event EventHandler<StorageFile>? HelpFileReady;
+        /// <summary>请求 UI 打开已准备完成的应用文档。</summary>
+        public event EventHandler<ApplicationDocumentOpenRequestedEventArgs>? DocumentOpenRequested;
+
+        /// <summary>请求 UI 展示文档同步或解析失败。</summary>
+        public event EventHandler<ApplicationDocumentResult>? DocumentPreparationFailed;
 
         /// <summary>
         /// Provider 注册未完成时请求 UI 层处理。结果包含错误类别与诊断，
@@ -102,8 +107,12 @@ namespace FeedCustomizer.ViewModels
         // 初始化逻辑
         // =====================
 
-        public MainPageViewModel()
+        internal MainPageViewModel(
+            ApplicationDocumentService documents,
+            string documentLanguageTag)
         {
+            _documents = documents;
+            _documentLanguageTag = documentLanguageTag;
             // 源集合变化时同步 HasFeeds，便于未来展示空状态。
             Feeds.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasFeeds));
             InitializationTask = InitializeAllFeedsAsync();
@@ -570,14 +579,6 @@ namespace FeedCustomizer.ViewModels
             return Feeds.Count < Constants.MaxFeedNum;
         }
 
-        /// <summary>
-        /// 获取帮助文档文件。
-        /// </summary>
-        private static async Task<StorageFile?> GetHelpFileAsync()
-        {
-            return await GetHelpTool.GetHelpFileAsync();
-        }
-
         // =====================
         // 命令（绑定到页面按钮）
         // =====================
@@ -637,14 +638,24 @@ namespace FeedCustomizer.ViewModels
             }
         }
 
-        /// <summary>获取帮助文档，并请求打开。</summary>
+        /// <summary>确保帮助文档版本与应用一致，并请求 UI 打开。</summary>
         [RelayCommand]
         private async Task GetHelpAsync()
         {
-            if (await GetHelpFileAsync() is StorageFile file)
+            ApplicationDocumentResult result = await _documents.PrepareAsync(
+                ApplicationDocumentKind.Help,
+                _documentLanguageTag);
+            if (result.Succeeded)
             {
-                HelpFileReady?.Invoke(this, file);
+                DocumentOpenRequested?.Invoke(
+                    this,
+                    new ApplicationDocumentOpenRequestedEventArgs(
+                        ApplicationDocumentKind.Help,
+                        result.FilePath));
+                return;
             }
+
+            DocumentPreparationFailed?.Invoke(this, result);
         }
 
         /// <summary>打开“关于”页面：先保存当前状态。</summary>
@@ -688,5 +699,17 @@ namespace FeedCustomizer.ViewModels
         public MainPageNavigationTarget Target { get; } = target;
 
         public object? Parameter { get; } = parameter;
+    }
+
+    /// <summary>
+    /// 已由文档服务验证的打开请求。视图只负责把文件交给 Windows 关联程序。
+    /// </summary>
+    public sealed class ApplicationDocumentOpenRequestedEventArgs(
+        ApplicationDocumentKind kind,
+        string filePath) : EventArgs
+    {
+        public ApplicationDocumentKind Kind { get; } = kind;
+
+        public string FilePath { get; } = filePath;
     }
 }

@@ -1,5 +1,8 @@
 using FeedCustomizer.Core.Interface;
 using FeedCustomizer.Core.Infrastructure.Logging;
+using FeedCustomizer.Core.Documents;
+using FeedCustomizer.Core.Infrastructure.Documents;
+using FeedCustomizer.Core.Infrastructure.PowerShell;
 using FeedCustomizer.Core.Feedback;
 using FeedCustomizer.Core.Tools;
 using Microsoft.UI.Windowing;
@@ -34,6 +37,9 @@ namespace FeedCustomizer
 
         public ExternalLaunchService ExternalLaunch { get; }
 
+        /// <summary>窗口生命周期内唯一的应用文档协调服务，启动维护与页面打开共享同一串行锁。</summary>
+        internal ApplicationDocumentService Documents { get; }
+
         /// <summary>窗口生命周期内唯一的反馈服务，设置页和错误弹窗复用同一串行协调实例。</summary>
         internal FeedbackService Feedback { get; }
 
@@ -48,6 +54,8 @@ namespace FeedCustomizer
             }
 
             Feedback = FeedbackService.CreateDefault();
+            Documents = new ApplicationDocumentService(
+                ApplicationDocumentStorage.CreateDefault(PowerShellInfrastructure.LegacyDocuments));
             DialogService.Initialize(
                 DispatcherQueue,
                 GetXamlRoot,
@@ -166,6 +174,10 @@ namespace FeedCustomizer
                 await CompleteStartupAsync();
             }
 
+            // 文档复制不属于主页可用性的前置条件。启动视觉结束后在后台维护；
+            // 同版本普通启动只读状态文件，只有应用更新才会启动一次 PowerShell 清理旧注册副本。
+            _ = MaintainApplicationDocumentsAsync();
+
             try
             {
                 await mainPage.ShowStartupCompletionDialogsAsync(initializationException);
@@ -182,6 +194,19 @@ namespace FeedCustomizer
                     "启动协调流程结束，成功={Succeeded}，总耗时毫秒={ElapsedMilliseconds}",
                     initializationException is null,
                     stopwatch.ElapsedMilliseconds);
+            }
+        }
+
+        private async Task MaintainApplicationDocumentsAsync()
+        {
+            try
+            {
+                await Documents.MaintainAfterStartupAsync();
+            }
+            catch (Exception ex)
+            {
+                // 文档仍可在用户点击时再次自愈，后台维护失败不能影响主页和启动对话框。
+                Log.Warning(ex, "启动后的应用文档维护未完成");
             }
         }
 
