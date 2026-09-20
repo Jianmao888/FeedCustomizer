@@ -335,15 +335,28 @@ namespace FeedCustomizer.ViewModels
         [RelayCommand]
         private async Task OpenSourceLicensesAsync()
         {
-            ApplicationDocumentResult result = await _documents.PrepareAsync(
-                ApplicationDocumentKind.OpenSourceLicenses,
-                _documentLanguageTag);
+            await OpenApplicationDocumentAsync(ApplicationDocumentKind.OpenSourceLicenses);
+        }
+
+        /// <summary>准备并打开随包隐私声明，使用与其他应用文档相同的同步和失败语义。</summary>
+        [RelayCommand]
+        private async Task OpenPrivacyStatementAsync()
+        {
+            await OpenApplicationDocumentAsync(ApplicationDocumentKind.Privacy);
+        }
+
+        /// <summary>
+        /// 统一转换应用文档准备结果为 UI 请求，避免每个文档入口重复同步、成功和失败分支。
+        /// </summary>
+        private async Task OpenApplicationDocumentAsync(ApplicationDocumentKind kind)
+        {
+            ApplicationDocumentResult result = await _documents.PrepareAsync(kind, _documentLanguageTag);
             if (result.Succeeded)
             {
                 DocumentOpenRequested?.Invoke(
                     this,
                     new ApplicationDocumentOpenRequestedEventArgs(
-                        ApplicationDocumentKind.OpenSourceLicenses,
+                        kind,
                         result.FilePath));
                 return;
             }

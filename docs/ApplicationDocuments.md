@@ -12,6 +12,7 @@
 - 目前不计算内容哈希。同版本仅保证入口存在；应用更新必定全量覆盖，从而保证新版本内容一致。
 - 新增隐私声明、开源许可等文档时，在 `ApplicationDocumentCatalog` 注册受控相对路径，不要新增只服务于单个文档的静态工具类。
 - 开源软件许可声明位于 `FeedCustomizer/Documents/OpenSourceLicenses`；设置页通过与帮助文档相同的文档服务准备并由系统默认关联程序打开。
+- 隐私声明位于 `FeedCustomizer/Documents/Privacy`，并与开源软件许可声明共享同一套目录替换、缺失自愈和打开流程。
 
 ## 旧版副本清理
 

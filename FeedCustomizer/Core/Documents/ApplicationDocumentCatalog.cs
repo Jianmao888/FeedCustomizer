@@ -10,7 +10,7 @@ namespace FeedCustomizer.Core.Documents;
 internal static class ApplicationDocumentCatalog
 {
     // 新增随包文档时提升架构版本，确保旧安装在更新后会原子替换完整目录。
-    internal const int SchemaVersion = 2;
+    internal const int SchemaVersion = 3;
 
     private static readonly IReadOnlyDictionary<ApplicationDocumentKind, DocumentDescriptor> Descriptors =
         new Dictionary<ApplicationDocumentKind, DocumentDescriptor>
@@ -25,6 +25,14 @@ internal static class ApplicationDocumentCatalog
                 "en-US"),
             [ApplicationDocumentKind.OpenSourceLicenses] = new(
                 "OpenSourceLicenses",
+                new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["en-US"] = "en-US.html",
+                    ["zh-CN"] = "zh-CN.html",
+                },
+                "en-US"),
+            [ApplicationDocumentKind.Privacy] = new(
+                "Privacy",
                 new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
                 {
                     ["en-US"] = "en-US.html",
@@ -56,6 +64,8 @@ internal static class ApplicationDocumentCatalog
         Path.Combine("Help", "winui3.png"),
         Path.Combine("OpenSourceLicenses", "en-US.html"),
         Path.Combine("OpenSourceLicenses", "zh-CN.html"),
+        Path.Combine("Privacy", "en-US.html"),
+        Path.Combine("Privacy", "zh-CN.html"),
     ];
 
     private sealed record DocumentDescriptor(
