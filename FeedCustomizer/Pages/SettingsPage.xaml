@@ -235,7 +235,7 @@
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
                             <!-- 两份声明都经文档服务同步到私有目录后，再由系统默认浏览器打开。 -->
-                            <StackPanel Orientation="Horizontal" Spacing="12" Margin="0,20,0,0">
+                            <StackPanel Orientation="Horizontal" Spacing="12" Margin="0,24,0,0">
                                 <HyperlinkButton
                                     x:Uid="AboutOpenSourceLicenses"
                                     Command="{x:Bind ViewModel.OpenSourceLicensesCommand}"
