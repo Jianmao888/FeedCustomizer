@@ -7,6 +7,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.Windows.ApplicationModel.Resources;
 using Microsoft.Windows.AppLifecycle;
+using Microsoft.Windows.Globalization;
 using System;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
@@ -23,6 +24,22 @@ namespace FeedCustomizer
 
         public App()
         {
+#if PSEUDO_LOCALIZATION
+            // 必须在任何 XAML 或 ResourceLoader 读取资源前设定，才能让测试配置完整覆盖 UI 文本。
+            // 此编译常量只由 PseudoLocalization 配置定义，测试配置不会改变正式包的资源内容。
+            ApplicationLanguages.PrimaryLanguageOverride = "qps-ploc";
+#else
+            // 覆盖语言会由打包应用持久化。测试包运行后首次启动正式包时清理遗留值，
+            // 避免不存在于正式 PRI 的 qps-ploc 影响用户实际选择的应用语言。
+            if (string.Equals(
+                ApplicationLanguages.PrimaryLanguageOverride,
+                "qps-ploc",
+                StringComparison.OrdinalIgnoreCase))
+            {
+                ApplicationLanguages.PrimaryLanguageOverride = string.Empty;
+            }
+#endif
+
             // 日志先于 XAML 初始化建立，确保资源加载或全局异常同样能够落盘诊断。
             AppLog.Initialize();
             RegisterGlobalExceptionHandlers();

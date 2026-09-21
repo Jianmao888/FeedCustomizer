@@ -1,0 +1,674 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- 
+    Microsoft ResX Schema 
+    
+    Version 2.0
+    
+    The primary goals of this format is to allow a simple XML format 
+    that is mostly human readable. The generation and parsing of the 
+    various data types are done through the TypeConverter classes 
+    associated with the data types.
+    
+    Example:
+    
+    ... ado.net/XML headers & schema ...
+    <resheader name="resmimetype">text/microsoft-resx</resheader>
+    <resheader name="version">2.0</resheader>
+    <resheader name="reader">System.Resources.ResXResourceReader, System.Windows.Forms, ...</resheader>
+    <resheader name="writer">System.Resources.ResXResourceWriter, System.Windows.Forms, ...</resheader>
+    <data name="Name1"><value>this is my long string</value><comment>this is a comment</comment></data>
+    <data name="Color1" type="System.Drawing.Color, System.Drawing">Blue</data>
+    <data name="Bitmap1" mimetype="application/x-microsoft.net.object.binary.base64">
+        <value>[base64 mime encoded serialized .NET Framework object]</value>
+    </data>
+    <data name="Icon1" type="System.Drawing.Icon, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
+        <value>[base64 mime encoded string representing a byte array form of the .NET Framework object]</value>
+        <comment>This is a comment</comment>
+    </data>
+                
+    There are any number of "resheader" rows that contain simple 
+    name/value pairs.
+    
+    Each data row contains a name, and value. The row also contains a 
+    type or mimetype. Type corresponds to a .NET class that support 
+    text/value conversion through the TypeConverter architecture. 
+    Classes that don't support this are serialized and stored with the 
+    mimetype set.
+    
+    The mimetype is used for serialized objects, and tells the 
+    ResXResourceReader how to depersist the object. This is currently not 
+    extensible. For a given mimetype the value must be set accordingly:
+    
+    Note - application/x-microsoft.net.object.binary.base64 is the format 
+    that the ResXResourceWriter will generate, however the reader can 
+    read any of the formats listed below.
+    
+    mimetype: application/x-microsoft.net.object.binary.base64
+    value   : The object must be serialized with 
+            : System.Runtime.Serialization.Formatters.Binary.BinaryFormatter
+            : and then encoded with base64 encoding.
+    
+    mimetype: application/x-microsoft.net.object.soap.base64
+    value   : The object must be serialized with 
+            : System.Runtime.Serialization.Formatters.Soap.SoapFormatter
+            : and then encoded with base64 encoding.
+
+    mimetype: application/x-microsoft.net.object.bytearray.base64
+    value   : The object must be serialized into a byte array 
+            : using a System.ComponentModel.TypeConverter
+            : and then encoded with base64 encoding.
+    -->
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="AboutButton.ToolTipService.ToolTip" xml:space="preserve">
+    <value>[[Settings~~~~]]</value>
+    <comment>Tooltip text for the "Settings" button at the bottom of the home page</comment>
+  </data>
+  <data name="AboutButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>[[Settings~~~~]]</value>
+    <comment>Screen reader text for the "Settings" button at the bottom of the home page</comment>
+  </data>
+  <data name="AddFeedButton.Text" xml:space="preserve">
+    <value>[[New~~~]]</value>
+    <comment>Display text for the new feed button on the home page</comment>
+  </data>
+  <data name="AddFeedPageTitle" xml:space="preserve">
+    <value>[[Add Feed Configuration~~~~~~~~~]]</value>
+    <comment>Title for the "Add Feed Configuration" page</comment>
+  </data>
+  <data name="ApplyButton.Content" xml:space="preserve">
+    <value>[[Apply~~~]]</value>
+    <comment>Display text for the "Apply" button on the home page</comment>
+  </data>
+  <data name="AppName" xml:space="preserve">
+    <value>[[Widget Feed Customizer~~~~~~~~~]]</value>
+    <comment>Display name of the application</comment>
+  </data>
+  <data name="CancelButton.Text" xml:space="preserve">
+    <value>[[Cancel~~~]]</value>
+    <comment>Text displayed on the cancel button</comment>
+  </data>
+  <data name="ClearButton.Text" xml:space="preserve">
+    <value>[[Clear~~~]]</value>
+    <comment>Text for the clear button</comment>
+  </data>
+  <data name="EditFeedPageTitle" xml:space="preserve">
+    <value>[[Edit Feed Configuration~~~~~~~~~~]]</value>
+    <comment>Title for the "Edit Feed Configuration" page</comment>
+  </data>
+  <data name="EnableCustomizerToggle.Text" xml:space="preserve">
+    <value>[[Enable Custom Feed~~~~~~~~]]</value>
+    <comment>Display text for the "Enable Custom Feed" toggle on the home page</comment>
+  </data>
+  <data name="EnableCustomizerCard.Header" xml:space="preserve">
+    <value>[[Enable Custom Feed~~~~~~~~]]</value>
+    <comment>Title of the custom feed settings card on the home page</comment>
+  </data>
+  <data name="FeedProviderToggle.OnContent" xml:space="preserve">
+    <value>[[On~~~]]</value>
+    <comment>The toggle's own enabled state text</comment>
+  </data>
+  <data name="FeedProviderToggle.OffContent" xml:space="preserve">
+    <value>[[Off~~~]]</value>
+    <comment>The toggle's own disabled state text</comment>
+  </data>
+  <data name="FeedListTitle.Text" xml:space="preserve">
+    <value>[[Feed List~~~~]]</value>
+    <comment>Title text for the feed list on the home page</comment>
+  </data>
+  <data name="FeedListExpander.Header" xml:space="preserve">
+    <value>[[Feed List~~~~]]</value>
+    <comment>Header for the feed list settings expander on the home page</comment>
+  </data>
+  <data name="FeedListAddButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>[[New~~~]]</value>
+    <comment>Accessible name for the add-feed button in the feed list header</comment>
+  </data>
+  <data name="GetHelpButton.ToolTipService.ToolTip" xml:space="preserve">
+    <value>[[View Tutorial~~~~~~]]</value>
+    <comment>Tooltip text for the "View Tutorial" button at the bottom of the home page</comment>
+  </data>
+  <data name="GetHelpButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>[[View Tutorial~~~~~~]]</value>
+    <comment>Screen reader text for the "View Tutorial" button at the bottom of the home page</comment>
+  </data>
+  <data name="ImageSelectionHeader.Text" xml:space="preserve">
+    <value>[[Image Selection~~~~~~]]</value>
+    <comment>Header text for the image selection area</comment>
+  </data>
+  <data name="NameTextBox.Header" xml:space="preserve">
+    <value>[[Name~~~]]</value>
+    <comment>Header for the name text box on the add/edit feed configuration page</comment>
+  </data>
+  <data name="NameTextBox.PlaceholderText" xml:space="preserve">
+    <value>[[Please enter a name~~~~~~~~]]</value>
+    <comment>Placeholder text for the name text box on the add/edit feed configuration page</comment>
+  </data>
+  <data name="UrlTextBox.PlaceholderText" xml:space="preserve">
+    <value>[[Please enter a URL (e.g., https://example.com)~~~~~~~~~~~]]</value>
+    <comment>Placeholder text for the URL text box on the add/edit feed configuration page</comment>
+  </data>
+  <data name="SaveButton.Text" xml:space="preserve">
+    <value>[[Save~~~]]</value>
+    <comment>Text for the save button</comment>
+  </data>
+  <data name="SelectImageButton.Text" xml:space="preserve">
+    <value>[[Select Image~~~~~]]</value>
+    <comment>Text for the select image button</comment>
+  </data>
+  <data name="Title.Title" xml:space="preserve">
+    <value>[[Widget Feed Customizer~~~~~~~~~]]</value>
+    <comment>Content displayed in the application window title bar</comment>
+  </data>
+  <data name="UrlTextBox.Header" xml:space="preserve">
+    <value>[[URL~~~]]</value>
+    <comment>Header for the URL text box on the add/edit feed configuration page</comment>
+  </data>
+  <data name="EditFeedButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>[[Edit~~~]]</value>
+    <comment>Screen reader text for the edit button on feed list items on the home page</comment>
+  </data>
+  <data name="EditFeedButton.ToolTipService.ToolTip" xml:space="preserve">
+    <value>[[Edit~~~]]</value>
+    <comment>Tooltip text for the edit button on feed list items on the home page</comment>
+  </data>
+  <data name="DeleteFeedButton.ToolTipService.ToolTip" xml:space="preserve">
+    <value>[[Delete~~~]]</value>
+    <comment>Tooltip text for the delete button on feed list items on the home page</comment>
+  </data>
+  <data name="DeleteFeedButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>[[Delete~~~]]</value>
+    <comment>Screen reader text for the delete button on feed list items on the home page</comment>
+  </data>
+  <data name="EnableProviderFail" xml:space="preserve">
+    <value>[[Enable Failed~~~~~~]]</value>
+    <comment>Title of the pop-up dialog when enabling the feed fails</comment>
+  </data>
+  <data name="SomethingErrorsOccurred" xml:space="preserve">
+    <value>[[Some errors occurred~~~~~~~~]]</value>
+    <comment>General error pop-up content - Some errors occurred</comment>
+  </data>
+  <data name="DeveloperModeDisabled" xml:space="preserve">
+    <value>[[Developer Mode is not enabled. You can let the app temporarily enable Developer Mode and restore the previous state after registration.~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~]]</value>
+    <comment>Detailed error message for when Developer Mode is not enabled</comment>
+  </data>
+  <data name="EnableAutoDeveloperMode" xml:space="preserve">
+    <value>[[Enable auto developer mode~~~~~~~~~~~]]</value>
+    <comment>Primary button text for enabling auto developer mode in the developer mode error dialog</comment>
+  </data>
+  <data name="DeveloperModeElevationCancelled" xml:space="preserve">
+    <value>[[The administrator permission request was canceled, so Developer Mode could not be enabled automatically. Please enable Developer Mode manually and try again.~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~]]</value>
+    <comment>Content shown when the administrator permission request is canceled</comment>
+  </data>
+  <data name="LanguageTag" xml:space="preserve">
+    <value>en-US</value>
+    <comment>Language identifier used to get the current display language in the app. Set this to the identifier of the language you are translating to.</comment>
+  </data>
+  <data name="AboutVersion.Text" xml:space="preserve">
+    <value>[[Version~~~]]</value>
+    <comment>"Version" heading on the About page</comment>
+  </data>
+  <data name="AboutDeveloper.Text" xml:space="preserve">
+    <value>[[Developer~~~~]]</value>
+    <comment>"Developer" heading on the About page</comment>
+  </data>
+  <data name="AboutCopyrightPrefix" xml:space="preserve">
+    <value>[[© {0}~~~]]</value>
+    <comment>Copyright information prefix shown on the about-page cover (show year only; developers shown via hyperlinks)</comment>
+  </data>
+  <data name="AboutCopyrightAllRights.Text" xml:space="preserve">
+    <value>[[All rights reserved.~~~~~~~~]]</value>
+    <comment>Copyright rights statement</comment>
+  </data>
+  <data name="AboutOpenSourceLink.Text" xml:space="preserve">
+    <value>[[Open Source URL~~~~~~]]</value>
+    <comment>"Open Source URL" heading on the About page</comment>
+  </data>
+  <data name="AboutOpenSourceLicenses.Content" xml:space="preserve">
+    <value>[[Open-source license notices~~~~~~~~~~~]]</value>
+    <comment>Button text for opening the packaged open-source license notices</comment>
+  </data>
+  <data name="AboutPrivacyStatement.Content" xml:space="preserve">
+    <value>[[Privacy statement~~~~~~~]]</value>
+    <comment>Button text for opening the packaged privacy statement</comment>
+  </data>
+  <data name="AboutContributors.Text" xml:space="preserve">
+    <value>[[Contributors~~~~~]]</value>
+    <comment>"Contributors" heading on the About page</comment>
+  </data>
+  <data name="AboutAppName.Text" xml:space="preserve">
+    <value>[[Widget Feed Customizer~~~~~~~~~]]</value>
+    <comment>Display text for the app name on the About page</comment>
+  </data>
+  <data name="DialogOK" xml:space="preserve">
+    <value>[[OK~~~]]</value>
+    <comment>OK button text for error dialogs</comment>
+  </data>
+  <data name="FirstRunDialog.Title" xml:space="preserve">
+    <value>[[Warning~~~]]</value>
+    <comment>Title of the first-run developer mode warning dialog</comment>
+  </data>
+  <data name="FirstRunDialogMessage.Text" xml:space="preserve">
+    <value>[[Using this application requires enabling Windows Developer Mode, which may put your device at risk. It is recommended to enable it only temporarily when editing feed configurations or turning custom feed on/off. For more details, please refer to the help documentation.~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~]]</value>
+    <comment>Content of the first-run developer mode warning dialog</comment>
+  </data>
+  <data name="FirstRunDialog.CloseButtonText" xml:space="preserve">
+    <value>[[Got it~~~]]</value>
+    <comment>Close button text of the first-run developer mode warning dialog</comment>
+  </data>
+  <data name="StartupFailureDialog.Title" xml:space="preserve">
+    <value>[[Startup failed~~~~~~]]</value>
+    <comment>Title of the startup failure dialog</comment>
+  </data>
+  <data name="StartupFailureDialog.SecondaryButtonText" xml:space="preserve">
+    <value>[[Copy error~~~~]]</value>
+    <comment>Secondary button (copy error) text of the startup failure dialog</comment>
+  </data>
+  <data name="StartupFailureDialog.CloseButtonText" xml:space="preserve">
+    <value>[[Close~~~]]</value>
+    <comment>Close button text of the startup failure dialog</comment>
+  </data>
+  <data name="WebsiteIconRadioButton.Content" xml:space="preserve">
+    <value>[[Get website icon~~~~~~~]]</value>
+    <comment>Radio button text for using the website icon on the add/edit feed configuration page</comment>
+  </data>
+  <data name="CustomIconRadioButton.Content" xml:space="preserve">
+    <value>[[Use custom icon~~~~~~]]</value>
+    <comment>Radio button text for using a custom icon on the add/edit feed configuration page</comment>
+  </data>
+  <data name="WebIconFetchErrorDialog.Title" xml:space="preserve">
+    <value>[[Couldn't get the website icon~~~~~~~~~~~~]]</value>
+    <comment>Title of the website icon fetch error dialog</comment>
+  </data>
+  <data name="WebIconFetchErrorDialog.CloseButtonText" xml:space="preserve">
+    <value>[[Close~~~]]</value>
+    <comment>Close button text of the website icon fetch error dialog</comment>
+  </data>
+  <data name="ProviderPackageDisplayName" xml:space="preserve">
+    <value>[[Feed Customization Container~~~~~~~~~~~~]]</value>
+    <comment>Display name of the automatically registered feed provider package</comment>
+  </data>
+  <data name="AppearanceGroup.Text" xml:space="preserve">
+    <value>[[Appearance~~~~]]</value>
+    <comment>Group heading for appearance settings on the settings page</comment>
+  </data>
+  <data name="ThemeTitle.Text" xml:space="preserve">
+    <value>[[App Theme~~~~]]</value>
+    <comment>Title of the app theme settings expander on the settings page</comment>
+  </data>
+  <data name="ThemeSubtitle.Text" xml:space="preserve">
+    <value>[[Select the app theme to display~~~~~~~~~~~~~]]</value>
+    <comment>Subtitle of the app theme settings expander on the settings page</comment>
+  </data>
+  <data name="ThemeSystem.Content" xml:space="preserve">
+    <value>[[System Default~~~~~~]]</value>
+    <comment>Radio button text for the system default theme option</comment>
+  </data>
+  <data name="ThemeLight.Content" xml:space="preserve">
+    <value>[[Light~~~]]</value>
+    <comment>Radio button text for the light theme option</comment>
+  </data>
+  <data name="ThemeDark.Content" xml:space="preserve">
+    <value>[[Dark~~~]]</value>
+    <comment>Radio button text for the dark theme option</comment>
+  </data>
+  <data name="MaterialTitle.Text" xml:space="preserve">
+    <value>[[Background Material~~~~~~~~]]</value>
+    <comment>Title of the background material settings expander on the settings page</comment>
+  </data>
+  <data name="MaterialSubtitle.Text" xml:space="preserve">
+    <value>[[Select the app material to display~~~~~~~~~~~~~~]]</value>
+    <comment>Subtitle of the background material settings expander on the settings page</comment>
+  </data>
+  <data name="AdvancedGroup.Text" xml:space="preserve">
+    <value>[[Advanced~~~~]]</value>
+    <comment>Group heading for advanced settings on the settings page</comment>
+  </data>
+  <data name="Settings_AutoDeveloperModeCard.Header" xml:space="preserve">
+    <value>[[Auto-enable Developer Mode~~~~~~~~~~~]]</value>
+    <comment>Header of the auto-enable developer mode card on the settings page</comment>
+  </data>
+  <data name="Settings_AutoDeveloperModeCard.Description" xml:space="preserve">
+    <value>[[Temporarily enable Developer Mode when registering the feed and restore it afterwards~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~]]</value>
+    <comment>Description of the auto-enable developer mode card on the settings page</comment>
+  </data>
+  <data name="Settings_RegionPolicyCard.Header" xml:space="preserve">
+    <value>[[Remove custom feed region restriction~~~~~~~~~~~~~~~]]</value>
+    <comment>Header of the remove custom feed region restriction card on the settings page</comment>
+  </data>
+  <data name="Settings_RegionPolicyCard.Description" xml:space="preserve">
+    <value>[[Modify system configuration to allow third-party custom feeds in this region~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~]]</value>
+    <comment>Description of the remove custom feed region restriction card on the settings page</comment>
+  </data>
+  <data name="UnlockRegionPolicyButton.Content" xml:space="preserve">
+    <value>[[Remove restriction~~~~~~~~]]</value>
+    <comment>Text of the remove custom feed region restriction button on the settings page</comment>
+  </data>
+  <data name="RegionPolicyWarningTitle" xml:space="preserve">
+    <value>[[Remove custom feed region restriction~~~~~~~~~~~~~~~]]</value>
+    <comment>Title of the remove custom feed region restriction warning dialog</comment>
+  </data>
+  <data name="RegionPolicyWarningMessage" xml:space="preserve">
+    <value>[[This will attempt to modify a system configuration file. This may pose risks and could be overwritten by future Windows updates. Continue?~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~]]</value>
+    <comment>Content of the remove custom feed region restriction warning dialog</comment>
+  </data>
+  <data name="RegionPolicyWarningPrimaryButtonText" xml:space="preserve">
+    <value>[[Continue~~~~]]</value>
+    <comment>Primary button text of the remove custom feed region restriction warning dialog</comment>
+  </data>
+  <data name="RegionPolicySuccessTitle" xml:space="preserve">
+    <value>[[Restriction removed~~~~~~~~]]</value>
+    <comment>Title of the remove custom feed region restriction success dialog</comment>
+  </data>
+  <data name="RegionPolicySuccessMessage" xml:space="preserve">
+    <value>[[The system configuration was updated successfully. Restart Widgets or sign out and back in for the change to take effect.~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~]]</value>
+    <comment>Content of the remove custom feed region restriction success dialog</comment>
+  </data>
+  <data name="RegionPolicyCancelledMessage" xml:space="preserve">
+    <value>[[Administrator permission was canceled. No changes were made.~~~~~~~~~~~~~~~~~~~~~~~~]]</value>
+    <comment>Content shown when the administrator permission request is canceled while removing the custom feed region restriction</comment>
+  </data>
+  <data name="RegionPolicyPolicyNotFoundMessage" xml:space="preserve">
+    <value>[[The target policy was not found in the system configuration file. It may have been changed by a recent Windows update.~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~]]</value>
+    <comment>Content shown when the target policy cannot be found while removing the custom feed region restriction</comment>
+  </data>
+  <data name="RegionPolicyFailureTitle" xml:space="preserve">
+    <value>[[Modification failed~~~~~~~~]]</value>
+    <comment>Title of the remove custom feed region restriction failure dialog</comment>
+  </data>
+  <data name="RegionPolicyFailureMessage" xml:space="preserve">
+    <value>[[Could not modify the system configuration file. Please handle it manually with administrator privileges.~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~]]</value>
+    <comment>Content of the remove custom feed region restriction failure dialog</comment>
+  </data>
+  <data name="Settings_ClearWidgetDataCard.Header" xml:space="preserve">
+    <value>[[Clear Widgets web data~~~~~~~~~]]</value>
+    <comment>Header of the clear Widgets web data card on the settings page</comment>
+  </data>
+  <data name="Settings_ClearWidgetDataCard.Description" xml:space="preserve">
+    <value>[[Delete local data saved by web pages in the Widgets board~~~~~~~~~~~~~~~~~~~~~~~]]</value>
+    <comment>Description of the clear Widgets web data card on the settings page</comment>
+  </data>
+  <data name="ClearWidgetDataButton.Content" xml:space="preserve">
+    <value>[[Clear data~~~~]]</value>
+    <comment>Text of the clear Widgets web data button on the settings page</comment>
+  </data>
+  <data name="WidgetDataWarningTitle" xml:space="preserve">
+    <value>[[Clear Widgets web data~~~~~~~~~]]</value>
+    <comment>Title of the clear Widgets web data warning dialog</comment>
+  </data>
+  <data name="WidgetDataWarningMessage" xml:space="preserve">
+    <value>[[This closes the current Widgets board and clears all locally saved web data in it, including data for feeds managed by other apps. This cannot be undone. Continue?~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~]]</value>
+    <comment>Content of the clear Widgets web data warning dialog</comment>
+  </data>
+  <data name="WidgetDataWarningPrimaryButtonText" xml:space="preserve">
+    <value>[[Clear~~~]]</value>
+    <comment>Primary button text of the clear Widgets web data warning dialog</comment>
+  </data>
+  <data name="WidgetDataWarningCloseButtonText" xml:space="preserve">
+    <value>[[Cancel~~~]]</value>
+    <comment>Close button text of the clear Widgets web data warning dialog</comment>
+  </data>
+  <data name="WidgetDataSuccessTitle" xml:space="preserve">
+    <value>[[Cleanup complete~~~~~~~]]</value>
+    <comment>Title of the clear Widgets web data success dialog</comment>
+  </data>
+  <data name="WidgetDataSuccessMessage" xml:space="preserve">
+    <value>[[Local web data saved in the Widgets board has been cleared. Fresh web data will be created the next time Widgets is opened.~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~]]</value>
+    <comment>Content of the clear Widgets web data success dialog</comment>
+  </data>
+  <data name="WidgetDataFailureTitle" xml:space="preserve">
+    <value>[[Unable to clear data~~~~~~~~]]</value>
+    <comment>Title of the clear Widgets web data failure dialog</comment>
+  </data>
+  <data name="WidgetDataLockedMessage" xml:space="preserve">
+    <value>[[The Widgets process is still using this data, so it cannot be deleted. Close the Widgets board and try again.~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~]]</value>
+    <comment>Failure message when Widgets web data remains locked</comment>
+  </data>
+  <data name="WidgetDataFailureMessage" xml:space="preserve">
+    <value>[[Unable to delete Widgets web data. Please try again later.~~~~~~~~~~~~~~~~~~~~~~~~]]</value>
+    <comment>Failure message when clearing Widgets web data fails for another reason</comment>
+  </data>
+  <data name="AboutGroup.Text" xml:space="preserve">
+    <value>[[About~~~]]</value>
+    <comment>Group heading for about information on the settings page</comment>
+  </data>
+  <data name="DonationGroup.Text" xml:space="preserve">
+    <value>[[Donor Edition~~~~~~]]</value>
+    <comment>Group heading for the donor edition on the settings page</comment>
+  </data>
+  <data name="DonationCard.Header" xml:space="preserve">
+    <value>[[Buy Donor Edition~~~~~~~]]</value>
+    <comment>Header of the buy donor edition card on the settings page</comment>
+  </data>
+  <data name="DonationCard.Description" xml:space="preserve">
+    <value>[[Support us by buying the Donor edition~~~~~~~~~~~~~~~~]]</value>
+    <comment>Description of the buy donor edition card on the settings page</comment>
+  </data>
+  <data name="DonateButton.Content" xml:space="preserve">
+    <value>[[Buy Donor Edition~~~~~~~]]</value>
+    <comment>Text of the buy donor edition button on the settings page</comment>
+  </data>
+  <data name="DonationThanks.Text" xml:space="preserve">
+    <value>[[Thank you for buying the Donor Edition!~~~~~~~~~~~~~~~~]]</value>
+    <comment>Thanks text shown after the donor edition has been purchased</comment>
+  </data>
+  <data name="DonationConfirmTitle" xml:space="preserve">
+    <value>[[Buy Donor Edition~~~~~~~]]</value>
+    <comment>Title of the buy donor edition confirmation dialog</comment>
+  </data>
+  <data name="DonationConfirmMessage" xml:space="preserve">
+    <value>[[The Donor Edition is functionally identical to the standard edition. The only difference is that this area shows a thank-you message, and there are no other privileges. Buy the Donor Edition?~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~]]</value>
+    <comment>Content of the buy donor edition confirmation dialog</comment>
+  </data>
+  <data name="DonationConfirmPrimaryButtonText" xml:space="preserve">
+    <value>[[Buy~~~]]</value>
+    <comment>Primary button (purchase) text of the buy donor edition confirmation dialog</comment>
+  </data>
+  <data name="DonationConfirmCloseButtonText" xml:space="preserve">
+    <value>[[Cancel~~~]]</value>
+    <comment>Close button text of the buy donor edition confirmation dialog</comment>
+  </data>
+  <data name="DonationErrorTitle" xml:space="preserve">
+    <value>[[Purchase failed~~~~~~]]</value>
+    <comment>Title of the donor edition purchase error dialog</comment>
+  </data>
+  <data name="DonationErrorMessage" xml:space="preserve">
+    <value>[[Unable to complete the purchase. Please try again later, or check your Microsoft Store account status.~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~]]</value>
+    <comment>Content of the donor edition purchase error dialog</comment>
+  </data>
+  <data name="RegionWarningInfoBar.Message" xml:space="preserve">
+    <value>[[The current device region may prevent custom feeds from being displayed.~~~~~~~~~~~~~~~~~~~~~~~~~~~~~]]</value>
+    <comment>Message shown in the banner at the top of the home page when the device region is not an EU member state</comment>
+  </data>
+  <data name="RegionWarningUnlockButton.Content" xml:space="preserve">
+    <value>[[Remove restriction~~~~~~~~]]</value>
+    <comment>Text for the hyperlink button in the device region warning banner that opens the remove-restriction option in settings</comment>
+  </data>
+  <data name="DialogCancel" xml:space="preserve">
+    <value>[[Cancel~~~]]</value>
+  </data>
+  <data name="ProviderConfigurationSaved" xml:space="preserve">
+    <value>[[Your feed configuration was saved, but deployment has not completed successfully.~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~]]</value>
+    <comment>区分配置保存成功与部署失败</comment>
+  </data>
+  <data name="ProviderDeploymentStopped" xml:space="preserve">
+    <value>[[The incomplete provider registration has been stopped. Enable the provider again to retry deploying the current version.~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~]]</value>
+    <comment>部署失败后关闭不完整注册，不恢复旧版本</comment>
+  </data>
+  <data name="ProviderDeploymentRecoveryFailed" xml:space="preserve">
+    <value>[[Deployment cleanup has not completed, and the registration state is not confirmed. Review the diagnostics below and close any widgets that may be using the files before retrying.~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~]]</value>
+    <comment>补偿或完成清理失败时明确保留不确定状态</comment>
+  </data>
+  <data name="LogsFeedbackTitle.Text" xml:space="preserve">
+    <value>[[Logs and feedback~~~~~~~]]</value>
+    <comment>Title of the logs and feedback expander</comment>
+  </data>
+  <data name="LogsFeedbackSubtitle.Text" xml:space="preserve">
+    <value>[[Export diagnostic logs or contact the developer~~~~~~~~~~~~~~~~~~~]]</value>
+    <comment>Subtitle of the logs and feedback expander</comment>
+  </data>
+  <data name="ExportLogsTitle.Text" xml:space="preserve">
+    <value>[[Export logs~~~~~]]</value>
+    <comment>Title of the flat log export row</comment>
+  </data>
+  <data name="ExportLogsDescription.Text" xml:space="preserve">
+    <value>[[Package all retained application logs in the Downloads folder~~~~~~~~~~~~~~~~~~~~~~~~~]]</value>
+    <comment>Description of the flat log export row</comment>
+  </data>
+  <data name="ExportLogsButton.Content" xml:space="preserve">
+    <value>[[Export~~~]]</value>
+  </data>
+  <data name="SendFeedbackTitle.Text" xml:space="preserve">
+    <value>[[Send feedback~~~~~~]]</value>
+  </data>
+  <data name="SendFeedbackDescription.Text" xml:space="preserve">
+    <value>[[Export logs and contact the developer with your email app~~~~~~~~~~~~~~~~~~~~~~~]]</value>
+  </data>
+  <data name="SendFeedbackButton.Content" xml:space="preserve">
+    <value>[[Send feedback~~~~~~]]</value>
+  </data>
+  <data name="FeedbackSendButtonText" xml:space="preserve">
+    <value>[[Send feedback~~~~~~]]</value>
+  </data>
+  <data name="FeedbackPreparingMessage" xml:space="preserve">
+    <value>[[Exporting logs. Please wait…~~~~~~~~~~~~]]</value>
+  </data>
+  <data name="FeedbackArchiveFailureInlineMessage" xml:space="preserve">
+    <value>[[Logs could not be exported. The error was recorded; try again later or close this window.~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~]]</value>
+  </data>
+  <data name="LogExportSuccessTitle" xml:space="preserve">
+    <value>[[Logs exported~~~~~~]]</value>
+  </data>
+  <data name="LogExportSuccessMessageFormat" xml:space="preserve">
+    <value>[[Logs were exported to: “{0}”~~~~~~~~~~]]</value>
+  </data>
+  <data name="LogExportFailureTitle" xml:space="preserve">
+    <value>[[Unable to export logs~~~~~~~~~]]</value>
+  </data>
+  <data name="LogExportFailureMessage" xml:space="preserve">
+    <value>[[The log archive could not be created. Try again later. Details were written to the application log or debug output.~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~]]</value>
+  </data>
+  <data name="FeedbackMailClientFailureTitle" xml:space="preserve">
+    <value>[[Unable to open an email app~~~~~~~~~~~]]</value>
+  </data>
+  <data name="FeedbackMailClientFailureMessageFormat" xml:space="preserve">
+    <value>[[Logs were exported to: “{0}”
+
+No email app could be opened. You can send the file manually to: {1}~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~]]</value>
+  </data>
+  <data name="FeedbackUnexpectedFailureMessage" xml:space="preserve">
+    <value>[[An error occurred while preparing feedback. Try again later. Details were written to the application log or debug output.~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~]]</value>
+  </data>
+  <data name="FeedbackMailSubject" xml:space="preserve">
+    <value>[[FeedCustomizer Feedback~~~~~~~~~~]]</value>
+  </data>
+  <data name="FeedbackMailBodyFormat" xml:space="preserve">
+    <value>[[Describe the problem, reproduction steps, and expected result here:
+
+
+Source: {0}
+App version: {1}
+
+Privacy notice:
+The attached application logs are used for troubleshooting and may contain the Windows version, app version, operation stages, redacted file paths, and PowerShell error diagnostics. Review the message and attachment before sending.
+
+Log file: {2}
+Full log path: {3}
+
+If your email app did not attach the file automatically, add the ZIP file manually from the path above.
+
+Do not delete the following line; it is used to organize feedback email:
+FeedCustomizer-Feedback-ID: {4}~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~]]</value>
+  </data>
+  <data name="FeedbackEmptyArchiveInformationFormat" xml:space="preserve">
+    <value>[[Export time: {0:O}
+Log session: {1}
+No FeedCustomizer log files were available. The logging system may not have initialized.~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~]]</value>
+  </data>
+  <data name="FeedbackSource_Settings" xml:space="preserve">
+    <value>[[Settings~~~~]]</value>
+  </data>
+  <data name="FeedbackSource_ProviderRegistration" xml:space="preserve">
+    <value>[[Feed provider enablement or deployment~~~~~~~~~~~~~~~~]]</value>
+  </data>
+  <data name="FeedbackSource_Startup" xml:space="preserve">
+    <value>[[Application startup or resource preparation~~~~~~~~~~~~~~~~~~]]</value>
+  </data>
+  <data name="FeedbackSource_RegionPolicy" xml:space="preserve">
+    <value>[[Region restriction removal~~~~~~~~~~~]]</value>
+  </data>
+  <data name="FeedbackSource_WidgetData" xml:space="preserve">
+    <value>[[Widgets data cleanup~~~~~~~~]]</value>
+  </data>
+  <data name="FeedbackSource_WebIcon" xml:space="preserve">
+    <value>[[Website icon retrieval~~~~~~~~~]]</value>
+  </data>
+  <data name="FeedbackSource_Donation" xml:space="preserve">
+    <value>[[Donor Edition purchase~~~~~~~~~]]</value>
+  </data>
+  <data name="DocumentOpenFailureTitle" xml:space="preserve">
+    <value>[[Unable to open document~~~~~~~~~~]]</value>
+    <comment>Unified title shown when an application document cannot be generated or opened</comment>
+  </data>
+  <data name="DocumentOpenFailureMessage" xml:space="preserve">
+    <value>[[The requested document could not be opened. Try again later.~~~~~~~~~~~~~~~~~~~~~~~~]]</value>
+    <comment>Unified message without internal diagnostics when an application document cannot be generated or opened</comment>
+  </data>
+</root>

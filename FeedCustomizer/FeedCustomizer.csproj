@@ -18,6 +18,26 @@
 		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 	</PropertyGroup>
 
+	<!--
+		伪本地化配置只用于人工验证长文本布局：资源仍走正式 PRI 管线，
+		但发布配置会显式排除 qps-ploc，避免测试语言出现在正式包的语言清单中。
+	-->
+	<PropertyGroup Condition="'$(Configuration)' == 'PseudoLocalization'">
+		<DefineConstants>$(DefineConstants);PSEUDO_LOCALIZATION</DefineConstants>
+	</PropertyGroup>
+
+	<!--
+		Windows App SDK 会在导入目标的后续阶段补充默认 PRIResource 项，因此排除必须在
+		PRI 生成前执行，不能只在项目求值阶段移除一次。
+	-->
+	<Target Name="ExcludePseudoLocalizationResources"
+			BeforeTargets="BeforeGenerateProjectPriFile"
+			Condition="'$(Configuration)' != 'PseudoLocalization'">
+		<ItemGroup>
+			<PRIResource Remove="Strings\qps-ploc\Resources.resw" />
+		</ItemGroup>
+	</Target>
+
 	<Target Name="CopyFeedProviderToAssets" BeforeTargets="BeforeBuild">
 		<PropertyGroup>
 			<_FeedProviderPath>$(ProjectDir)Resources\FeedProvider\</_FeedProviderPath>

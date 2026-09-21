@@ -10,9 +10,12 @@ using FeedCustomizer.Core.Models;
 using FeedCustomizer.Core.Tools;
 using FeedCustomizer.Core.WidgetData;
 using FeedCustomizer.Core.Windowing;
+using System.Diagnostics;
 using System.IO.Compression;
+using System.Xml.Linq;
 
-// 所有真实文件写入均限制在本次生成的临时目录；AppX/注册表/UAC 只使用替身，绝不改动机器注册状态。
+// 所有真实文件写入均限制在本次生成的临时目录或测试项目的 obj 目录；
+// AppX/注册表/UAC 只使用替身，绝不改动机器注册状态。
 var tests = new (string Name, Func<Task> Run)[]
 {
     ("准备失败不卸载现有包", async () =>
@@ -259,7 +262,8 @@ var tests = new (string Name, Func<Task> Run)[]
             new string('x', LogPrivacy.MaximumDiagnosticLength + 100));
         Check(truncated.Contains("诊断已截断", StringComparison.Ordinal));
         return Task.CompletedTask;
-    })
+    }),
+    ("伪本地化资源与英文资源同步", PseudoLocalizationResourcesStaySynchronizedAsync)
 };
 
 foreach (var test in tests)
@@ -274,6 +278,139 @@ static void ExpectThrows(Action action)
 {
     try { action(); } catch (InvalidDataException) { return; }
     throw new Exception("未拒绝非法路径。");
+}
+
+/// <summary>
+/// 通过同一生成脚本在测试中创建临时副本，确保提交的伪资源不会在英文资源更新后悄然过期。
+/// </summary>
+static async Task PseudoLocalizationResourcesStaySynchronizedAsync()
+{
+    string repositoryRoot = FindRepositoryRoot();
+    string sourcePath = System.IO.Path.Combine(
+        repositoryRoot,
+        "FeedCustomizer",
+        "Strings",
+        "en-US",
+        "Resources.resw");
+    string pseudoPath = System.IO.Path.Combine(
+        repositoryRoot,
+        "FeedCustomizer",
+        "Strings",
+        "qps-ploc",
+        "Resources.resw");
+    string scriptPath = System.IO.Path.Combine(
+        repositoryRoot,
+        "Tests",
+        "PseudoLocalization",
+        "Generate-PseudoResources.ps1");
+
+    string generatedPath = System.IO.Path.Combine(
+        repositoryRoot,
+        "Tests",
+        "Deployment.Tests",
+        "obj",
+        "PseudoLocalization",
+        Guid.NewGuid().ToString("N"),
+        "Resources.resw");
+
+    var startInfo = new ProcessStartInfo
+    {
+        FileName = "powershell.exe",
+        UseShellExecute = false,
+        RedirectStandardOutput = true,
+        RedirectStandardError = true,
+        CreateNoWindow = true,
+    };
+    startInfo.ArgumentList.Add("-NoLogo");
+    startInfo.ArgumentList.Add("-NoProfile");
+    startInfo.ArgumentList.Add("-NonInteractive");
+    startInfo.ArgumentList.Add("-ExecutionPolicy");
+    startInfo.ArgumentList.Add("Bypass");
+    startInfo.ArgumentList.Add("-File");
+    startInfo.ArgumentList.Add(scriptPath);
+    startInfo.ArgumentList.Add("-SourcePath");
+    startInfo.ArgumentList.Add(sourcePath);
+    startInfo.ArgumentList.Add("-DestinationPath");
+    startInfo.ArgumentList.Add(generatedPath);
+
+    using Process process = Process.Start(startInfo)
+        ?? throw new Exception("无法启动伪本地化资源生成脚本。");
+    string standardError = await process.StandardError.ReadToEndAsync();
+    await process.WaitForExitAsync();
+    if (process.ExitCode != 0)
+    {
+        throw new Exception($"伪本地化资源生成失败：{standardError}");
+    }
+
+    IReadOnlyDictionary<string, string> english = ReadResourceValues(sourcePath);
+    IReadOnlyDictionary<string, string> pseudo = ReadResourceValues(pseudoPath);
+    IReadOnlyDictionary<string, string> generated = ReadResourceValues(generatedPath);
+
+    Check(english.Keys.OrderBy(key => key).SequenceEqual(pseudo.Keys.OrderBy(key => key)));
+    Check(pseudo.OrderBy(entry => entry.Key).SequenceEqual(generated.OrderBy(entry => entry.Key)));
+    Check(pseudo["LanguageTag"] == "en-US");
+
+    foreach ((string key, string value) in pseudo)
+    {
+        if (key == "LanguageTag")
+        {
+            continue;
+        }
+
+        Check(value.StartsWith("[[", StringComparison.Ordinal));
+        Check(value.EndsWith("]]", StringComparison.Ordinal));
+        Check(value.Length > english[key].Length);
+        Check(ExtractCompositeFormatItems(english[key])
+            .SequenceEqual(ExtractCompositeFormatItems(value)));
+    }
+}
+
+/// <summary>
+/// 从测试输出目录逐层向上定位仓库根目录，避免依赖开发机上的固定工作目录。
+/// </summary>
+static string FindRepositoryRoot()
+{
+    for (DirectoryInfo? directory = new(AppContext.BaseDirectory);
+         directory is not null;
+         directory = directory.Parent)
+    {
+        if (File.Exists(System.IO.Path.Combine(
+            directory.FullName,
+            "FeedCustomizer",
+            "FeedCustomizer.csproj")))
+        {
+            return directory.FullName;
+        }
+    }
+
+    throw new DirectoryNotFoundException("无法定位 FeedCustomizer 仓库根目录。");
+}
+
+/// <summary>
+/// 读取 RESW 的键值对；测试只检查字符串资源，不需要引入 WinUI 的资源运行时依赖。
+/// </summary>
+static IReadOnlyDictionary<string, string> ReadResourceValues(string path)
+{
+    return XDocument.Load(path)
+        .Root!
+        .Elements("data")
+        .ToDictionary(
+            element => (string?)element.Attribute("name")
+                ?? throw new InvalidDataException("RESW 资源缺少 name 属性。"),
+            element => element.Element("value")?.Value
+                ?? throw new InvalidDataException("RESW 资源缺少 value 元素。"),
+            StringComparer.Ordinal);
+}
+
+/// <summary>
+/// 复合格式项的位置和格式必须保持不变，否则伪资源无法代表真实翻译在运行时的行为。
+/// </summary>
+static IEnumerable<string> ExtractCompositeFormatItems(string value)
+{
+    return System.Text.RegularExpressions.Regex.Matches(
+        value,
+        "\\{[0-9]+(?:,-?[0-9]+)?(?::[^{}]+)?\\}")
+        .Select(match => match.Value);
 }
 
 static async Task LogArchiveSelectionAsync()
