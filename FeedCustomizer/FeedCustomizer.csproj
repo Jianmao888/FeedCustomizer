@@ -16,6 +16,7 @@
 		<SelfContained>true</SelfContained>
 		<WindowsAppSDKSelfContained>false</WindowsAppSDKSelfContained>
 		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+		<Configurations>Debug;Release;PseudoLocalization</Configurations>
 	</PropertyGroup>
 
 	<!--
@@ -30,9 +31,7 @@
 		Windows App SDK 会在导入目标的后续阶段补充默认 PRIResource 项，因此排除必须在
 		PRI 生成前执行，不能只在项目求值阶段移除一次。
 	-->
-	<Target Name="ExcludePseudoLocalizationResources"
-			BeforeTargets="BeforeGenerateProjectPriFile"
-			Condition="'$(Configuration)' != 'PseudoLocalization'">
+	<Target Name="ExcludePseudoLocalizationResources" BeforeTargets="BeforeGenerateProjectPriFile" Condition="'$(Configuration)' != 'PseudoLocalization'">
 		<ItemGroup>
 			<PRIResource Remove="Strings\qps-ploc\Resources.resw" />
 		</ItemGroup>
@@ -105,6 +104,7 @@
 	<!-- Publish Properties -->
 	<PropertyGroup>
 		<PublishReadyToRun Condition="'$(Configuration)' == 'Debug'">True</PublishReadyToRun>
+		<PublishReadyToRun Condition="'$(Configuration)'=='PseudoLocalization'">True</PublishReadyToRun>
 		<PublishReadyToRun Condition="'$(Configuration)' != 'Debug'">True</PublishReadyToRun>
 		<PublishTrimmed>true</PublishTrimmed>
 		<DefaultLanguage>en-US</DefaultLanguage>
@@ -124,7 +124,13 @@
 	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
 	  <DebugType>none</DebugType>
 	</PropertyGroup>
+	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='PseudoLocalization|x64'">
+	  <DebugType>none</DebugType>
+	</PropertyGroup>
 	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">
+	  <DebugType>none</DebugType>
+	</PropertyGroup>
+	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='PseudoLocalization|ARM64'">
 	  <DebugType>none</DebugType>
 	</PropertyGroup>
 	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">

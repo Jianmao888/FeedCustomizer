@@ -5,6 +5,23 @@
     xmlns:constants="using:FeedCustomizer.Core.Constants"
     xmlns:controls="using:CommunityToolkit.WinUI.Controls">
 
+    <Page.Resources>
+        <!--
+            设置页的 SettingsCard 会在标题或说明换行后按内容增高。统一保留上下 12px，
+            避免单独卡片的长文本贴近边框；资源仅在本页生效，不改变其他页面的现有间距。
+        -->
+        <Thickness x:Key="SettingsCardContentPadding">16,12</Thickness>
+
+        <!--
+            操作按钮的本地化内容由 x:Uid 写入 Content。使用模板将字符串作为 DataContext 换行，
+            再限制其最大宽度，防止较长翻译挤占卡片标题和说明区域。
+        -->
+        <x:Double x:Key="SettingsActionButtonMaxWidth">160</x:Double>
+        <DataTemplate x:Key="SettingsActionButtonContentTemplate">
+            <TextBlock Text="{Binding}" TextAlignment="Center" TextWrapping="Wrap"/>
+        </DataTemplate>
+    </Page.Resources>
+
     <!--
         整页布局约定：
         1. 页面自上而下按“外观 / 日志与反馈 / 高级 / 捐赠 / 关于”分五组，每组用 FontSize=14 + SemiBold 的标题区分；
@@ -66,7 +83,7 @@
             <StackPanel Spacing="3">
                 <TextBlock x:Uid="AdvancedGroup" FontSize="14" Margin="0,0,0,6" FontWeight="SemiBold"/>
                 <!-- 双向绑定到累积属性：切换后由视图模型立即写入本地设置，下次启动时再据此决定是否开启开发者模式。 -->
-                <controls:SettingsCard x:Uid="Settings_AutoDeveloperModeCard" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" MinHeight="70" Padding="16,0">
+                <controls:SettingsCard x:Uid="Settings_AutoDeveloperModeCard" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" MinHeight="70" Padding="{StaticResource SettingsCardContentPadding}">
                     <controls:SettingsCard.HeaderIcon>
                         <FontIcon Glyph="&#xE7EF;" />
                     </controls:SettingsCard.HeaderIcon>
@@ -76,18 +93,31 @@
                     解除地区限制会提权修改系统策略，属于高影响操作：确认弹窗、提权执行、加载遮罩和结果反馈
                     全部由视图模型编排。此处必须保留 x:Name，供后置代码在带 "RegionPolicy" 导航参数进入本页时聚焦该按钮。
                 -->
-                <controls:SettingsCard x:Uid="Settings_RegionPolicyCard" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" MinHeight="70" Padding="16,0">
+                <controls:SettingsCard x:Uid="Settings_RegionPolicyCard" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" MinHeight="70" Padding="{StaticResource SettingsCardContentPadding}">
                     <controls:SettingsCard.HeaderIcon>
                         <FontIcon Glyph="&#xE72E;" />
                     </controls:SettingsCard.HeaderIcon>
-                    <Button x:Name="UnlockRegionPolicyButton" x:Uid="UnlockRegionPolicyButton" HorizontalAlignment="Right" Command="{x:Bind ViewModel.UnlockRegionPolicyCommand}"/>
+                    <Button
+                        x:Name="UnlockRegionPolicyButton"
+                        x:Uid="UnlockRegionPolicyButton"
+                        MaxWidth="{StaticResource SettingsActionButtonMaxWidth}"
+                        HorizontalAlignment="Right"
+                        HorizontalContentAlignment="Center"
+                        ContentTemplate="{StaticResource SettingsActionButtonContentTemplate}"
+                        Command="{x:Bind ViewModel.UnlockRegionPolicyCommand}"/>
                 </controls:SettingsCard>
                 <!-- 清除小组件数据会删除 WebView 本地 Profile 且无法恢复，破坏性范围警告由视图模型在执行前给出。 -->
-                <controls:SettingsCard x:Uid="Settings_ClearWidgetDataCard" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" MinHeight="70" Padding="16,0">
+                <controls:SettingsCard x:Uid="Settings_ClearWidgetDataCard" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" MinHeight="70" Padding="{StaticResource SettingsCardContentPadding}">
                     <controls:SettingsCard.HeaderIcon>
                         <FontIcon Glyph="&#xE74D;" />
                     </controls:SettingsCard.HeaderIcon>
-                    <Button x:Uid="ClearWidgetDataButton" HorizontalAlignment="Right" Command="{x:Bind ViewModel.ClearWidgetDataCommand}"/>
+                    <Button
+                        x:Uid="ClearWidgetDataButton"
+                        MaxWidth="{StaticResource SettingsActionButtonMaxWidth}"
+                        HorizontalAlignment="Right"
+                        HorizontalContentAlignment="Center"
+                        ContentTemplate="{StaticResource SettingsActionButtonContentTemplate}"
+                        Command="{x:Bind ViewModel.ClearWidgetDataCommand}"/>
                 </controls:SettingsCard>
                 <!--
                     日志与反馈组：此处使用扁平的行布局而非 SettingsCard，避免在 Expander 内再出现卡片圆角和外边距。
@@ -144,7 +174,7 @@
             <!-- 捐赠组：购买状态由 Store 许可证查询异步刷新，未完成时默认按“未购买”展示，避免误隐藏入口。 -->
             <StackPanel Spacing="3">
                 <TextBlock x:Uid="DonationGroup" FontSize="14" Margin="0,0,0,6" FontWeight="SemiBold"/>
-                <controls:SettingsCard x:Uid="DonationCard" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" MinHeight="70" Padding="16,0">
+                <controls:SettingsCard x:Uid="DonationCard" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" MinHeight="70" Padding="{StaticResource SettingsCardContentPadding}">
                     <controls:SettingsCard.HeaderIcon>
                         <FontIcon Glyph="&#xE00B;" />
                     </controls:SettingsCard.HeaderIcon>
@@ -153,7 +183,14 @@
                         即使购买在 Store 侧立即完成，也不会出现两个控件同时显示的中间态。
                     -->
                     <StackPanel Orientation="Horizontal" Spacing="12" HorizontalAlignment="Right" VerticalAlignment="Center">
-                        <Button x:Uid="DonateButton" Style="{StaticResource AccentButtonStyle}" Command="{x:Bind ViewModel.DonateCommand}" Visibility="{x:Bind ViewModel.DonateButtonVisibility, Mode=OneWay}"/>
+                        <Button
+                            x:Uid="DonateButton"
+                            MaxWidth="{StaticResource SettingsActionButtonMaxWidth}"
+                            Style="{StaticResource AccentButtonStyle}"
+                            HorizontalContentAlignment="Center"
+                            ContentTemplate="{StaticResource SettingsActionButtonContentTemplate}"
+                            Command="{x:Bind ViewModel.DonateCommand}"
+                            Visibility="{x:Bind ViewModel.DonateButtonVisibility, Mode=OneWay}"/>
                         <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" Visibility="{x:Bind ViewModel.DonationThanksVisibility, Mode=OneWay}">
                             <FontIcon Glyph="&#xE73E;" FontSize="16" VerticalAlignment="Center"/>
                             <TextBlock x:Uid="DonationThanks" FontSize="14" VerticalAlignment="Center"/>
