@@ -647,6 +647,12 @@ static async Task RegionPolicyUsesTemporaryDiagnosticsAsync()
     Check(!generatedScript.Content.Contains("RegionPolicyError", StringComparison.Ordinal));
     Check(!generatedScript.Content.Contains("diagnosticsPath", StringComparison.Ordinal));
     Check(!generatedScript.Content.Contains("WindowsIdentity", StringComparison.Ordinal));
+    Check(generatedScript.Content.Contains("icacls $policyPath /setowner $owner", StringComparison.Ordinal));
+    Check(generatedScript.Content.Contains("icacls $policyDirectory /restore $aclBackup", StringComparison.Ordinal));
+    Check(!generatedScript.Content.Contains("icacls $policyPath /restore $aclBackup", StringComparison.Ordinal));
+    Check(
+        generatedScript.Content.IndexOf("icacls $policyPath /setowner $owner", StringComparison.Ordinal) <
+        generatedScript.Content.IndexOf("icacls $policyDirectory /restore $aclBackup", StringComparison.Ordinal));
 
     // 使用必定不存在的策略文件以普通权限执行，只验证脚本语法和临时错误回传，不修改系统文件。
     PowerShellResult executionResult = await new PowerShellProcessExecutor().ExecuteAsync(
