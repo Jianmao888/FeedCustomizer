@@ -1,10 +1,14 @@
 [CmdletBinding()]
 param(
-    [string]$ProjectRoot = (Split-Path -Parent $PSScriptRoot)
+    [string]$ProjectRoot
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+
+if ([string]::IsNullOrWhiteSpace($ProjectRoot)) {
+    $ProjectRoot = Split-Path -Parent $PSScriptRoot
+}
 
 # 这些目录包含缓存或构建产物，不属于项目源文件；排除后脚本可安全重复执行。
 $excludedDirectories = @('.git', '.vs', 'bin', 'obj')
@@ -126,7 +130,7 @@ $convertedCount = 0
 $skippedCount = 0
 
 Get-ChildItem -LiteralPath $resolvedRoot -File -Recurse -Force | ForEach-Object {
-    $relativePath = [System.IO.Path]::GetRelativePath($resolvedRoot, $_.FullName)
+    $relativePath = $_.FullName.Substring($resolvedRoot.Length).TrimStart([char[]]'\\/')
     $pathParts = $relativePath -split '[\\/]'
     if ($pathParts | Where-Object { $excludedDirectories -contains $_ }) {
         return
