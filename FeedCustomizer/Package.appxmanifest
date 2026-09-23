@@ -12,7 +12,7 @@
   <Identity
     Name="D454B137.Jianmao.FeedCustomizer"
     Publisher="CN=Jianmao"
-    Version="1.1.1.0" />
+    Version="1.2.0.0" />
 
   <Properties>
     <DisplayName>ms-resource:AppName</DisplayName>
@@ -45,11 +45,11 @@
 				<uap3:Extension Category="windows.appExtension">
 					<uap3:AppExtension Name="com.microsoft.windows.widgets.feeds" DisplayName="ms-resource:StartFeedProviderDisplayName" Id="MicrosoftStartFeed" PublicFolder="Public">
 						<uap3:Properties>
-							<FeedProvider>
+							<FeedProvider Id="feedcustomizerexamplefeed" DisplayName="Feed Customization Example Feed" SettingsUri="https://learn.microsoft.com/" Icon="Assets\StoreLogo.scale-200.png" Description="EFeed Customization">
 								<Definitions>
-									<Definition Id="EFeed"
-								    DisplayName="EFeed"
-								    Description="EFeed"
+									<Definition Id="FeedCustomizerExampleFeed"
+								    DisplayName="FeedCustomizerExampleFeed"
+								    Description="FeedCustomizerExampleFeed"
 								    ContentUri="https://www.microsoft.com/"
 								    AllowedUriFiltersForNavigation="https://www.microsoft.com/*"
 								    Icon="Images\w.png">
