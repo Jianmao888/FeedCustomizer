@@ -1,8 +1,10 @@
+using FeedCustomizer.Core.Deployment;
 using FeedCustomizer.Core.Models;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text.Json;
 using System.Threading.Tasks;
 
 namespace FeedCustomizer.Core.Infrastructure.PowerShell;
@@ -54,40 +56,149 @@ internal sealed class ProviderDeploymentPowerShellAdapter(IPowerShellExecutor ex
         Assert-NotLink $target
         """;
 
-    /// <summary>统一按版本清单校验实际部署，避免 C# 把重定向副本误认为真实注册副本。</summary>
-    internal async Task<bool> IsCurrentAsync(string versionPath)
+    /// <summary>在包外检查注册版本的元数据和实际文件；应用进程只接收差异，不直接读取注册目录。</summary>
+    internal async Task<DeployedFileInspection> InspectAsync(string versionPath)
     {
         var result = await RunAsync("InspectProviderFiles.ps1", $"$versionPath = {PowerShellLiteral.Quote(versionPath)}\n" + """
-            $deployedVersion = Resolve-Child $target '.deployment-version.xml'
-            if (-not (Test-Path -LiteralPath $deployedVersion)) { 'False'; exit 0 }
             [xml]$expected = Get-Content -LiteralPath $versionPath -Raw
+            if ($expected.DeploymentVersion.Schema -ne '1') { throw 'Unsupported expected deployment schema' }
+            $deployedPath = Resolve-Child $target '.deployment-version.xml'
             $deployed = New-Object System.Xml.XmlDocument
-            # 版本元数据损坏可以从当前候选重建；权限/IO 错误则继续向上报告，不能一律当作过期。
-            try { $deployed.Load($deployedVersion) }
-            catch [System.Xml.XmlException] { 'False'; exit 0 }
-            if ($deployed.DeploymentVersion.Schema -ne '1' -or $deployed.DeploymentVersion.Template -ne $expected.DeploymentVersion.Template) { 'False'; exit 0 }
-            foreach ($file in $expected.DeploymentVersion.File) {
-                $path = Resolve-Child $target $file.Path
-                if (-not (Test-Path -LiteralPath $path) -or (Get-ContentHash $path) -ne $file.Sha256) { 'False'; exit 0 }
+            $metadataValid = Test-Path -LiteralPath $deployedPath
+            if ($metadataValid) {
+                # 仅损坏的版本 XML 可退回完整发布；读取权限或 IO 错误必须向上报告。
+                try { $deployed.Load($deployedPath) }
+                catch [System.Xml.XmlException] { $metadataValid = $false }
             }
-            'True'
+            if ($metadataValid) {
+                $metadataValid = $deployed.DeploymentVersion.Schema -eq '1' -and
+                    -not [string]::IsNullOrWhiteSpace($deployed.DeploymentVersion.Template)
+            }
+            $templateMatches = $metadataValid -and
+                $deployed.DeploymentVersion.Template -eq $expected.DeploymentVersion.Template
+            $metadataChanged = New-Object 'System.Collections.Generic.List[string]'
+            $contentChanged = New-Object 'System.Collections.Generic.List[string]'
+            $unexpectedRuntime = $false
+            if ($templateMatches) {
+                $expectedFiles = @{}
+                foreach ($file in $expected.DeploymentVersion.File) {
+                    if ($expectedFiles.ContainsKey($file.Path)) { throw 'Duplicate expected path' }
+                    $expectedFiles[$file.Path] = [string]$file.Sha256
+                }
+                $deployedFiles = @{}
+                foreach ($file in $deployed.DeploymentVersion.File) {
+                    $path = [string]$file.Path
+                    $hash = [string]$file.Sha256
+                    if ([string]::IsNullOrWhiteSpace($path) -or [string]::IsNullOrWhiteSpace($hash) -or
+                        $deployedFiles.ContainsKey($path)) {
+                        $metadataValid = $false
+                        break
+                    }
+                    $deployedFiles[$path] = $hash
+                }
+                if ($metadataValid) {
+                    foreach ($file in $expected.DeploymentVersion.File) {
+                        if (-not $deployedFiles.ContainsKey($file.Path) -or $deployedFiles[$file.Path] -ne $file.Sha256) {
+                            $metadataChanged.Add([string]$file.Path)
+                        }
+                        $path = Resolve-Child $target $file.Path
+                        if (-not (Test-Path -LiteralPath $path) -or (Get-ContentHash $path) -ne $file.Sha256) {
+                            $contentChanged.Add([string]$file.Path)
+                        }
+                    }
+                    foreach ($path in $deployedFiles.Keys) {
+                        if (-not $expectedFiles.ContainsKey($path)) { $metadataChanged.Add([string]$path) }
+                    }
+                    $runtime = Resolve-Child $target 'FeedProvider'
+                    foreach ($path in Get-SafeFiles $runtime) {
+                        $relative = $path.Substring($target.Length + 1)
+                        if (-not $expectedFiles.ContainsKey($relative)) { $unexpectedRuntime = $true; break }
+                    }
+                }
+            }
+            [pscustomobject]@{
+                MetadataValid = [bool]$metadataValid
+                TemplateMatches = [bool]$templateMatches
+                UnexpectedRuntime = [bool]$unexpectedRuntime
+                MetadataChanged = @($metadataChanged.ToArray())
+                ContentChanged = @($contentChanged.ToArray())
+            } | ConvertTo-Json -Compress -Depth 3
             """);
-        return string.Equals(result.Output.Trim(), "True", StringComparison.OrdinalIgnoreCase);
+        using JsonDocument document = JsonDocument.Parse(result.Output);
+        JsonElement root = document.RootElement;
+        return new DeployedFileInspection(
+            root.GetProperty("MetadataValid").GetBoolean(),
+            root.GetProperty("TemplateMatches").GetBoolean(),
+            root.GetProperty("UnexpectedRuntime").GetBoolean(),
+            ReadPaths(root, "MetadataChanged"),
+            ReadPaths(root, "ContentChanged"));
+    }
+
+    private static string[] ReadPaths(JsonElement root, string propertyName)
+    {
+        return root.GetProperty(propertyName).EnumerateArray()
+            .Select(item => item.GetString() ?? throw new InvalidDataException("注册版本检查包含空文件路径。"))
+            .ToArray();
     }
 
     /// <summary>
     /// 发布经过验证的候选；旧程序不备份。每个文件先写临时文件再替换，版本清单最后写入。
     /// 协调器只在本方法成功后注册，失败则保持未注册状态，下一次重试可覆盖不完整文件。
     /// </summary>
-    internal async Task PublishAsync(string candidate)
+    internal async Task PublishAsync(string candidate, ProviderDeploymentPlan plan)
     {
-        await RunAsync("PublishProviderDeployment.ps1", $"$candidate = {PowerShellLiteral.Quote(candidate)}\n" + """
+        string paths = string.Join(",", plan.CopyPaths.Select(PowerShellLiteral.Quote));
+        string arguments = $"$candidate = {PowerShellLiteral.Quote(candidate)}\n" +
+            $"$scope = {PowerShellLiteral.Quote(plan.Scope.ToString())}\n$copyPaths = @({paths})\n";
+        await RunAsync("PublishProviderDeployment.ps1", arguments + """
             [xml]$version = Get-Content -LiteralPath (Resolve-Child $candidate '.deployment-version.xml') -Raw
             if ($version.DeploymentVersion.Schema -ne '1') { throw 'Unsupported deployment schema' }
-            # 先校验整个候选，避免复制到一半才发现缺文件或文件内容不匹配。
+            if ($scope -ne 'Full' -and $scope -ne 'Configuration') { throw 'Unsupported deployment scope' }
+            $expectedFiles = @{}
             foreach ($file in $version.DeploymentVersion.File) {
-                $source = Resolve-Child $candidate $file.Path
-                if ((Get-ContentHash $source) -ne $file.Sha256) { throw "Candidate changed: $source" }
+                if ($expectedFiles.ContainsKey($file.Path)) { throw 'Duplicate expected path' }
+                $expectedFiles[$file.Path] = [string]$file.Sha256
+            }
+            $copySet = @{}
+            foreach ($relative in $copyPaths) {
+                if (-not $expectedFiles.ContainsKey($relative) -or $copySet.ContainsKey($relative)) {
+                    throw 'Invalid deployment copy path'
+                }
+                if ($scope -eq 'Configuration' -and $relative -ne 'AppxManifest.xml') {
+                    $imageRoot = Resolve-Child $target 'Images'
+                    $destination = Resolve-Child $target $relative
+                    if (-not $destination.StartsWith($imageRoot + '\', [StringComparison]::OrdinalIgnoreCase)) {
+                        throw 'Configuration deployment contains a program file'
+                    }
+                }
+                $copySet[$relative] = $true
+                $source = Resolve-Child $candidate $relative
+                if ((Get-ContentHash $source) -ne $expectedFiles[$relative]) { throw "Candidate changed: $source" }
+            }
+            if ($scope -eq 'Full' -and $copySet.Count -ne $expectedFiles.Count) {
+                throw 'Full deployment is missing candidate files'
+            }
+            if ($scope -eq 'Configuration') {
+                $deployedVersion = Resolve-Child $target '.deployment-version.xml'
+                if (-not (Test-Path -LiteralPath $deployedVersion)) { throw 'Registered version metadata is missing' }
+                [xml]$registered = Get-Content -LiteralPath $deployedVersion -Raw
+                if ($registered.DeploymentVersion.Schema -ne '1' -or
+                    $registered.DeploymentVersion.Template -ne $version.DeploymentVersion.Template) {
+                    throw 'Registered template changed before configuration deployment'
+                }
+                # 卸载后再次核实不复制的文件，防止依赖已消失或被外部修改的程序文件。
+                foreach ($file in $version.DeploymentVersion.File) {
+                    if ($copySet.ContainsKey($file.Path)) { continue }
+                    $path = Resolve-Child $target $file.Path
+                    if (-not (Test-Path -LiteralPath $path) -or (Get-ContentHash $path) -ne $file.Sha256) {
+                        throw "Unchanged file mismatch: $path"
+                    }
+                }
+                $runtime = Resolve-Child $target 'FeedProvider'
+                foreach ($path in Get-SafeFiles $runtime) {
+                    $relative = $path.Substring($target.Length + 1)
+                    if (-not $expectedFiles.ContainsKey($relative)) { throw "Unexpected runtime file: $path" }
+                }
             }
             function Copy-Atomic([string]$source, [string]$destination) {
                 $temporary = $destination + '.deployment-tmp'
@@ -109,14 +220,16 @@ internal sealed class ProviderDeploymentPowerShellAdapter(IPowerShellExecutor ex
                     if (Test-Path -LiteralPath $temporary) { Remove-Item -LiteralPath $temporary -Force }
                 }
             }
-            foreach ($file in $version.DeploymentVersion.File) {
-                Copy-Atomic (Resolve-Child $candidate $file.Path) (Resolve-Child $target $file.Path)
+            foreach ($relative in $copyPaths) {
+                Copy-Atomic (Resolve-Child $candidate $relative) (Resolve-Child $target $relative)
             }
             # 只有 FeedProvider 子目录完全属于程序产物；Images 中的用户文件由引用清理负责。
-            $runtime = Resolve-Child $target 'FeedProvider'
-            foreach ($path in Get-SafeFiles $runtime) {
-                $relative = $path.Substring($target.Length + 1)
-                if (-not ($version.DeploymentVersion.File | Where-Object { $_.Path -eq $relative })) { Remove-Item -LiteralPath $path -Force }
+            if ($scope -eq 'Full') {
+                $runtime = Resolve-Child $target 'FeedProvider'
+                foreach ($path in Get-SafeFiles $runtime) {
+                    $relative = $path.Substring($target.Length + 1)
+                    if (-not $expectedFiles.ContainsKey($relative)) { Remove-Item -LiteralPath $path -Force }
+                }
             }
             # 发布后再次校验；目录内其他历史文件不被视为版本成功证据。
             foreach ($file in $version.DeploymentVersion.File) {

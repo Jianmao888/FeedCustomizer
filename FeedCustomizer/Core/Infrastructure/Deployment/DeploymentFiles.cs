@@ -1,3 +1,4 @@
+using FeedCustomizer.Core.Deployment;
 using FeedCustomizer.Core.Infrastructure.Logging;
 using System;
 using System.Collections.Generic;
@@ -159,4 +160,55 @@ internal sealed record DeploymentVersion(string Template, Dictionary<string, str
     internal bool Matches(string root, bool includeManifest = true) => Files.All(f =>
         (!includeManifest && f.Key.Equals("AppxManifest.xml", StringComparison.OrdinalIgnoreCase)) ||
         (File.Exists(DeploymentFiles.Under(root, f.Key)) && DeploymentFiles.Hash(DeploymentFiles.Under(root, f.Key)) == f.Value));
+
+    /// <summary>
+    /// 只有模板一致且程序文件完整时才能复用注册副本；旧图片可留待引用清理，
+    /// 但不允许程序或静态资源的任何差异进入仅配置发布。
+    /// </summary>
+    internal ProviderDeploymentPlan Plan(DeployedFileInspection inspection)
+    {
+        string[] allPaths = Files.Keys.OrderBy(path => path, StringComparer.OrdinalIgnoreCase).ToArray();
+        if (!inspection.MetadataValid || !inspection.TemplateMatches || inspection.UnexpectedRuntime)
+        {
+            return new(ProviderDeploymentScope.Full, allPaths);
+        }
+
+        var changed = new HashSet<string>(inspection.MetadataChanged, StringComparer.OrdinalIgnoreCase);
+        changed.UnionWith(inspection.ContentChanged);
+        if (changed.Count == 0)
+        {
+            return new(ProviderDeploymentScope.Current, []);
+        }
+
+        if (!changed.All(IsConfigurationPath))
+        {
+            return new(ProviderDeploymentScope.Full, allPaths);
+        }
+
+        // 从预期清单中移除的旧图片没有复制源；它只改变版本元数据，稍后由图片清理回收。
+        string[] copyPaths = inspection.ContentChanged
+            .Where(Files.ContainsKey)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        return new(ProviderDeploymentScope.Configuration, copyPaths);
+    }
+
+    internal static bool IsConfigurationPath(string path)
+    {
+        if (path.Equals("AppxManifest.xml", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        if (!path.StartsWith("Images\\", StringComparison.OrdinalIgnoreCase) || path.Contains(':') ||
+            path.Contains('/') ||
+            Path.IsPathRooted(path))
+        {
+            return false;
+        }
+
+        return path.Split('\\').All(segment =>
+            !string.IsNullOrWhiteSpace(segment) && segment is not "." and not "..");
+    }
 }

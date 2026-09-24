@@ -35,6 +35,15 @@ var tests = new (string Name, Func<Task> Run)[]
         Check((await current.Coordinator.ApplyAsync(null, true, false)).Succeeded);
         Check(!current.Trace.Contains("Stage") && !current.Trace.Contains("Remove"));
     }),
+    ("仅配置计划贯穿卸载前候选和卸载后发布", async () =>
+    {
+        var f = new Fixture { Storage = { ConfigurationOnly = true } };
+        Check((await f.Coordinator.ApplyAsync([new Feed()], true, false)).Succeeded);
+        Check(f.Storage.StagedScope == ProviderDeploymentScope.Configuration);
+        Check(f.Storage.PublishedScope == ProviderDeploymentScope.Configuration);
+        Check(f.Trace.IndexOf("Stage") < f.Trace.IndexOf("Remove"));
+        Check(f.Trace.IndexOf("Remove") < f.Trace.IndexOf("Publish"));
+    }),
     ("发布失败停止注册并保留已保存配置", async () =>
     {
         var f = new Fixture { Storage = { FailAt = "Publish" } };
@@ -127,7 +136,9 @@ var tests = new (string Name, Func<Task> Run)[]
         Check(!version.Matches(directory.Path));
         return Task.CompletedTask;
     }),
+    ("部署计划只允许配置差异走部分发布", DeploymentPlanAsync),
     ("包外发布与清理脚本在临时目录实际执行", ScriptIntegrationAsync),
+    ("配置变化仅复制清单和图片", ConfigurationDeploymentAsync),
     ("旧安装原位更新保留配置和私有图片", WorkspaceUpgradeAsync),
     ("损坏用户清单阻止模板覆盖", CorruptWorkspaceAsync),
     ("小组件数据清理跨调用串行且保留锁定结果", WidgetDataResetCoordinatorAsync),
@@ -511,6 +522,137 @@ static async Task FeedbackDispatcherFallsBackAsync()
 static FeedbackMailMessage CreateFeedbackMessage() =>
     new("feedback@example.com", "subject", "body", "archive.zip", "archive.zip");
 
+static Task DeploymentPlanAsync()
+{
+    var version = new DeploymentVersion("template", new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+    {
+        ["AppxManifest.xml"] = "manifest",
+        ["FeedProvider\\FeedProvider.exe"] = "program",
+        ["Assets\\Logo.png"] = "asset",
+        ["Images\\used.png"] = "image"
+    });
+
+    Check(version.Plan(new(true, true, false, [], [])).Scope == ProviderDeploymentScope.Current);
+    ProviderDeploymentPlan configuration = version.Plan(new(
+        true,
+        true,
+        false,
+        ["Images\\old.png"],
+        ["AppxManifest.xml", "Images\\used.png"]));
+    Check(configuration.Scope == ProviderDeploymentScope.Configuration);
+    Check(configuration.CopyPaths.Count == 2 && !configuration.CopyPaths.Contains("Images\\old.png"));
+    Check(version.Plan(new(true, false, false, [], ["AppxManifest.xml"])).Scope == ProviderDeploymentScope.Full);
+    Check(version.Plan(new(false, true, false, [], ["AppxManifest.xml"])).Scope == ProviderDeploymentScope.Full);
+    Check(version.Plan(new(true, true, true, [], ["AppxManifest.xml"])).Scope == ProviderDeploymentScope.Full);
+    Check(version.Plan(new(true, true, false, [], ["FeedProvider\\FeedProvider.exe"])).Scope == ProviderDeploymentScope.Full);
+    Check(version.Plan(new(true, true, false, [], ["Assets\\Logo.png"])).Scope == ProviderDeploymentScope.Full);
+    Check(!DeploymentVersion.IsConfigurationPath("Images\\..\\FeedProvider\\FeedProvider.exe"));
+    return Task.CompletedTask;
+}
+
+static async Task ConfigurationDeploymentAsync()
+{
+    using var directory = new TestDirectory();
+    CreateWorkspace(directory.Path);
+    string work = AppDataPaths.PackageLocalFeedProviderFolder;
+    string target = AppDataPaths.FeedProviderFolder;
+    var storage = new ProviderDeploymentStorage(new ProviderDeploymentPowerShellAdapter(new SandboxExecutor(target)));
+    await storage.PrepareWorkAsync();
+
+    ProviderDeploymentPlan full = await storage.PlanAsync(false);
+    Check(full.Scope == ProviderDeploymentScope.Full);
+    await storage.StageAsync(full);
+    await storage.PublishAsync(full);
+
+    string executable = DeploymentFiles.Under(target, "FeedProvider\\FeedProvider.exe");
+    string asset = DeploymentFiles.Under(target, "Assets\\StoreLogo.scale-200.png");
+    DateTime unchangedTime = DateTime.UtcNow.AddDays(-2);
+    File.SetLastWriteTimeUtc(executable, unchangedTime);
+    File.SetLastWriteTimeUtc(asset, unchangedTime);
+    DateTime programTime = File.GetLastWriteTimeUtc(executable);
+    DateTime assetTime = File.GetLastWriteTimeUtc(asset);
+
+    string imagePath = DeploymentFiles.Under(work, "Images\\user.png");
+    File.WriteAllText(imagePath, "image-v1");
+    await storage.SaveFeedsAsync([new Feed
+    {
+        Id = "user-feed",
+        Name = "用户源",
+        Url = "https://example.com",
+        ImagePath = "Images\\user.png"
+    }]);
+
+    ProviderDeploymentPlan configuration = await storage.PlanAsync(true);
+    Check(configuration.Scope == ProviderDeploymentScope.Configuration);
+    Check(configuration.CopyPaths.Contains("AppxManifest.xml"));
+    Check(configuration.CopyPaths.Contains("Images\\user.png"));
+    Check(!configuration.CopyPaths.Any(path => path.StartsWith("FeedProvider\\", StringComparison.OrdinalIgnoreCase)));
+    await storage.StageAsync(configuration);
+    string candidate = DeploymentFiles.Under(work, ".deployment\\candidate");
+    Check(!File.Exists(DeploymentFiles.Under(candidate, "FeedProvider\\FeedProvider.exe")));
+    Check(!File.Exists(DeploymentFiles.Under(candidate, "Assets\\StoreLogo.scale-200.png")));
+
+    // 打开程序文件但允许读取；部分发布若尝试覆盖它，Windows 会拒绝写入。
+    using (var locked = new FileStream(executable, FileMode.Open, FileAccess.Read, FileShare.Read))
+    {
+        await storage.PublishAsync(configuration);
+    }
+
+    Check(File.GetLastWriteTimeUtc(executable) == programTime);
+    Check(File.GetLastWriteTimeUtc(asset) == assetTime);
+    Check(File.ReadAllText(DeploymentFiles.Under(target, "Images\\user.png")) == "image-v1");
+    Check((await storage.PlanAsync(true)).Scope == ProviderDeploymentScope.Current);
+
+    File.WriteAllText(imagePath, "image-v2");
+    ProviderDeploymentPlan imageOnly = await storage.PlanAsync(true);
+    Check(imageOnly.Scope == ProviderDeploymentScope.Configuration);
+    Check(imageOnly.CopyPaths.Count == 1 && imageOnly.CopyPaths[0] == "Images\\user.png");
+    await storage.StageAsync(imageOnly);
+    await storage.PublishAsync(imageOnly);
+    Check(File.GetLastWriteTimeUtc(executable) == programTime);
+    Check(File.GetLastWriteTimeUtc(asset) == assetTime);
+    Check((await storage.PlanAsync(true)).Scope == ProviderDeploymentScope.Current);
+
+    await storage.SaveFeedsAsync([new Feed
+    {
+        Id = "user-feed",
+        Name = "不再引用图片",
+        Url = "https://example.com"
+    }]);
+    ProviderDeploymentPlan removedImage = await storage.PlanAsync(true);
+    Check(removedImage.Scope == ProviderDeploymentScope.Configuration);
+    Check(removedImage.CopyPaths.Count == 1 && removedImage.CopyPaths[0] == "AppxManifest.xml");
+    await storage.StageAsync(removedImage);
+    await storage.PublishAsync(removedImage);
+    Check(File.Exists(DeploymentFiles.Under(target, "Images\\user.png")));
+    Check((await storage.PlanAsync(true)).Scope == ProviderDeploymentScope.Current);
+
+    // 规划之后的程序漂移必须在复制清单前阻止发布，不能写入表示成功的版本清单。
+    await storage.SaveFeedsAsync([new Feed
+    {
+        Id = "user-feed",
+        Name = "再次修改名称",
+        Url = "https://example.com"
+    }]);
+    ProviderDeploymentPlan stale = await storage.PlanAsync(true);
+    await storage.StageAsync(stale);
+    string registeredManifest = File.ReadAllText(DeploymentFiles.Under(target, "AppxManifest.xml"));
+    File.WriteAllText(executable, "program-tampered");
+    try
+    {
+        await storage.PublishAsync(stale);
+        throw new Exception("程序文件漂移未阻止部分发布。");
+    }
+    catch (IOException)
+    {
+        Check(File.ReadAllText(DeploymentFiles.Under(target, "AppxManifest.xml")) == registeredManifest);
+    }
+
+    Check((await storage.PlanAsync(true)).Scope == ProviderDeploymentScope.Full);
+    File.WriteAllText(DeploymentFiles.Under(target, DeploymentFiles.VersionFile), "broken metadata");
+    Check((await storage.PlanAsync(true)).Scope == ProviderDeploymentScope.Full);
+}
+
 static async Task ScriptIntegrationAsync()
 {
     using var directory = new TestDirectory();
@@ -530,13 +672,15 @@ static async Task ScriptIntegrationAsync()
     var version = DeploymentVersion.Capture(candidate, "version-1", paths);
     version.Save(candidate);
     var adapter = new ProviderDeploymentPowerShellAdapter(new SandboxExecutor(target));
-    Check(!await adapter.IsCurrentAsync(System.IO.Path.Combine(candidate, DeploymentFiles.VersionFile)));
-    await adapter.PublishAsync(candidate);
+    string versionPath = System.IO.Path.Combine(candidate, DeploymentFiles.VersionFile);
+    ProviderDeploymentPlan fullPlan = version.Plan(await adapter.InspectAsync(versionPath));
+    Check(fullPlan.Scope == ProviderDeploymentScope.Full);
+    await adapter.PublishAsync(candidate, fullPlan);
     Check(!File.Exists(System.IO.Path.Combine(target, "FeedProvider", "old.dll")));
-    Check(await adapter.IsCurrentAsync(System.IO.Path.Combine(candidate, DeploymentFiles.VersionFile)));
+    Check(version.Plan(await adapter.InspectAsync(versionPath)).Scope == ProviderDeploymentScope.Current);
     File.WriteAllText(System.IO.Path.Combine(target, DeploymentFiles.VersionFile), "broken metadata");
-    Check(!await adapter.IsCurrentAsync(System.IO.Path.Combine(candidate, DeploymentFiles.VersionFile)));
-    await adapter.PublishAsync(candidate);
+    Check(version.Plan(await adapter.InspectAsync(versionPath)).Scope == ProviderDeploymentScope.Full);
+    await adapter.PublishAsync(candidate, fullPlan);
     Check((await adapter.ReadManifestAsync()).Contains("Package"));
 
     // 图片清理必须保留默认、被引用和刚下载的文件，只删除超过宽限期的孤儿。
@@ -554,7 +698,7 @@ static async Task ScriptIntegrationAsync()
 
     // 候选在构建后被破坏时，脚本必须在写目标之前失败，不能发布未经校验的数据。
     File.WriteAllText(DeploymentFiles.Under(candidate, "FeedProvider\\FeedProvider.exe"), "corrupted");
-    try { await adapter.PublishAsync(candidate); throw new Exception("损坏候选未被拒绝。"); }
+    try { await adapter.PublishAsync(candidate, fullPlan); throw new Exception("损坏候选未被拒绝。"); }
     catch (IOException) { }
     Check(File.ReadAllText(DeploymentFiles.Under(target, "FeedProvider\\FeedProvider.exe")) == "data");
 }
@@ -579,16 +723,18 @@ static async Task WorkspaceUpgradeAsync()
     Check(File.ReadAllText(DeploymentFiles.Under(work, "Images\\user.png")) == "user-image");
     Check(!File.Exists(DeploymentFiles.Under(work, "FeedProvider\\old.dll")));
     Check(await storage.IsWorkCurrentAsync());
-    await storage.StageAsync();
+    ProviderDeploymentPlan plan = await storage.PlanAsync(false);
+    Check(plan.Scope == ProviderDeploymentScope.Full);
+    await storage.StageAsync(plan);
     await storage.BeginAsync(false);
     await storage.RecordStageAsync(DeploymentStage.Publishing);
     // 使用同一磁盘数据重新创建实例，证明日志阶段能跨实例恢复。
     var reopened = new ProviderDeploymentStorage(new ProviderDeploymentPowerShellAdapter(new SandboxExecutor(AppDataPaths.FeedProviderFolder)));
     Check(reopened.HasTransaction && reopened.PendingStage == DeploymentStage.Publishing);
-    await reopened.PublishAsync();
+    await reopened.PublishAsync(plan);
     await reopened.CommitAsync();
     await reopened.FinishAsync();
-    Check(await storage.IsDeploymentCurrentAsync());
+    Check((await storage.PlanAsync(true)).Scope == ProviderDeploymentScope.Current);
     Check(File.ReadAllText(DeploymentFiles.Under(AppDataPaths.FeedProviderFolder, "Images\\user.png")) == "user-image");
 
     // 同时在私有与实际部署目录构造旧孤儿；未应用的草稿和包内默认图不能被清理。
@@ -994,16 +1140,39 @@ sealed class FakeStorage(List<string> trace) : IProviderDeploymentStorage
     public DeploymentStage PendingStage { get; set; }
     public bool TransactionCommitted => PendingStage == DeploymentStage.Completed;
     public bool Current { get; set; }
+    public bool ConfigurationOnly { get; set; }
+    public ProviderDeploymentScope? StagedScope { get; private set; }
+    public ProviderDeploymentScope? PublishedScope { get; private set; }
     public string? FailAt { get; set; }
     private void Record(string name) { trace.Add(name); if (name == FailAt) throw new IOException(name + " failed"); }
     public Task<bool> IsWorkCurrentAsync() => Task.FromResult(true);
     public async Task PrepareWorkAsync() { Record("Prepare"); await Task.Delay(10); }
     public Task SaveFeedsAsync(List<Feed> feeds) { Record("Save"); return Task.CompletedTask; }
-    public Task<bool> IsDeploymentCurrentAsync() => Task.FromResult(Current);
-    public Task StageAsync() { Record("Stage"); return Task.CompletedTask; }
+    public Task<ProviderDeploymentPlan> PlanAsync(bool installed)
+    {
+        Record("Plan");
+        ProviderDeploymentScope scope = installed && Current
+            ? ProviderDeploymentScope.Current
+            : installed && ConfigurationOnly
+                ? ProviderDeploymentScope.Configuration
+                : ProviderDeploymentScope.Full;
+        IReadOnlyList<string> paths = scope == ProviderDeploymentScope.Current ? [] : ["AppxManifest.xml"];
+        return Task.FromResult(new ProviderDeploymentPlan(scope, paths));
+    }
+    public Task StageAsync(ProviderDeploymentPlan plan)
+    {
+        StagedScope = plan.Scope;
+        Record("Stage");
+        return Task.CompletedTask;
+    }
     public Task BeginAsync(bool installed) { Record("Begin"); HasTransaction = true; PendingStage = DeploymentStage.Staging; return Task.CompletedTask; }
     public Task RecordStageAsync(DeploymentStage stage) { PendingStage = stage; return Task.CompletedTask; }
-    public Task PublishAsync() { Record("Publish"); return Task.CompletedTask; }
+    public Task PublishAsync(ProviderDeploymentPlan plan)
+    {
+        PublishedScope = plan.Scope;
+        Record("Publish");
+        return Task.CompletedTask;
+    }
     public Task CommitAsync() { Record("Commit"); PendingStage = DeploymentStage.Completed; return Task.CompletedTask; }
     public Task FinishAsync() { Record("Finish"); HasTransaction = false; return Task.CompletedTask; }
     public Task<ImageCleanupResult> CleanImagesAsync(IReadOnlyCollection<string> draftImages, bool installed)

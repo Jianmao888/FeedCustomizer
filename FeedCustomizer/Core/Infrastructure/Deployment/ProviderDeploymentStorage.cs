@@ -5,6 +5,7 @@ using FeedCustomizer.Core.Models;
 using FeedCustomizer.Core.Tools;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
@@ -101,23 +102,78 @@ internal sealed class ProviderDeploymentStorage(ProviderDeploymentPowerShellAdap
         File.Delete(temporary);
     }
 
-    public async Task<bool> IsDeploymentCurrentAsync()
+    /// <summary>预期版本始终包含完整文件集合；只在已有注册时检查是否可复用程序文件。</summary>
+    public async Task<ProviderDeploymentPlan> PlanAsync(bool installed)
     {
-        // 检查只生成小型清单，不复制整个候选。正常启动时避免重复写入 AOT 程序与全部资源。
+        Stopwatch stopwatch = Stopwatch.StartNew();
         var paths = await GetDeploymentPathsAsync();
-        DeploymentVersion.Capture(Work, _template.Value.Identity, paths).Save(State);
-        return await deployed.IsCurrentAsync(DeploymentFiles.Under(State, DeploymentFiles.VersionFile));
+        DeploymentVersion expected = DeploymentVersion.Capture(Work, _template.Value.Identity, paths);
+        expected.Save(State);
+        ProviderDeploymentPlan plan = installed
+            ? expected.Plan(await deployed.InspectAsync(DeploymentFiles.Under(State, DeploymentFiles.VersionFile)))
+            : new(ProviderDeploymentScope.Full, expected.Files.Keys.OrderBy(path => path, StringComparer.OrdinalIgnoreCase).ToArray());
+        Log.Information(
+            "Provider 文件部署计划完成，范围={Scope}，待复制文件数={CopyCount}，预期文件数={ExpectedCount}，耗时毫秒={ElapsedMilliseconds}",
+            plan.Scope,
+            plan.CopyPaths.Count,
+            expected.Files.Count,
+            stopwatch.ElapsedMilliseconds);
+        return plan;
     }
 
-    /// <summary>候选仅包含当前模板、生成清单及其引用的图片，不把整个私有目录复制到注册目录。</summary>
-    public async Task StageAsync()
+    /// <summary>候选只复制计划文件，仍携带完整版本清单以验证未改动的注册文件。</summary>
+    public Task StageAsync(ProviderDeploymentPlan plan)
     {
-        var paths = await GetDeploymentPathsAsync();
+        Stopwatch stopwatch = Stopwatch.StartNew();
+        if (plan.Scope is not (ProviderDeploymentScope.Configuration or ProviderDeploymentScope.Full))
+        {
+            throw new InvalidOperationException("当前部署计划不允许构建候选。");
+        }
+
+        DeploymentVersion expected = DeploymentVersion.Read(State)
+            ?? throw new InvalidDataException("缺少预期部署版本清单。");
+        if (!expected.Matches(Work))
+        {
+            throw new InvalidDataException("工作版本在规划后发生变化，停止发布。");
+        }
+
+        var uniquePaths = new HashSet<string>(plan.CopyPaths, StringComparer.OrdinalIgnoreCase);
+        if (uniquePaths.Count != plan.CopyPaths.Count ||
+            (plan.Scope == ProviderDeploymentScope.Full && uniquePaths.Count != expected.Files.Count))
+        {
+            throw new InvalidDataException("部署计划中的文件集合不完整或重复。");
+        }
+
         DeploymentFiles.Clear(Candidate);
-        foreach (string path in paths)
+        foreach (string path in plan.CopyPaths)
+        {
+            if (!expected.Files.TryGetValue(path, out string? hash) ||
+                (plan.Scope == ProviderDeploymentScope.Configuration && !DeploymentVersion.IsConfigurationPath(path)))
+            {
+                throw new InvalidDataException($"部署计划包含不允许的文件：{path}");
+            }
+
             DeploymentFiles.AtomicCopy(DeploymentFiles.Under(Work, path), DeploymentFiles.Under(Candidate, path));
-        ValidateRequiredFiles(Candidate);
-        DeploymentVersion.Capture(Candidate, _template.Value.Identity, paths).Save(Candidate);
+            if (DeploymentFiles.Hash(DeploymentFiles.Under(Candidate, path)) != hash)
+            {
+                throw new InvalidDataException($"部署候选的文件内容已变化：{path}");
+            }
+        }
+
+        if (plan.Scope == ProviderDeploymentScope.Full)
+        {
+            ValidateRequiredFiles(Candidate);
+        }
+
+        DeploymentFiles.AtomicCopy(
+            DeploymentFiles.Under(State, DeploymentFiles.VersionFile),
+            DeploymentFiles.Under(Candidate, DeploymentFiles.VersionFile));
+        Log.Information(
+            "Provider 部署候选已验证，范围={Scope}，复制文件数={CopyCount}，耗时毫秒={ElapsedMilliseconds}",
+            plan.Scope,
+            plan.CopyPaths.Count,
+            stopwatch.ElapsedMilliseconds);
+        return Task.CompletedTask;
     }
 
     private async Task<HashSet<string>> GetDeploymentPathsAsync()
@@ -152,7 +208,18 @@ internal sealed class ProviderDeploymentStorage(ProviderDeploymentPowerShellAdap
         return Task.CompletedTask;
     }
 
-    public Task PublishAsync() => deployed.PublishAsync(Candidate);
+    /// <summary>包外发布遵循候选构建时的同一计划，成功后才允许协调器注册。</summary>
+    public async Task PublishAsync(ProviderDeploymentPlan plan)
+    {
+        Stopwatch stopwatch = Stopwatch.StartNew();
+        await deployed.PublishAsync(Candidate, plan);
+        Log.Information(
+            "Provider 注册版本发布完成，范围={Scope}，覆盖文件数={CopyCount}，耗时毫秒={ElapsedMilliseconds}",
+            plan.Scope,
+            plan.CopyPaths.Count,
+            stopwatch.ElapsedMilliseconds);
+    }
+
     public Task CommitAsync() => RecordStageAsync(DeploymentStage.Completed);
 
     public Task FinishAsync()

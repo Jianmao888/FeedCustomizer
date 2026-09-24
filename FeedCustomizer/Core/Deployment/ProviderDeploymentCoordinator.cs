@@ -124,22 +124,23 @@ internal sealed class ProviderDeploymentCoordinator(
                 saved = true;
             }
 
-            if (enable && installed.Value && await storage.IsDeploymentCurrentAsync())
-            {
-                ProviderRegistrationResult currentResult = Success(saved, true);
-                Log.Information(
-                    "Provider 已是当前版本，无需重新注册，操作={OperationId}，耗时毫秒={ElapsedMilliseconds}",
-                    operationId,
-                    stopwatch.ElapsedMilliseconds);
-                return currentResult;
-            }
-
-            // 先构建并验证当前版本候选，再卸载。无需备份旧程序，准备失败时现有注册仍可用。
-            stage = DeploymentStage.Staging;
-            Log.Debug("Provider 部署进入阶段，操作={OperationId}，阶段={Stage}", operationId, stage);
+            ProviderDeploymentPlan? plan = null;
             if (enable)
             {
-                await storage.StageAsync();
+                // 先规划并验证候选，再卸载现有注册；仅配置变化时不构建程序文件候选。
+                stage = DeploymentStage.Staging;
+                Log.Debug("Provider 部署进入阶段，操作={OperationId}，阶段={Stage}", operationId, stage);
+                plan = await storage.PlanAsync(installed.Value);
+                if (installed.Value && plan.Scope == ProviderDeploymentScope.Current)
+                {
+                    Log.Information(
+                        "Provider 已是当前版本，无需重新注册，操作={OperationId}，耗时毫秒={ElapsedMilliseconds}",
+                        operationId,
+                        stopwatch.ElapsedMilliseconds);
+                    return Success(saved, true);
+                }
+
+                await storage.StageAsync(plan);
             }
 
             await storage.BeginAsync(installed.Value);
@@ -158,7 +159,7 @@ internal sealed class ProviderDeploymentCoordinator(
                 stage = DeploymentStage.Publishing;
                 Log.Debug("Provider 部署进入阶段，操作={OperationId}，阶段={Stage}", operationId, stage);
                 await storage.RecordStageAsync(stage);
-                await storage.PublishAsync();
+                await storage.PublishAsync(plan!);
 
                 stage = DeploymentStage.Registering;
                 Log.Debug("Provider 部署进入阶段，操作={OperationId}，阶段={Stage}", operationId, stage);
