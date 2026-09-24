@@ -25,6 +25,8 @@
     <Compile Include="../../FeedCustomizer/Core/Infrastructure/Deployment/DeploymentFiles.cs" Link="Core/DeploymentFiles.cs" />
     <Compile Include="../../FeedCustomizer/Core/Infrastructure/PowerShell/IPowerShellExecutor.cs" Link="Core/IPowerShellExecutor.cs" />
     <Compile Include="../../FeedCustomizer/Core/Infrastructure/PowerShell/PowerShellScript.cs" Link="Core/PowerShellScript.cs" />
+    <Compile Include="../../FeedCustomizer/Core/Infrastructure/PowerShell/PowerShellScriptComposer.cs" Link="Core/PowerShellScriptComposer.cs" />
+    <Compile Include="../../FeedCustomizer/Core/Infrastructure/PowerShell/AppxPackagePowerShellScript.cs" Link="Core/AppxPackagePowerShellScript.cs" />
     <Compile Include="../../FeedCustomizer/Core/Infrastructure/PowerShell/PowerShellProcessExecutor.cs" Link="Core/PowerShellProcessExecutor.cs" />
     <Compile Include="../../FeedCustomizer/Core/Infrastructure/PowerShell/DeveloperModePowerShellAdapter.cs" Link="Core/DeveloperModePowerShellAdapter.cs" />
     <Compile Include="../../FeedCustomizer/Core/Infrastructure/PowerShell/RegionPolicyPowerShellAdapter.cs" Link="Core/RegionPolicyPowerShellAdapter.cs" />

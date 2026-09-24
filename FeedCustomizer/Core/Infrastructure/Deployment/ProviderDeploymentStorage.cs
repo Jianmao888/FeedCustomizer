@@ -32,6 +32,7 @@ internal sealed class ProviderDeploymentStorage(ProviderDeploymentPowerShellAdap
     private readonly Lazy<(string Identity, Dictionary<string, string> Sources)> _template = new(CreateTemplate);
 
     public string ManifestPath => AppDataPaths.ManifestPath;
+    public string CandidatePath => Candidate;
     public bool HasTransaction => File.Exists(Journal);
     public bool TransactionCommitted => PendingStage == DeploymentStage.Completed;
     public DeploymentStage PendingStage
@@ -206,18 +207,6 @@ internal sealed class ProviderDeploymentStorage(ProviderDeploymentPowerShellAdap
         document.Root!.SetAttributeValue("Stage", stage);
         DeploymentFiles.SaveXml(document, Journal);
         return Task.CompletedTask;
-    }
-
-    /// <summary>包外发布遵循候选构建时的同一计划，成功后才允许协调器注册。</summary>
-    public async Task PublishAsync(ProviderDeploymentPlan plan)
-    {
-        Stopwatch stopwatch = Stopwatch.StartNew();
-        await deployed.PublishAsync(Candidate, plan);
-        Log.Information(
-            "Provider 注册版本发布完成，范围={Scope}，覆盖文件数={CopyCount}，耗时毫秒={ElapsedMilliseconds}",
-            plan.Scope,
-            plan.CopyPaths.Count,
-            stopwatch.ElapsedMilliseconds);
     }
 
     public Task CommitAsync() => RecordStageAsync(DeploymentStage.Completed);

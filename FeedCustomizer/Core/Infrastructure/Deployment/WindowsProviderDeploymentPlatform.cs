@@ -14,10 +14,10 @@ using Windows.Management.Deployment;
 
 namespace FeedCustomizer.Core.Infrastructure.Deployment;
 
-/// <summary>AppX 和 COM 服务器的平台实现；查询与卸载使用系统 API，注册仍使用包外 PowerShell。</summary>
-internal sealed class WindowsProviderRegistration : IProviderRegistrationPlatform
+/// <summary>Provider 平台实现；查询与卸载使用系统 API，文件发布和注册共用包外 PowerShell。</summary>
+internal sealed class WindowsProviderDeploymentPlatform(ProviderDeploymentPowerShellAdapter deployed) : IProviderDeploymentPlatform
 {
-    private static readonly IAppLog Log = AppLog.For<WindowsProviderRegistration>();
+    private static readonly IAppLog Log = AppLog.For<WindowsProviderDeploymentPlatform>();
 
     // 与 Provider 模板清单的 Identity 保持一致，不能使用主应用的包身份。
     private const string PackageName = "D454B137.Jianmao.FeedCustomizerContainer";
@@ -165,22 +165,77 @@ internal sealed class WindowsProviderRegistration : IProviderRegistrationPlatfor
         await Task.CompletedTask;
     }
 
-    public async Task<ProviderRegistrationResult> RegisterAsync(bool allowDeveloperMode, CancellationToken token)
+    /// <summary>普通注册与文件发布共享进程；发布失败禁止注册，开发者模式重试维持独立提权边界。</summary>
+    public async Task<ProviderRegistrationResult> PublishAndRegisterAsync(
+        string candidatePath,
+        ProviderDeploymentPlan plan,
+        bool allowDeveloperMode,
+        CancellationToken token)
     {
         string manifest = AppDataPaths.ManifestPath;
-        var result = await PowerShellInfrastructure.AppxPackages.RegisterAsync(manifest, token);
-        if (result.ExitCode == 0) return ProviderRegistrationResult.Success(manifest);
+        ProviderPublicationAttempt attempt = await deployed.PublishAndRegisterAsync(
+            candidatePath,
+            plan,
+            manifest,
+            token);
+        Log.Information(
+            "Provider 发布及普通注册完成，范围={Scope}，覆盖文件数={CopyCount}，最后确认阶段={Stage}，退出码={ExitCode}，耗时毫秒={ElapsedMilliseconds}",
+            plan.Scope,
+            plan.CopyPaths.Count,
+            attempt.Stage,
+            attempt.Result.ExitCode,
+            attempt.ElapsedMilliseconds);
+
+        var result = attempt.Result;
+        if (attempt.Stage == DeploymentStage.Publishing)
+        {
+            return ProviderRegistrationResult.Failed(manifest, result.ExitCode, result.Error, result.Output) with
+            {
+                Stage = DeploymentStage.Publishing
+            };
+        }
+
+        if (result.ExitCode == 0)
+        {
+            return ProviderRegistrationResult.Success(manifest) with
+            {
+                Stage = DeploymentStage.Registering
+            };
+        }
+
         bool developerModeRequired = result.Error.Contains("0x80073CFF", StringComparison.OrdinalIgnoreCase) ||
             result.Output.Contains("0x80073CFF", StringComparison.OrdinalIgnoreCase);
         if (developerModeRequired)
         {
             if (!allowDeveloperMode)
-                return new(ProviderRegistrationStatus.DeveloperModeConfirmationRequired, result.ExitCode, result.Error, result.Output, manifest);
+            {
+                return new(ProviderRegistrationStatus.DeveloperModeConfirmationRequired, result.ExitCode, result.Error, result.Output, manifest)
+                {
+                    Stage = DeploymentStage.Registering
+                };
+            }
+
             result = await PowerShellInfrastructure.DeveloperMode.RegisterPackageAsync(manifest, token);
-            if (result.ExitCode == 0) return ProviderRegistrationResult.Success(manifest);
+            if (result.ExitCode == 0)
+            {
+                return ProviderRegistrationResult.Success(manifest) with
+                {
+                    Stage = DeploymentStage.Registering
+                };
+            }
+
             if (result.ExitCode == PowerShellExitCodes.ElevationCancelled)
-                return new(ProviderRegistrationStatus.ElevationCancelled, result.ExitCode, result.Error, result.Output, manifest);
+            {
+                return new(ProviderRegistrationStatus.ElevationCancelled, result.ExitCode, result.Error, result.Output, manifest)
+                {
+                    Stage = DeploymentStage.Registering
+                };
+            }
         }
-        return ProviderRegistrationResult.Failed(manifest, result.ExitCode, result.Error, result.Output);
+
+        return ProviderRegistrationResult.Failed(manifest, result.ExitCode, result.Error, result.Output) with
+        {
+            Stage = DeploymentStage.Registering
+        };
     }
 }

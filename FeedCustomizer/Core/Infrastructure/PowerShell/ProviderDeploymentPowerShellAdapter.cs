@@ -2,6 +2,7 @@ using FeedCustomizer.Core.Deployment;
 using FeedCustomizer.Core.Models;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
@@ -15,6 +16,9 @@ namespace FeedCustomizer.Core.Infrastructure.PowerShell;
 /// </summary>
 internal sealed class ProviderDeploymentPowerShellAdapter(IPowerShellExecutor executor)
 {
+    private const int PublishFailureExitCode = 20;
+    private const int RegisterFailureExitCode = 21;
+
     // 根目录在包外进程内计算，调用方只能提供候选路径，不能指定任意递归删除目标。
     private const string Prelude = """
         $ErrorActionPreference = 'Stop'
@@ -143,14 +147,45 @@ internal sealed class ProviderDeploymentPowerShellAdapter(IPowerShellExecutor ex
 
     /// <summary>
     /// 发布经过验证的候选；旧程序不备份。每个文件先写临时文件再替换，版本清单最后写入。
-    /// 协调器只在本方法成功后注册，失败则保持未注册状态，下一次重试可覆盖不完整文件。
+    /// 发布片段也供组合注册复用，确保单独执行与组合执行遵循同一套文件约束。
     /// </summary>
     internal async Task PublishAsync(string candidate, ProviderDeploymentPlan plan)
+    {
+        await RunAsync("PublishProviderDeployment.ps1", CreatePublishBody(candidate, plan));
+    }
+
+    /// <summary>发布验证和普通注册共用一次包外进程；提权重试仍由平台实现单独执行。</summary>
+    internal async Task<ProviderPublicationAttempt> PublishAndRegisterAsync(
+        string candidate,
+        ProviderDeploymentPlan plan,
+        string manifest,
+        System.Threading.CancellationToken token)
+    {
+        PowerShellScript script = PowerShellScriptComposer.Compose(
+            "PublishAndRegisterProvider.ps1",
+            Prelude,
+            [
+                new PowerShellScriptStep("Publishing", CreatePublishBody(candidate, plan), PublishFailureExitCode),
+                new PowerShellScriptStep("Registering", AppxPackagePowerShellScript.CreateRegisterBody(manifest), RegisterFailureExitCode)
+            ],
+            TimeSpan.FromMinutes(4));
+
+        Stopwatch stopwatch = Stopwatch.StartNew();
+        PowerShellResult result = await executor.ExecuteAsync(script, token);
+        DeploymentStage stage = result.ExitCode is 0 or RegisterFailureExitCode
+            ? DeploymentStage.Registering
+            : DeploymentStage.Publishing;
+
+        // 超时和进程被终止时无法知道脚本是否已经进入注册，只报告最后可确认的阶段。
+        return new ProviderPublicationAttempt(stage, result, stopwatch.ElapsedMilliseconds);
+    }
+
+    private static string CreatePublishBody(string candidate, ProviderDeploymentPlan plan)
     {
         string paths = string.Join(",", plan.CopyPaths.Select(PowerShellLiteral.Quote));
         string arguments = $"$candidate = {PowerShellLiteral.Quote(candidate)}\n" +
             $"$scope = {PowerShellLiteral.Quote(plan.Scope.ToString())}\n$copyPaths = @({paths})\n";
-        await RunAsync("PublishProviderDeployment.ps1", arguments + """
+        return arguments + """
             [xml]$version = Get-Content -LiteralPath (Resolve-Child $candidate '.deployment-version.xml') -Raw
             if ($version.DeploymentVersion.Schema -ne '1') { throw 'Unsupported deployment schema' }
             if ($scope -ne 'Full' -and $scope -ne 'Configuration') { throw 'Unsupported deployment scope' }
@@ -237,7 +272,7 @@ internal sealed class ProviderDeploymentPowerShellAdapter(IPowerShellExecutor ex
                 if ((Get-ContentHash $path) -ne $file.Sha256) { throw "Published file mismatch: $path" }
             }
             Copy-Atomic (Resolve-Child $candidate '.deployment-version.xml') (Resolve-Child $target '.deployment-version.xml')
-            """);
+            """;
     }
 
     /// <summary>注册副本仅可作为图片保留引用读取，绝不反向作为用户配置来源。</summary>
@@ -279,3 +314,6 @@ internal sealed class ProviderDeploymentPowerShellAdapter(IPowerShellExecutor ex
         return result;
     }
 }
+
+/// <summary>复合脚本的最后可确认阶段和执行结果；未确认中断按发布阶段恢复。</summary>
+internal sealed record ProviderPublicationAttempt(DeploymentStage Stage, PowerShellResult Result, long ElapsedMilliseconds);

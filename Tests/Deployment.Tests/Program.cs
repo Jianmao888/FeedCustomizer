@@ -40,13 +40,13 @@ var tests = new (string Name, Func<Task> Run)[]
         var f = new Fixture { Storage = { ConfigurationOnly = true } };
         Check((await f.Coordinator.ApplyAsync([new Feed()], true, false)).Succeeded);
         Check(f.Storage.StagedScope == ProviderDeploymentScope.Configuration);
-        Check(f.Storage.PublishedScope == ProviderDeploymentScope.Configuration);
+        Check(f.Platform.PublishedScope == ProviderDeploymentScope.Configuration);
         Check(f.Trace.IndexOf("Stage") < f.Trace.IndexOf("Remove"));
         Check(f.Trace.IndexOf("Remove") < f.Trace.IndexOf("Publish"));
     }),
     ("发布失败停止注册并保留已保存配置", async () =>
     {
-        var f = new Fixture { Storage = { FailAt = "Publish" } };
+        var f = new Fixture { Platform = { FailPublish = true } };
         var result = await f.Coordinator.ApplyAsync([new Feed()], true, false);
         Check(result.Stage == DeploymentStage.Publishing && result.ConfigurationSaved);
         Check(result.Compensation == DeploymentCompensation.ProviderDisabled && result.ProviderEnabled == false);
@@ -138,6 +138,7 @@ var tests = new (string Name, Func<Task> Run)[]
     }),
     ("部署计划只允许配置差异走部分发布", DeploymentPlanAsync),
     ("包外发布与清理脚本在临时目录实际执行", ScriptIntegrationAsync),
+    ("组合脚本只启动一次且发布失败不会注册", CombinedScriptAsync),
     ("配置变化仅复制清单和图片", ConfigurationDeploymentAsync),
     ("旧安装原位更新保留配置和私有图片", WorkspaceUpgradeAsync),
     ("损坏用户清单阻止模板覆盖", CorruptWorkspaceAsync),
@@ -556,13 +557,14 @@ static async Task ConfigurationDeploymentAsync()
     CreateWorkspace(directory.Path);
     string work = AppDataPaths.PackageLocalFeedProviderFolder;
     string target = AppDataPaths.FeedProviderFolder;
-    var storage = new ProviderDeploymentStorage(new ProviderDeploymentPowerShellAdapter(new SandboxExecutor(target)));
+    var deployed = new ProviderDeploymentPowerShellAdapter(new SandboxExecutor(target));
+    var storage = new ProviderDeploymentStorage(deployed);
     await storage.PrepareWorkAsync();
 
     ProviderDeploymentPlan full = await storage.PlanAsync(false);
     Check(full.Scope == ProviderDeploymentScope.Full);
     await storage.StageAsync(full);
-    await storage.PublishAsync(full);
+    await deployed.PublishAsync(storage.CandidatePath, full);
 
     string executable = DeploymentFiles.Under(target, "FeedProvider\\FeedProvider.exe");
     string asset = DeploymentFiles.Under(target, "Assets\\StoreLogo.scale-200.png");
@@ -595,7 +597,7 @@ static async Task ConfigurationDeploymentAsync()
     // 打开程序文件但允许读取；部分发布若尝试覆盖它，Windows 会拒绝写入。
     using (var locked = new FileStream(executable, FileMode.Open, FileAccess.Read, FileShare.Read))
     {
-        await storage.PublishAsync(configuration);
+        await deployed.PublishAsync(storage.CandidatePath, configuration);
     }
 
     Check(File.GetLastWriteTimeUtc(executable) == programTime);
@@ -608,7 +610,7 @@ static async Task ConfigurationDeploymentAsync()
     Check(imageOnly.Scope == ProviderDeploymentScope.Configuration);
     Check(imageOnly.CopyPaths.Count == 1 && imageOnly.CopyPaths[0] == "Images\\user.png");
     await storage.StageAsync(imageOnly);
-    await storage.PublishAsync(imageOnly);
+    await deployed.PublishAsync(storage.CandidatePath, imageOnly);
     Check(File.GetLastWriteTimeUtc(executable) == programTime);
     Check(File.GetLastWriteTimeUtc(asset) == assetTime);
     Check((await storage.PlanAsync(true)).Scope == ProviderDeploymentScope.Current);
@@ -623,7 +625,7 @@ static async Task ConfigurationDeploymentAsync()
     Check(removedImage.Scope == ProviderDeploymentScope.Configuration);
     Check(removedImage.CopyPaths.Count == 1 && removedImage.CopyPaths[0] == "AppxManifest.xml");
     await storage.StageAsync(removedImage);
-    await storage.PublishAsync(removedImage);
+    await deployed.PublishAsync(storage.CandidatePath, removedImage);
     Check(File.Exists(DeploymentFiles.Under(target, "Images\\user.png")));
     Check((await storage.PlanAsync(true)).Scope == ProviderDeploymentScope.Current);
 
@@ -640,7 +642,7 @@ static async Task ConfigurationDeploymentAsync()
     File.WriteAllText(executable, "program-tampered");
     try
     {
-        await storage.PublishAsync(stale);
+        await deployed.PublishAsync(storage.CandidatePath, stale);
         throw new Exception("程序文件漂移未阻止部分发布。");
     }
     catch (IOException)
@@ -703,6 +705,108 @@ static async Task ScriptIntegrationAsync()
     Check(File.ReadAllText(DeploymentFiles.Under(target, "FeedProvider\\FeedProvider.exe")) == "data");
 }
 
+static async Task CombinedScriptAsync()
+{
+    bool duplicateRejected = false;
+    try
+    {
+        _ = PowerShellScriptComposer.Compose(
+            "DuplicateSteps.ps1",
+            string.Empty,
+            [
+                new PowerShellScriptStep("First", "Write-Output 1", 20),
+                new PowerShellScriptStep("Second", "Write-Output 2", 20)
+            ]);
+    }
+    catch (ArgumentException)
+    {
+        duplicateRejected = true;
+    }
+
+    Check(duplicateRejected);
+
+    using var directory = new TestDirectory();
+    string candidate = Path.Combine(directory.Path, "candidate");
+    string target = Path.Combine(directory.Path, "target");
+    string marker = Path.Combine(directory.Path, "registered.txt");
+    string[] paths = ["AppxManifest.xml", "FeedProvider\\FeedProvider.exe", "Images\\Default.png"];
+    foreach (string path in paths)
+    {
+        string source = DeploymentFiles.Under(candidate, path);
+        Directory.CreateDirectory(Path.GetDirectoryName(source)!);
+        File.WriteAllText(source, path == "AppxManifest.xml" ? "<Package />" : "content");
+    }
+
+    DeploymentVersion.Capture(candidate, "template", paths).Save(candidate);
+    var plan = new ProviderDeploymentPlan(ProviderDeploymentScope.Full, paths);
+    string manifest = DeploymentFiles.Under(target, "AppxManifest.xml");
+    string registrationStub = $$"""
+        function Add-AppxPackage {
+            [CmdletBinding()]
+            param(
+                [switch]$Register,
+                [switch]$ForceApplicationShutdown,
+                [Parameter(Position = 0)][string]$Path
+            )
+            if (-not (Test-Path -LiteralPath (Join-Path $target '.deployment-version.xml'))) {
+                throw 'Registration started before publication finished'
+            }
+            [IO.File]::WriteAllText({{PowerShellLiteral.Quote(marker)}}, $Path)
+        }
+        """;
+    var executor = new SandboxExecutor(target, registrationStub);
+    var adapter = new ProviderDeploymentPowerShellAdapter(executor);
+    ProviderPublicationAttempt success = await adapter.PublishAndRegisterAsync(candidate, plan, manifest, default);
+    Check(executor.Calls == 1 && success.Result.ExitCode == 0 && success.Stage == DeploymentStage.Registering);
+    Check(File.ReadAllText(marker) == manifest);
+
+    string executable = DeploymentFiles.Under(target, "FeedProvider\\FeedProvider.exe");
+    File.SetLastWriteTimeUtc(executable, DateTime.UtcNow.AddDays(-2));
+    DateTime programTime = File.GetLastWriteTimeUtc(executable);
+    File.WriteAllText(DeploymentFiles.Under(candidate, "AppxManifest.xml"), "<Package Version='2' />");
+    DeploymentVersion.Capture(candidate, "template", paths).Save(candidate);
+    var configuration = new ProviderDeploymentPlan(
+        ProviderDeploymentScope.Configuration,
+        ["AppxManifest.xml"]);
+    ProviderPublicationAttempt configurationSuccess = await adapter.PublishAndRegisterAsync(
+        candidate,
+        configuration,
+        manifest,
+        default);
+    Check(executor.Calls == 2 && configurationSuccess.Result.ExitCode == 0);
+    Check(File.GetLastWriteTimeUtc(executable) == programTime);
+
+    File.Delete(marker);
+    File.WriteAllText(DeploymentFiles.Under(candidate, "FeedProvider\\FeedProvider.exe"), "tampered");
+    ProviderPublicationAttempt publishFailure = await adapter.PublishAndRegisterAsync(candidate, plan, manifest, default);
+    Check(executor.Calls == 3 && publishFailure.Stage == DeploymentStage.Publishing);
+    Check(publishFailure.Result.ExitCode == 20 && publishFailure.Result.Error.Contains("Step: Publishing"));
+    Check(!File.Exists(marker));
+
+    File.WriteAllText(DeploymentFiles.Under(candidate, "FeedProvider\\FeedProvider.exe"), "content");
+    string failedRegistrationStub = """
+        function Add-AppxPackage {
+            [CmdletBinding()]
+            param(
+                [switch]$Register,
+                [switch]$ForceApplicationShutdown,
+                [Parameter(Position = 0)][string]$Path
+            )
+            throw '0x80073CFF simulated registration failure'
+        }
+        """;
+    var failedExecutor = new SandboxExecutor(target, failedRegistrationStub);
+    var failedAdapter = new ProviderDeploymentPowerShellAdapter(failedExecutor);
+    ProviderPublicationAttempt registrationFailure = await failedAdapter.PublishAndRegisterAsync(
+        candidate,
+        plan,
+        manifest,
+        default);
+    Check(failedExecutor.Calls == 1 && registrationFailure.Stage == DeploymentStage.Registering);
+    Check(registrationFailure.Result.ExitCode == 21);
+    Check(registrationFailure.Result.Error.Contains("0x80073CFF"));
+}
+
 static async Task WorkspaceUpgradeAsync()
 {
     using var directory = new TestDirectory();
@@ -729,9 +833,10 @@ static async Task WorkspaceUpgradeAsync()
     await storage.BeginAsync(false);
     await storage.RecordStageAsync(DeploymentStage.Publishing);
     // 使用同一磁盘数据重新创建实例，证明日志阶段能跨实例恢复。
-    var reopened = new ProviderDeploymentStorage(new ProviderDeploymentPowerShellAdapter(new SandboxExecutor(AppDataPaths.FeedProviderFolder)));
+    var reopenedAdapter = new ProviderDeploymentPowerShellAdapter(new SandboxExecutor(AppDataPaths.FeedProviderFolder));
+    var reopened = new ProviderDeploymentStorage(reopenedAdapter);
     Check(reopened.HasTransaction && reopened.PendingStage == DeploymentStage.Publishing);
-    await reopened.PublishAsync(plan);
+    await reopenedAdapter.PublishAsync(reopened.CandidatePath, plan);
     await reopened.CommitAsync();
     await reopened.FinishAsync();
     Check((await storage.PlanAsync(true)).Scope == ProviderDeploymentScope.Current);
@@ -1009,14 +1114,29 @@ static void CreateWorkspace(string root)
 }
 
 /// <summary>只替换脚本的固定根目录定义；继续使用真实执行器、脚本和 Windows PowerShell。</summary>
-sealed class SandboxExecutor(string target) : IPowerShellExecutor
+sealed class SandboxExecutor(string target, string? registrationStub = null) : IPowerShellExecutor
 {
+    public int Calls { get; private set; }
+
     public Task<PowerShellResult> ExecuteAsync(PowerShellScript script, CancellationToken cancellationToken = default)
     {
         const string original = "$target = Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'FeedCustomProvider'";
-        if (!script.Content.Contains(original)) throw new InvalidOperationException("测试根目录替换失败，拒绝执行。");
+        if (!script.Content.Contains(original))
+        {
+            throw new InvalidOperationException("测试根目录替换失败，拒绝执行。");
+        }
+
+        Calls++;
+        string content = script.Content.Replace(original, "$target = " + PowerShellLiteral.Quote(target));
+        if (registrationStub is not null)
+        {
+            content = registrationStub + Environment.NewLine + content;
+        }
+
         return new PowerShellProcessExecutor().ExecuteAsync(script with
-        { Content = script.Content.Replace(original, "$target = " + PowerShellLiteral.Quote(target)) }, cancellationToken);
+        {
+            Content = content
+        }, cancellationToken);
     }
 }
 
@@ -1136,13 +1256,13 @@ sealed class Fixture
 sealed class FakeStorage(List<string> trace) : IProviderDeploymentStorage
 {
     public string ManifestPath => "test-manifest";
+    public string CandidatePath => "test-candidate";
     public bool HasTransaction { get; set; }
     public DeploymentStage PendingStage { get; set; }
     public bool TransactionCommitted => PendingStage == DeploymentStage.Completed;
     public bool Current { get; set; }
     public bool ConfigurationOnly { get; set; }
     public ProviderDeploymentScope? StagedScope { get; private set; }
-    public ProviderDeploymentScope? PublishedScope { get; private set; }
     public string? FailAt { get; set; }
     private void Record(string name) { trace.Add(name); if (name == FailAt) throw new IOException(name + " failed"); }
     public Task<bool> IsWorkCurrentAsync() => Task.FromResult(true);
@@ -1167,24 +1287,20 @@ sealed class FakeStorage(List<string> trace) : IProviderDeploymentStorage
     }
     public Task BeginAsync(bool installed) { Record("Begin"); HasTransaction = true; PendingStage = DeploymentStage.Staging; return Task.CompletedTask; }
     public Task RecordStageAsync(DeploymentStage stage) { PendingStage = stage; return Task.CompletedTask; }
-    public Task PublishAsync(ProviderDeploymentPlan plan)
-    {
-        PublishedScope = plan.Scope;
-        Record("Publish");
-        return Task.CompletedTask;
-    }
     public Task CommitAsync() { Record("Commit"); PendingStage = DeploymentStage.Completed; return Task.CompletedTask; }
     public Task FinishAsync() { Record("Finish"); HasTransaction = false; return Task.CompletedTask; }
     public Task<ImageCleanupResult> CleanImagesAsync(IReadOnlyCollection<string> draftImages, bool installed)
     { Record("Clean"); return Task.FromResult(new ImageCleanupResult(0, [])); }
 }
 
-sealed class FakePlatform(List<string> trace) : IProviderRegistrationPlatform
+sealed class FakePlatform(List<string> trace) : IProviderDeploymentPlatform
 {
     public bool Installed { get; set; } = true;
     public bool FailQuery { get; set; }
     public bool FailRemove { get; set; }
+    public bool FailPublish { get; set; }
     public bool RegisterVisible { get; set; } = true;
+    public ProviderDeploymentScope? PublishedScope { get; private set; }
     public ProviderRegistrationStatus RegisterStatus { get; set; } = ProviderRegistrationStatus.Success;
     public Task<bool> IsInstalledAsync(CancellationToken token)
     {
@@ -1199,10 +1315,25 @@ sealed class FakePlatform(List<string> trace) : IProviderRegistrationPlatform
     public Task RemoveAsync(CancellationToken token)
     { trace.Add("Remove"); if (FailRemove) throw new IOException("remove failed"); Installed = false; return Task.CompletedTask; }
     public Task StopAsync(CancellationToken token) { trace.Add("Stop"); return Task.CompletedTask; }
-    public Task<ProviderRegistrationResult> RegisterAsync(bool allowDeveloperMode, CancellationToken token)
+    public Task<ProviderRegistrationResult> PublishAndRegisterAsync(
+        string candidatePath,
+        ProviderDeploymentPlan plan,
+        bool allowDeveloperMode,
+        CancellationToken token)
     {
-        trace.Add("Register"); Installed = RegisterStatus == ProviderRegistrationStatus.Success && RegisterVisible;
-        return Task.FromResult(new ProviderRegistrationResult(RegisterStatus, 0, string.Empty, string.Empty, "test-manifest"));
+        PublishedScope = plan.Scope;
+        trace.Add("Publish");
+        if (FailPublish)
+        {
+            throw new IOException("publish failed");
+        }
+
+        trace.Add("Register");
+        Installed = RegisterStatus == ProviderRegistrationStatus.Success && RegisterVisible;
+        return Task.FromResult(new ProviderRegistrationResult(RegisterStatus, 0, string.Empty, string.Empty, "test-manifest")
+        {
+            Stage = DeploymentStage.Registering
+        });
     }
 }
 

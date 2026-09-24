@@ -14,7 +14,7 @@ namespace FeedCustomizer.Core.Deployment;
 /// </summary>
 internal sealed class ProviderDeploymentCoordinator(
     IProviderDeploymentStorage storage,
-    IProviderRegistrationPlatform platform)
+    IProviderDeploymentPlatform platform)
 {
     private static readonly IAppLog Log = AppLog.For<ProviderDeploymentCoordinator>();
     private readonly SemaphoreSlim _gate = new(1, 1);
@@ -159,12 +159,15 @@ internal sealed class ProviderDeploymentCoordinator(
                 stage = DeploymentStage.Publishing;
                 Log.Debug("Provider 部署进入阶段，操作={OperationId}，阶段={Stage}", operationId, stage);
                 await storage.RecordStageAsync(stage);
-                await storage.PublishAsync(plan!);
-
-                stage = DeploymentStage.Registering;
+                // 同一包外进程先发布再尝试普通注册；脚本返回后根据结果记录最后确认的阶段。
+                ProviderRegistrationResult registration = await platform.PublishAndRegisterAsync(
+                    storage.CandidatePath,
+                    plan!,
+                    allowDeveloperMode,
+                    default);
+                stage = registration.Stage;
                 Log.Debug("Provider 部署进入阶段，操作={OperationId}，阶段={Stage}", operationId, stage);
                 await storage.RecordStageAsync(stage);
-                ProviderRegistrationResult registration = await platform.RegisterAsync(allowDeveloperMode, default);
                 if (!registration.Succeeded)
                 {
                     Log.Warning(

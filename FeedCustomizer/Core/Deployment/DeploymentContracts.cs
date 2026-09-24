@@ -32,15 +32,20 @@ internal sealed record DeployedFileInspection(
     string[] ContentChanged);
 
 /// <summary>
-/// 平台副作用边界。查询失败必须抛出异常，不能把“无法查询”解释成“未安装”。
-/// 协调器负责调用顺序与串行化，实现负责 AppX 和进程细节。
+/// Provider 平台副作用边界。查询失败必须抛出异常，不能把“无法查询”解释成“未安装”。
+/// 协调器负责调用顺序与串行化，实现负责包外发布、AppX 和进程细节。
 /// </summary>
-internal interface IProviderRegistrationPlatform
+internal interface IProviderDeploymentPlatform
 {
     Task<bool> IsInstalledAsync(CancellationToken token);
     Task RemoveAsync(CancellationToken token);
     Task StopAsync(CancellationToken token);
-    Task<ProviderRegistrationResult> RegisterAsync(bool allowDeveloperMode, CancellationToken token);
+    /// <summary>先发布经过验证的候选，再于同一包外进程尝试普通注册；失败结果指出最后确认阶段。</summary>
+    Task<ProviderRegistrationResult> PublishAndRegisterAsync(
+        string candidatePath,
+        ProviderDeploymentPlan plan,
+        bool allowDeveloperMode,
+        CancellationToken token);
 }
 
 /// <summary>
@@ -50,6 +55,8 @@ internal interface IProviderRegistrationPlatform
 internal interface IProviderDeploymentStorage
 {
     string ManifestPath { get; }
+    /// <summary>构建完成的候选目录；只供平台发布使用，不是用户配置来源。</summary>
+    string CandidatePath { get; }
     bool HasTransaction { get; }
     bool TransactionCommitted { get; }
     DeploymentStage PendingStage { get; }
@@ -60,7 +67,6 @@ internal interface IProviderDeploymentStorage
     Task StageAsync(ProviderDeploymentPlan plan);
     Task BeginAsync(bool installed);
     Task RecordStageAsync(DeploymentStage stage);
-    Task PublishAsync(ProviderDeploymentPlan plan);
     Task CommitAsync();
     Task FinishAsync();
     Task<ImageCleanupResult> CleanImagesAsync(IReadOnlyCollection<string> draftImages, bool installed);

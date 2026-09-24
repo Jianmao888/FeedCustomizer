@@ -7,8 +7,6 @@ namespace FeedCustomizer.Core.Infrastructure.PowerShell
     {
         private static readonly IPowerShellExecutor Executor = new PowerShellProcessExecutor();
 
-        internal static AppxPackagePowerShellAdapter AppxPackages { get; } = new(Executor);
-
         internal static ProviderDeploymentPowerShellAdapter DeploymentFiles { get; } = new(Executor);
 
         internal static LegacyDocumentPowerShellAdapter LegacyDocuments { get; } = new(Executor);

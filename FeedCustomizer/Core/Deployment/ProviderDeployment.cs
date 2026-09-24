@@ -7,5 +7,6 @@ namespace FeedCustomizer.Core.Deployment;
 internal static class ProviderDeployment
 {
     internal static ProviderDeploymentCoordinator Current { get; } = new(
-        new ProviderDeploymentStorage(PowerShellInfrastructure.DeploymentFiles), new WindowsProviderRegistration());
+        new ProviderDeploymentStorage(PowerShellInfrastructure.DeploymentFiles),
+        new WindowsProviderDeploymentPlatform(PowerShellInfrastructure.DeploymentFiles));
 }
