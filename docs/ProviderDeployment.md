@@ -14,6 +14,8 @@
 
 MSIX 的文件系统虚拟化不能仅凭 full trust 判断是否关闭。因此应用进程不再直接读取真实目录以判断部署版本。包外文件访问仍需要在正式 MSIX 安装环境验证，调试版的文件视图不能代替该验证。
 
+当前用户的 Provider 注册状态查询与卸载使用 Windows `PackageManager` API，按模板清单中的包名和发布者定位，并使用完整包名卸载。注册仍使用 PowerShell `Add-AppxPackage`；注册版本的文件访问仍由包外 PowerShell 处理，以避开应用进程的 MSIX 文件系统虚拟化。卸载 API 请求一旦发起便不可取消，部署锁须覆盖其完成及随后的限次状态确认。
+
 ## 唯一入口和状态机
 
 `ProviderDeployment.Current` 持有进程级 `ProviderDeploymentCoordinator`。启动检查/准备、启用/关闭、保存并应用、图片清理共用协调器内部的一把锁。文件适配器和 PowerShell 适配器不再各自持有业务锁。
@@ -69,13 +71,14 @@ MSIX 的文件系统虚拟化不能仅凭 full trust 判断是否关闭。因此
 
 ## 验证
 
-执行 `dotnet run --project Tests/Deployment.Tests/Deployment.Tests.csproj`。测试直接链接真实协调器、文件版本逻辑、清单逻辑、存储实现和 PowerShell 文件适配器；包元数据和 AppX 使用替身，文件脚本只在独立临时目录运行。测试不会改动机器的真实 AppX 注册、注册表或 UAC。
+执行 `dotnet run --project Tests/Deployment.Tests/Deployment.Tests.csproj`。测试直接链接真实协调器、文件版本逻辑、清单逻辑、存储实现和 PowerShell 文件适配器；包元数据和 AppX 使用替身，文件脚本只在独立临时目录运行。测试不会改动机器的真实 AppX 注册、注册表或 UAC。`PackageManager` 的权限和真实卸载结果只能在打包安装的测试账户或虚拟机中验证。
 
 发布前在可恢复的测试账户/虚拟机检查：
 
 - 已发布旧版（含自定义图片/多条订阅源）升级后，配置数量与图片显示不变，实际路径不变。
 - 首次安装、版本不变重建、关闭后重新启用、更新后首次启动。
 - 保持 Widgets 使用 Provider 时更新；检查进程退出、卸载查询和最终 Widgets 列表。
+- 检查当前用户的 `PackageManager` 查询权限、卸载权限及延迟可见性；比较启用、关闭和保存配置前后的查询/卸载耗时与 PowerShell 进程次数。
 - 注册失败、拒绝 UAC、发布文件被占用时的提示；解除占用后重新启用可以部署当前版本。
 - 在发布/注册阶段终止应用，再启动时日志能被处理，不注册旧程序。
 - 在两个 Images 目录分别放入过期孤儿、默认图、当前引用图和草稿图，确认只删除孤儿。

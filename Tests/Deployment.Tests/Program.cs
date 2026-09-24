@@ -64,6 +64,14 @@ var tests = new (string Name, Func<Task> Run)[]
         Check(result.Error.Contains("remove failed") && result.CompensationError.Contains("remove failed"));
         Check(!f.Trace.Contains("Publish") && f.Storage.HasTransaction);
     }),
+    ("注册状态查询失败不得当作未安装继续部署", async () =>
+    {
+        var f = new Fixture { Platform = { FailQuery = true } };
+        var result = await f.Coordinator.ApplyAsync(null, true, false);
+        Check(!result.Succeeded && result.Stage == DeploymentStage.Inspecting);
+        Check(result.ProviderEnabled is null && !f.Storage.HasTransaction);
+        Check(!f.Trace.Contains("Prepare") && !f.Trace.Contains("Remove") && !f.Trace.Contains("Publish"));
+    }),
     ("注册返回成功仍须验证实际状态", async () =>
     {
         var f = new Fixture { Platform = { RegisterVisible = false } };
@@ -1005,10 +1013,20 @@ sealed class FakeStorage(List<string> trace) : IProviderDeploymentStorage
 sealed class FakePlatform(List<string> trace) : IProviderRegistrationPlatform
 {
     public bool Installed { get; set; } = true;
+    public bool FailQuery { get; set; }
     public bool FailRemove { get; set; }
     public bool RegisterVisible { get; set; } = true;
     public ProviderRegistrationStatus RegisterStatus { get; set; } = ProviderRegistrationStatus.Success;
-    public Task<bool> IsInstalledAsync(CancellationToken token) { trace.Add("Query"); return Task.FromResult(Installed); }
+    public Task<bool> IsInstalledAsync(CancellationToken token)
+    {
+        trace.Add("Query");
+        if (FailQuery)
+        {
+            throw new IOException("query failed");
+        }
+
+        return Task.FromResult(Installed);
+    }
     public Task RemoveAsync(CancellationToken token)
     { trace.Add("Remove"); if (FailRemove) throw new IOException("remove failed"); Installed = false; return Task.CompletedTask; }
     public Task StopAsync(CancellationToken token) { trace.Add("Stop"); return Task.CompletedTask; }
