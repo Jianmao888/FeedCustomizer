@@ -3,6 +3,7 @@ using FeedCustomizer.Core.Models;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
@@ -146,7 +147,8 @@ internal sealed class ProviderDeploymentPowerShellAdapter(IPowerShellExecutor ex
     }
 
     /// <summary>
-    /// 发布经过验证的候选；旧程序不备份。每个文件先写临时文件再替换，版本清单最后写入。
+    /// 发布 C# 已验证的候选，复用规划阶段的注册版本检查，不重复计算文件哈希。
+    /// 每个文件先写临时文件再替换，复制成功后最后写入版本清单；旧程序不备份。
     /// 发布片段也供组合注册复用，确保单独执行与组合执行遵循同一套文件约束。
     /// </summary>
     internal async Task PublishAsync(string candidate, ProviderDeploymentPlan plan)
@@ -154,7 +156,7 @@ internal sealed class ProviderDeploymentPowerShellAdapter(IPowerShellExecutor ex
         await RunAsync("PublishProviderDeployment.ps1", CreatePublishBody(candidate, plan));
     }
 
-    /// <summary>发布验证和普通注册共用一次包外进程；提权重试仍由平台实现单独执行。</summary>
+    /// <summary>文件发布和普通注册共用一次包外进程，分别记录耗时；提权重试仍由平台实现单独执行。</summary>
     internal async Task<ProviderPublicationAttempt> PublishAndRegisterAsync(
         string candidate,
         ProviderDeploymentPlan plan,
@@ -165,8 +167,8 @@ internal sealed class ProviderDeploymentPowerShellAdapter(IPowerShellExecutor ex
             "PublishAndRegisterProvider.ps1",
             Prelude,
             [
-                new PowerShellScriptStep("Publishing", CreatePublishBody(candidate, plan), PublishFailureExitCode),
-                new PowerShellScriptStep("Registering", AppxPackagePowerShellScript.CreateRegisterBody(manifest), RegisterFailureExitCode)
+                CreateTimedStep("Publishing", CreatePublishBody(candidate, plan), PublishFailureExitCode),
+                CreateTimedStep("Registering", AppxPackagePowerShellScript.CreateRegisterBody(manifest), RegisterFailureExitCode)
             ],
             TimeSpan.FromMinutes(4));
 
@@ -177,7 +179,44 @@ internal sealed class ProviderDeploymentPowerShellAdapter(IPowerShellExecutor ex
             : DeploymentStage.Publishing;
 
         // 超时和进程被终止时无法知道脚本是否已经进入注册，只报告最后可确认的阶段。
-        return new ProviderPublicationAttempt(stage, result, stopwatch.ElapsedMilliseconds);
+        return new ProviderPublicationAttempt(stage, result, stopwatch.ElapsedMilliseconds,
+            ReadStepDuration(result.Output, "Publishing"), ReadStepDuration(result.Output, "Registering"));
+    }
+
+    /// <summary>仅包装现有片段以记录耗时，finally 中输出诊断后仍由组合器处理原异常。</summary>
+    private static PowerShellScriptStep CreateTimedStep(string name, string body, int failureExitCode)
+    {
+        string content = $$"""
+            $providerStepTimer = [Diagnostics.Stopwatch]::StartNew()
+            try
+            {
+                {{body}}
+            }
+            finally
+            {
+                $providerStepTimer.Stop()
+                Write-Output ('ProviderStepTiming:{{name}}:' + $providerStepTimer.ElapsedMilliseconds.ToString([Globalization.CultureInfo]::InvariantCulture))
+            }
+            """;
+        return new PowerShellScriptStep(name, content, failureExitCode);
+    }
+
+    /// <summary>未执行的步骤、启动失败或超时可能没有计时输出，缺失值不能解释为零耗时。</summary>
+    private static long? ReadStepDuration(string output, string name)
+    {
+        string prefix = $"ProviderStepTiming:{name}:";
+        foreach (string line in output.Split('\n'))
+        {
+            string value = line.Trim();
+            if (value.StartsWith(prefix, StringComparison.Ordinal) &&
+                long.TryParse(value[prefix.Length..], NumberStyles.None, CultureInfo.InvariantCulture, out long elapsed) &&
+                elapsed >= 0)
+            {
+                return elapsed;
+            }
+        }
+
+        return null;
     }
 
     private static string CreatePublishBody(string candidate, ProviderDeploymentPlan plan)
@@ -187,90 +226,98 @@ internal sealed class ProviderDeploymentPowerShellAdapter(IPowerShellExecutor ex
             $"$scope = {PowerShellLiteral.Quote(plan.Scope.ToString())}\n$copyPaths = @({paths})\n";
         return arguments + """
             [xml]$version = Get-Content -LiteralPath (Resolve-Child $candidate '.deployment-version.xml') -Raw
-            if ($version.DeploymentVersion.Schema -ne '1') { throw 'Unsupported deployment schema' }
-            if ($scope -ne 'Full' -and $scope -ne 'Configuration') { throw 'Unsupported deployment scope' }
+            if ($version.DeploymentVersion.Schema -ne '1')
+            {
+                throw 'Unsupported deployment schema'
+            }
+            if ($scope -ne 'Full' -and $scope -ne 'Configuration')
+            {
+                throw 'Unsupported deployment scope'
+            }
             $expectedFiles = @{}
-            foreach ($file in $version.DeploymentVersion.File) {
-                if ($expectedFiles.ContainsKey($file.Path)) { throw 'Duplicate expected path' }
-                $expectedFiles[$file.Path] = [string]$file.Sha256
+            foreach ($file in $version.DeploymentVersion.File)
+            {
+                if ($expectedFiles.ContainsKey($file.Path))
+                {
+                    throw 'Duplicate expected path'
+                }
+                $expectedFiles[$file.Path] = $true
             }
             $copySet = @{}
-            foreach ($relative in $copyPaths) {
-                if (-not $expectedFiles.ContainsKey($relative) -or $copySet.ContainsKey($relative)) {
+            foreach ($relative in $copyPaths)
+            {
+                if (-not $expectedFiles.ContainsKey($relative) -or $copySet.ContainsKey($relative))
+                {
                     throw 'Invalid deployment copy path'
                 }
-                if ($scope -eq 'Configuration' -and $relative -ne 'AppxManifest.xml') {
+                if ($scope -eq 'Configuration' -and $relative -ne 'AppxManifest.xml')
+                {
                     $imageRoot = Resolve-Child $target 'Images'
                     $destination = Resolve-Child $target $relative
-                    if (-not $destination.StartsWith($imageRoot + '\', [StringComparison]::OrdinalIgnoreCase)) {
+                    if (-not $destination.StartsWith($imageRoot + '\', [StringComparison]::OrdinalIgnoreCase))
+                    {
                         throw 'Configuration deployment contains a program file'
                     }
                 }
                 $copySet[$relative] = $true
-                $source = Resolve-Child $candidate $relative
-                if ((Get-ContentHash $source) -ne $expectedFiles[$relative]) { throw "Candidate changed: $source" }
             }
-            if ($scope -eq 'Full' -and $copySet.Count -ne $expectedFiles.Count) {
+            if ($scope -eq 'Full' -and $copySet.Count -ne $expectedFiles.Count)
+            {
                 throw 'Full deployment is missing candidate files'
             }
-            if ($scope -eq 'Configuration') {
-                $deployedVersion = Resolve-Child $target '.deployment-version.xml'
-                if (-not (Test-Path -LiteralPath $deployedVersion)) { throw 'Registered version metadata is missing' }
-                [xml]$registered = Get-Content -LiteralPath $deployedVersion -Raw
-                if ($registered.DeploymentVersion.Schema -ne '1' -or
-                    $registered.DeploymentVersion.Template -ne $version.DeploymentVersion.Template) {
-                    throw 'Registered template changed before configuration deployment'
-                }
-                # 卸载后再次核实不复制的文件，防止依赖已消失或被外部修改的程序文件。
-                foreach ($file in $version.DeploymentVersion.File) {
-                    if ($copySet.ContainsKey($file.Path)) { continue }
-                    $path = Resolve-Child $target $file.Path
-                    if (-not (Test-Path -LiteralPath $path) -or (Get-ContentHash $path) -ne $file.Sha256) {
-                        throw "Unchanged file mismatch: $path"
-                    }
-                }
-                $runtime = Resolve-Child $target 'FeedProvider'
-                foreach ($path in Get-SafeFiles $runtime) {
-                    $relative = $path.Substring($target.Length + 1)
-                    if (-not $expectedFiles.ContainsKey($relative)) { throw "Unexpected runtime file: $path" }
-                }
-            }
-            function Copy-Atomic([string]$source, [string]$destination) {
+            # 协调器的锁覆盖规划、候选校验到发布结束；此处只检查复制约束，不重复读取文件计算哈希。
+            function Copy-Atomic([string]$source, [string]$destination)
+            {
                 $temporary = $destination + '.deployment-tmp'
                 Assert-NotLink $temporary
                 $null = New-Item -ItemType Directory -Path ([IO.Path]::GetDirectoryName($destination)) -Force
-                try {
+                try
+                {
                     # 占用只做三次有限重试；失败交给协调器，不清空部署目录。
-                    for ($attempt = 0; $attempt -lt 3; $attempt++) {
-                        try {
+                    for ($attempt = 0; $attempt -lt 3; $attempt++)
+                    {
+                        try
+                        {
                             Copy-Item -LiteralPath $source -Destination $temporary -Force
                             Move-Item -LiteralPath $temporary -Destination $destination -Force
                             return
-                        } catch {
-                            if ($attempt -eq 2) { throw }
+                        }
+                        catch
+                        {
+                            if ($attempt -eq 2)
+                            {
+                                throw
+                            }
                             Start-Sleep -Milliseconds 150
                         }
                     }
-                } finally {
-                    if (Test-Path -LiteralPath $temporary) { Remove-Item -LiteralPath $temporary -Force }
+                }
+                finally
+                {
+                    if (Test-Path -LiteralPath $temporary)
+                    {
+                        Remove-Item -LiteralPath $temporary -Force
+                    }
                 }
             }
-            foreach ($relative in $copyPaths) {
+            foreach ($relative in $copyPaths)
+            {
                 Copy-Atomic (Resolve-Child $candidate $relative) (Resolve-Child $target $relative)
             }
             # 只有 FeedProvider 子目录完全属于程序产物；Images 中的用户文件由引用清理负责。
-            if ($scope -eq 'Full') {
+            if ($scope -eq 'Full')
+            {
                 $runtime = Resolve-Child $target 'FeedProvider'
-                foreach ($path in Get-SafeFiles $runtime) {
+                foreach ($path in Get-SafeFiles $runtime)
+                {
                     $relative = $path.Substring($target.Length + 1)
-                    if (-not $expectedFiles.ContainsKey($relative)) { Remove-Item -LiteralPath $path -Force }
+                    if (-not $expectedFiles.ContainsKey($relative))
+                    {
+                        Remove-Item -LiteralPath $path -Force
+                    }
                 }
             }
-            # 发布后再次校验；目录内其他历史文件不被视为版本成功证据。
-            foreach ($file in $version.DeploymentVersion.File) {
-                $path = Resolve-Child $target $file.Path
-                if ((Get-ContentHash $path) -ne $file.Sha256) { throw "Published file mismatch: $path" }
-            }
+            # 文件操作成功即作为发布依据；失败会抛出异常，版本清单不会更新，组合器也不会继续注册。
             Copy-Atomic (Resolve-Child $candidate '.deployment-version.xml') (Resolve-Child $target '.deployment-version.xml')
             """;
     }
@@ -315,5 +362,10 @@ internal sealed class ProviderDeploymentPowerShellAdapter(IPowerShellExecutor ex
     }
 }
 
-/// <summary>复合脚本的最后可确认阶段和执行结果；未确认中断按发布阶段恢复。</summary>
-internal sealed record ProviderPublicationAttempt(DeploymentStage Stage, PowerShellResult Result, long ElapsedMilliseconds);
+/// <summary>复合脚本的执行结果及各片段耗时；缺失计时表示未确认，未确认中断按发布阶段恢复。</summary>
+internal sealed record ProviderPublicationAttempt(
+    DeploymentStage Stage,
+    PowerShellResult Result,
+    long ElapsedMilliseconds,
+    long? PublicationElapsedMilliseconds,
+    long? RegistrationElapsedMilliseconds);

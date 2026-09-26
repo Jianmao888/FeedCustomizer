@@ -179,12 +179,14 @@ internal sealed class WindowsProviderDeploymentPlatform(ProviderDeploymentPowerS
             manifest,
             token);
         Log.Information(
-            "Provider 发布及普通注册完成，范围={Scope}，覆盖文件数={CopyCount}，最后确认阶段={Stage}，退出码={ExitCode}，耗时毫秒={ElapsedMilliseconds}",
+            "Provider 发布及普通注册完成，范围={Scope}，覆盖文件数={CopyCount}，最后确认阶段={Stage}，退出码={ExitCode}，耗时毫秒={ElapsedMilliseconds}，发布片段耗时毫秒={PublicationElapsedMilliseconds}，普通注册片段耗时毫秒={RegistrationElapsedMilliseconds}",
             plan.Scope,
             plan.CopyPaths.Count,
             attempt.Stage,
             attempt.Result.ExitCode,
-            attempt.ElapsedMilliseconds);
+            attempt.ElapsedMilliseconds,
+            attempt.PublicationElapsedMilliseconds,
+            attempt.RegistrationElapsedMilliseconds);
 
         var result = attempt.Result;
         if (attempt.Stage == DeploymentStage.Publishing)

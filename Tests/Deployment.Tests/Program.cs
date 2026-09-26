@@ -140,6 +140,7 @@ var tests = new (string Name, Func<Task> Run)[]
     ("包外发布与清理脚本在临时目录实际执行", ScriptIntegrationAsync),
     ("组合脚本只启动一次且发布失败不会注册", CombinedScriptAsync),
     ("配置变化仅复制清单和图片", ConfigurationDeploymentAsync),
+    ("候选构建仍拒绝规划后变化的工作版本", CandidateValidationAsync),
     ("旧安装原位更新保留配置和私有图片", WorkspaceUpgradeAsync),
     ("损坏用户清单阻止模板覆盖", CorruptWorkspaceAsync),
     ("小组件数据清理跨调用串行且保留锁定结果", WidgetDataResetCoordinatorAsync),
@@ -594,8 +595,8 @@ static async Task ConfigurationDeploymentAsync()
     Check(!File.Exists(DeploymentFiles.Under(candidate, "FeedProvider\\FeedProvider.exe")));
     Check(!File.Exists(DeploymentFiles.Under(candidate, "Assets\\StoreLogo.scale-200.png")));
 
-    // 打开程序文件但允许读取；部分发布若尝试覆盖它，Windows 会拒绝写入。
-    using (var locked = new FileStream(executable, FileMode.Open, FileAccess.Read, FileShare.Read))
+    // 独占程序文件：配置发布既不能覆盖它，也不应重新打开它计算哈希。
+    using (var locked = new FileStream(executable, FileMode.Open, FileAccess.Read, FileShare.None))
     {
         await deployed.PublishAsync(storage.CandidatePath, configuration);
     }
@@ -629,7 +630,7 @@ static async Task ConfigurationDeploymentAsync()
     Check(File.Exists(DeploymentFiles.Under(target, "Images\\user.png")));
     Check((await storage.PlanAsync(true)).Scope == ProviderDeploymentScope.Current);
 
-    // 规划之后的程序漂移必须在复制清单前阻止发布，不能写入表示成功的版本清单。
+    // 发布复用规划结果，不重复检查期间发生的外部变化；下一次规划仍须发现程序漂移。
     await storage.SaveFeedsAsync([new Feed
     {
         Id = "user-feed",
@@ -638,21 +639,50 @@ static async Task ConfigurationDeploymentAsync()
     }]);
     ProviderDeploymentPlan stale = await storage.PlanAsync(true);
     await storage.StageAsync(stale);
-    string registeredManifest = File.ReadAllText(DeploymentFiles.Under(target, "AppxManifest.xml"));
     File.WriteAllText(executable, "program-tampered");
-    try
-    {
-        await deployed.PublishAsync(storage.CandidatePath, stale);
-        throw new Exception("程序文件漂移未阻止部分发布。");
-    }
-    catch (IOException)
-    {
-        Check(File.ReadAllText(DeploymentFiles.Under(target, "AppxManifest.xml")) == registeredManifest);
-    }
+    string unexpectedRuntime = DeploymentFiles.Under(target, "FeedProvider\\unexpected.dll");
+    File.WriteAllText(unexpectedRuntime, "unexpected-program");
+    File.WriteAllText(DeploymentFiles.Under(target, DeploymentFiles.VersionFile), "changed after planning");
+    await deployed.PublishAsync(storage.CandidatePath, stale);
+    Check(File.ReadAllText(DeploymentFiles.Under(target, "AppxManifest.xml")) ==
+        File.ReadAllText(AppDataPaths.PackageLocalManifestPath));
+    Check(File.ReadAllText(executable) == "program-tampered");
+    Check(File.Exists(unexpectedRuntime));
 
     Check((await storage.PlanAsync(true)).Scope == ProviderDeploymentScope.Full);
+    File.WriteAllText(executable, "test-program");
+    Check((await storage.PlanAsync(true)).Scope == ProviderDeploymentScope.Full);
+    File.Delete(unexpectedRuntime);
+    Check((await storage.PlanAsync(true)).Scope == ProviderDeploymentScope.Current);
     File.WriteAllText(DeploymentFiles.Under(target, DeploymentFiles.VersionFile), "broken metadata");
     Check((await storage.PlanAsync(true)).Scope == ProviderDeploymentScope.Full);
+}
+
+static async Task CandidateValidationAsync()
+{
+    using var directory = new TestDirectory();
+    CreateWorkspace(directory.Path);
+    var adapter = new ProviderDeploymentPowerShellAdapter(new SandboxExecutor(AppDataPaths.FeedProviderFolder));
+    var storage = new ProviderDeploymentStorage(adapter);
+    await storage.PrepareWorkAsync();
+    ProviderDeploymentPlan plan = await storage.PlanAsync(false);
+
+    // 发布脚本不再兜底校验内容，因此必须保留卸载前对工作版本和候选的验证边界。
+    File.WriteAllText(DeploymentFiles.Under(AppDataPaths.PackageLocalFeedProviderFolder, "FeedProvider\\FeedProvider.exe"),
+        "changed after planning");
+    bool rejected = false;
+    try
+    {
+        await storage.StageAsync(plan);
+    }
+    catch (InvalidDataException)
+    {
+        rejected = true;
+    }
+
+    Check(rejected);
+    Check(!Directory.Exists(storage.CandidatePath));
+    Check(!Directory.Exists(AppDataPaths.FeedProviderFolder));
 }
 
 static async Task ScriptIntegrationAsync()
@@ -698,10 +728,22 @@ static async Task ScriptIntegrationAsync()
     Check(File.Exists(System.IO.Path.Combine(target, "Images", "used.png")));
     Check(File.Exists(System.IO.Path.Combine(target, "Images", "recent.png")));
 
-    // 候选在构建后被破坏时，脚本必须在写目标之前失败，不能发布未经校验的数据。
-    File.WriteAllText(DeploymentFiles.Under(candidate, "FeedProvider\\FeedProvider.exe"), "corrupted");
-    try { await adapter.PublishAsync(candidate, fullPlan); throw new Exception("损坏候选未被拒绝。"); }
-    catch (IOException) { }
+    // 源文件缺失仍是复制失败；允许前面的文件已替换，但失败后不能更新版本元数据。
+    string registeredVersion = File.ReadAllText(System.IO.Path.Combine(target, DeploymentFiles.VersionFile));
+    DeploymentVersion.Capture(candidate, "version-2", paths).Save(candidate);
+    File.Delete(DeploymentFiles.Under(candidate, "FeedProvider\\FeedProvider.exe"));
+    bool copyFailed = false;
+    try
+    {
+        await adapter.PublishAsync(candidate, fullPlan);
+    }
+    catch (IOException)
+    {
+        copyFailed = true;
+    }
+
+    Check(copyFailed);
+    Check(File.ReadAllText(System.IO.Path.Combine(target, DeploymentFiles.VersionFile)) == registeredVersion);
     Check(File.ReadAllText(DeploymentFiles.Under(target, "FeedProvider\\FeedProvider.exe")) == "data");
 }
 
@@ -758,6 +800,7 @@ static async Task CombinedScriptAsync()
     var adapter = new ProviderDeploymentPowerShellAdapter(executor);
     ProviderPublicationAttempt success = await adapter.PublishAndRegisterAsync(candidate, plan, manifest, default);
     Check(executor.Calls == 1 && success.Result.ExitCode == 0 && success.Stage == DeploymentStage.Registering);
+    Check(success.PublicationElapsedMilliseconds >= 0 && success.RegistrationElapsedMilliseconds >= 0);
     Check(File.ReadAllText(marker) == manifest);
 
     string executable = DeploymentFiles.Under(target, "FeedProvider\\FeedProvider.exe");
@@ -768,22 +811,47 @@ static async Task CombinedScriptAsync()
     var configuration = new ProviderDeploymentPlan(
         ProviderDeploymentScope.Configuration,
         ["AppxManifest.xml"]);
-    ProviderPublicationAttempt configurationSuccess = await adapter.PublishAndRegisterAsync(
-        candidate,
-        configuration,
-        manifest,
-        default);
-    Check(executor.Calls == 2 && configurationSuccess.Result.ExitCode == 0);
+    // 组合脚本也必须允许程序文件被独占，确保发布片段没有恢复任何全量内容校验。
+    using (var locked = new FileStream(executable, FileMode.Open, FileAccess.Read, FileShare.None))
+    {
+        ProviderPublicationAttempt configurationSuccess = await adapter.PublishAndRegisterAsync(
+            candidate,
+            configuration,
+            manifest,
+            default);
+        Check(executor.Calls == 2 && configurationSuccess.Result.ExitCode == 0);
+    }
     Check(File.GetLastWriteTimeUtc(executable) == programTime);
 
     File.Delete(marker);
-    File.WriteAllText(DeploymentFiles.Under(candidate, "FeedProvider\\FeedProvider.exe"), "tampered");
-    ProviderPublicationAttempt publishFailure = await adapter.PublishAndRegisterAsync(candidate, plan, manifest, default);
-    Check(executor.Calls == 3 && publishFailure.Stage == DeploymentStage.Publishing);
-    Check(publishFailure.Result.ExitCode == 20 && publishFailure.Result.Error.Contains("Step: Publishing"));
+    string registeredVersion = File.ReadAllText(DeploymentFiles.Under(target, DeploymentFiles.VersionFile));
+    string registeredManifest = File.ReadAllText(manifest);
+    File.WriteAllText(DeploymentFiles.Under(candidate, "AppxManifest.xml"), "<Package Version='3' />");
+    DeploymentVersion.Capture(candidate, "template", paths).Save(candidate);
+    using (var locked = new FileStream(manifest, FileMode.Open, FileAccess.Read, FileShare.None))
+    {
+        ProviderPublicationAttempt publishFailure = await adapter.PublishAndRegisterAsync(candidate, plan, manifest, default);
+        Check(executor.Calls == 3 && publishFailure.Stage == DeploymentStage.Publishing);
+        Check(publishFailure.Result.ExitCode == 20 && publishFailure.Result.Error.Contains("Step: Publishing"));
+        Check(publishFailure.PublicationElapsedMilliseconds >= 0 && publishFailure.RegistrationElapsedMilliseconds is null);
+    }
+    Check(!File.Exists(marker));
+    Check(File.ReadAllText(manifest) == registeredManifest);
+    Check(File.ReadAllText(DeploymentFiles.Under(target, DeploymentFiles.VersionFile)) == registeredVersion);
+
+    // 配置发布的文件范围约束仍须在复制前拒绝程序文件，不能因取消哈希检查而放宽。
+    var invalidConfiguration = new ProviderDeploymentPlan(
+        ProviderDeploymentScope.Configuration,
+        ["FeedProvider\\FeedProvider.exe"]);
+    ProviderPublicationAttempt invalidPlan = await adapter.PublishAndRegisterAsync(
+        candidate,
+        invalidConfiguration,
+        manifest,
+        default);
+    Check(executor.Calls == 4 && invalidPlan.Stage == DeploymentStage.Publishing);
+    Check(invalidPlan.Result.Error.Contains("Configuration deployment contains a program file"));
     Check(!File.Exists(marker));
 
-    File.WriteAllText(DeploymentFiles.Under(candidate, "FeedProvider\\FeedProvider.exe"), "content");
     string failedRegistrationStub = """
         function Add-AppxPackage {
             [CmdletBinding()]
@@ -805,6 +873,7 @@ static async Task CombinedScriptAsync()
     Check(failedExecutor.Calls == 1 && registrationFailure.Stage == DeploymentStage.Registering);
     Check(registrationFailure.Result.ExitCode == 21);
     Check(registrationFailure.Result.Error.Contains("0x80073CFF"));
+    Check(registrationFailure.PublicationElapsedMilliseconds >= 0 && registrationFailure.RegistrationElapsedMilliseconds >= 0);
 }
 
 static async Task WorkspaceUpgradeAsync()
