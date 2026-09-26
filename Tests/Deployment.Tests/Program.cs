@@ -18,12 +18,40 @@ using System.Xml.Linq;
 // AppX/注册表/UAC 只使用替身，绝不改动机器注册状态。
 var tests = new (string Name, Func<Task> Run)[]
 {
-    ("准备失败不卸载现有包", async () =>
+    ("启动未就绪不保存配置或卸载现有包", async () =>
     {
-        var f = new Fixture { Storage = { FailAt = "Prepare" } };
-        var result = await f.Coordinator.ApplyAsync(null, true, false);
+        var f = new Fixture { Storage = { WorkReady = false } };
+        var result = await f.Coordinator.ApplyAsync([new Feed()], true, false);
         Check(!result.Succeeded && result.Stage == DeploymentStage.Preparing && result.ProviderEnabled == true);
+        Check(!f.Trace.Contains("Save") && !f.Trace.Contains("Prepare"));
         Check(!f.Trace.Contains("Remove") && !f.Trace.Contains("Register"));
+    }),
+    ("启动修复失败不会在应用配置时再次修复", async () =>
+    {
+        var f = new Fixture { Storage = { WorkReady = false, FailAt = "Prepare" } };
+        Check(!(await f.Coordinator.InspectAsync()).ResourcesCurrent);
+        bool failed = false;
+        try
+        {
+            await f.Coordinator.PrepareAsync();
+        }
+        catch (IOException)
+        {
+            failed = true;
+        }
+
+        Check(failed);
+        Check(!(await f.Coordinator.ApplyAsync(null, true, false)).Succeeded);
+        Check(f.Trace.Count(step => step == "Prepare") == 1);
+        Check(!f.Trace.Contains("Remove") && !f.Trace.Contains("Publish"));
+    }),
+    ("启用与保存不重新检查或准备工作版本", async () =>
+    {
+        var f = new Fixture();
+        Check((await f.Coordinator.ApplyAsync(null, true, false)).Succeeded);
+        Check((await f.Coordinator.ApplyAsync([new Feed()], true, false)).Succeeded);
+        Check((await f.Coordinator.ApplyAsync([new Feed()], false, false)).Succeeded);
+        Check(!f.Trace.Contains("InspectWork") && !f.Trace.Contains("Prepare"));
     }),
     ("候选准备在卸载之前且相同版本不重复注册", async () =>
     {
@@ -102,7 +130,7 @@ var tests = new (string Name, Func<Task> Run)[]
     }),
     ("关闭操作不发布文件", async () =>
     {
-        var f = new Fixture();
+        var f = new Fixture { Storage = { WorkReady = false } };
         var result = await f.Coordinator.ApplyAsync(null, false, false);
         Check(result.Succeeded && result.ProviderEnabled == false);
         Check(!f.Trace.Contains("Publish") && !f.Trace.Contains("Register"));
@@ -112,8 +140,8 @@ var tests = new (string Name, Func<Task> Run)[]
         var f = new Fixture();
         var results = await Task.WhenAll(f.Coordinator.ApplyAsync(null, true, false), f.Coordinator.ApplyAsync(null, true, false));
         Check(results.All(x => x.Succeeded));
-        int secondPrepare = f.Trace.FindIndex(f.Trace.IndexOf("Prepare") + 1, x => x == "Prepare");
-        Check(f.Trace.IndexOf("Finish") < secondPrepare);
+        int secondPlan = f.Trace.FindIndex(f.Trace.IndexOf("Plan") + 1, x => x == "Plan");
+        Check(f.Trace.IndexOf("Finish") < secondPlan);
     }),
     ("未完成日志阻止图片清理", async () =>
     {
@@ -140,7 +168,9 @@ var tests = new (string Name, Func<Task> Run)[]
     ("包外发布与清理脚本在临时目录实际执行", ScriptIntegrationAsync),
     ("组合脚本只启动一次且发布失败不会注册", CombinedScriptAsync),
     ("配置变化仅复制清单和图片", ConfigurationDeploymentAsync),
-    ("候选构建仍拒绝规划后变化的工作版本", CandidateValidationAsync),
+    ("工作版本只在启动时校验且修复保留配置", StartupWorkValidationAsync),
+    ("配置发布不读取工作程序和静态资源", RuntimeWorkVersionAsync),
+    ("候选构建仍验证实际复制的文件", CandidateValidationAsync),
     ("旧安装原位更新保留配置和私有图片", WorkspaceUpgradeAsync),
     ("损坏用户清单阻止模板覆盖", CorruptWorkspaceAsync),
     ("小组件数据清理跨调用串行且保留锁定结果", WidgetDataResetCoordinatorAsync),
@@ -560,7 +590,7 @@ static async Task ConfigurationDeploymentAsync()
     string target = AppDataPaths.FeedProviderFolder;
     var deployed = new ProviderDeploymentPowerShellAdapter(new SandboxExecutor(target));
     var storage = new ProviderDeploymentStorage(deployed);
-    await storage.PrepareWorkAsync();
+    await storage.PrepareWorkAtStartupAsync();
 
     ProviderDeploymentPlan full = await storage.PlanAsync(false);
     Check(full.Scope == ProviderDeploymentScope.Full);
@@ -658,30 +688,144 @@ static async Task ConfigurationDeploymentAsync()
     Check((await storage.PlanAsync(true)).Scope == ProviderDeploymentScope.Full);
 }
 
+static async Task StartupWorkValidationAsync()
+{
+    using var directory = new TestDirectory();
+    CreateWorkspace(directory.Path);
+    var adapter = new ProviderDeploymentPowerShellAdapter(new SandboxExecutor(AppDataPaths.FeedProviderFolder));
+    var original = new ProviderDeploymentStorage(adapter);
+    Check(!await original.InspectWorkAtStartupAsync());
+    Check(!original.WorkReady);
+    await original.PrepareWorkAtStartupAsync();
+    Check(original.WorkReady);
+    string work = AppDataPaths.PackageLocalFeedProviderFolder;
+    File.WriteAllText(DeploymentFiles.Under(work, "Images\\user.png"), "user-image");
+    await original.SaveFeedsAsync([new Feed
+    {
+        Id = "preserved-feed",
+        Name = "保留的订阅",
+        Url = "https://example.com",
+        ImagePath = "Images\\user.png"
+    }]);
+
+    // 模拟正常启动：检查成功后即信任工作目录，页面再次初始化不得读取程序内容。
+    var current = new ProviderDeploymentStorage(adapter);
+    Check(await current.InspectWorkAtStartupAsync());
+    string executable = DeploymentFiles.Under(work, "FeedProvider\\FeedProvider.exe");
+    using (var locked = new FileStream(executable, FileMode.Open, FileAccess.Read, FileShare.None))
+    {
+        Check(await current.InspectWorkAtStartupAsync());
+        await current.PrepareWorkAtStartupAsync();
+    }
+
+    // 新进程重新检查仍能发现损坏；修复只恢复模板资源，不能丢失用户配置或自定义图片。
+    File.WriteAllText(executable, "damaged-program");
+    string asset = DeploymentFiles.Under(work, "Assets\\StoreLogo.scale-200.png");
+    File.Delete(asset);
+    var repair = new ProviderDeploymentStorage(adapter);
+    Check(!await repair.InspectWorkAtStartupAsync());
+    Check(!repair.WorkReady);
+    await repair.PrepareWorkAtStartupAsync();
+    Check(repair.WorkReady);
+    Check(File.ReadAllText(executable) == "test-program");
+    Check(File.ReadAllText(asset) == "logo");
+    Check((await ManifestXmlService.Read()).Single().Id == "preserved-feed");
+    Check(File.ReadAllText(DeploymentFiles.Under(work, "Images\\user.png")) == "user-image");
+
+    // 同版本号重建也必须在下次启动识别更新，不能仅依赖包版本号或沿用上个进程的结果。
+    File.WriteAllText(Path.Combine(directory.Path, "package", "Resources", "FeedProvider", "FeedProvider.exe"),
+        "updated-program");
+    var updated = new ProviderDeploymentStorage(adapter);
+    Check(!await updated.InspectWorkAtStartupAsync());
+    await updated.PrepareWorkAtStartupAsync();
+    Check(File.ReadAllText(executable) == "updated-program");
+    Check((await ManifestXmlService.Read()).Single().Id == "preserved-feed");
+}
+
+static async Task RuntimeWorkVersionAsync()
+{
+    using var directory = new TestDirectory();
+    CreateWorkspace(directory.Path);
+    var adapter = new ProviderDeploymentPowerShellAdapter(new SandboxExecutor(AppDataPaths.FeedProviderFolder));
+    var initial = new ProviderDeploymentStorage(adapter);
+    await initial.PrepareWorkAtStartupAsync();
+    ProviderDeploymentPlan full = await initial.PlanAsync(false);
+    await initial.StageAsync(full);
+    await adapter.PublishAsync(initial.CandidatePath, full);
+
+    // 从现有版本清单启动，验证运行时复用的是该对象，而非重新读取工作文件生成摘要。
+    var storage = new ProviderDeploymentStorage(adapter);
+    Check(await storage.InspectWorkAtStartupAsync());
+    string work = AppDataPaths.PackageLocalFeedProviderFolder;
+    string executable = DeploymentFiles.Under(work, "FeedProvider\\FeedProvider.exe");
+    string asset = DeploymentFiles.Under(work, "Assets\\StoreLogo.scale-200.png");
+    string metadata = DeploymentFiles.Under(work, DeploymentFiles.VersionFile);
+    string image = DeploymentFiles.Under(work, "Images\\user.png");
+    var feeds = new List<Feed>
+    {
+        new() { Id = "runtime-feed", Name = "运行时配置", Url = "https://example.com", ImagePath = "Images\\user.png" }
+    };
+    using (var lockedProgram = new FileStream(executable, FileMode.Open, FileAccess.Read, FileShare.None))
+    using (var lockedAsset = new FileStream(asset, FileMode.Open, FileAccess.Read, FileShare.None))
+    using (var lockedMetadata = new FileStream(metadata, FileMode.Open, FileAccess.Read, FileShare.None))
+    {
+        File.WriteAllText(image, "image-v1");
+        await storage.SaveFeedsAsync(feeds);
+        ProviderDeploymentPlan configuration = await storage.PlanAsync(true);
+        Check(configuration.Scope == ProviderDeploymentScope.Configuration);
+        Check(configuration.CopyPaths.Contains("AppxManifest.xml") && configuration.CopyPaths.Contains("Images\\user.png"));
+        await storage.StageAsync(configuration);
+        await adapter.PublishAsync(storage.CandidatePath, configuration);
+        Check((await storage.PlanAsync(true)).Scope == ProviderDeploymentScope.Current);
+
+        File.WriteAllText(image, "image-v2");
+        ProviderDeploymentPlan changedImage = await storage.PlanAsync(true);
+        Check(changedImage.Scope == ProviderDeploymentScope.Configuration);
+        Check(changedImage.CopyPaths.Count == 1 && changedImage.CopyPaths[0] == "Images\\user.png");
+        await storage.StageAsync(changedImage);
+        await adapter.PublishAsync(storage.CandidatePath, changedImage);
+        Check(File.ReadAllText(DeploymentFiles.Under(AppDataPaths.FeedProviderFolder, "Images\\user.png")) == "image-v2");
+
+        feeds[0].ImagePath = string.Empty;
+        await storage.SaveFeedsAsync(feeds);
+        ProviderDeploymentPlan removedImage = await storage.PlanAsync(true);
+        Check(removedImage.Scope == ProviderDeploymentScope.Configuration);
+        DeploymentVersion expected = DeploymentVersion.Read(DeploymentFiles.Under(work, ".deployment"))!;
+        Check(!expected.Files.ContainsKey("Images\\user.png"));
+        await storage.StageAsync(removedImage);
+        await adapter.PublishAsync(storage.CandidatePath, removedImage);
+    }
+
+    // 工作程序在运行时漂移不触发重新校验或改变预期摘要；注册版本漂移仍由现有规划发现。
+    File.WriteAllText(executable, "changed-at-runtime");
+    Check((await storage.PlanAsync(true)).Scope == ProviderDeploymentScope.Current);
+    File.WriteAllText(DeploymentFiles.Under(AppDataPaths.FeedProviderFolder, "FeedProvider\\FeedProvider.exe"), "damaged-registered");
+    Check((await storage.PlanAsync(true)).Scope == ProviderDeploymentScope.Full);
+}
+
 static async Task CandidateValidationAsync()
 {
     using var directory = new TestDirectory();
     CreateWorkspace(directory.Path);
     var adapter = new ProviderDeploymentPowerShellAdapter(new SandboxExecutor(AppDataPaths.FeedProviderFolder));
     var storage = new ProviderDeploymentStorage(adapter);
-    await storage.PrepareWorkAsync();
+    await storage.PrepareWorkAtStartupAsync();
     ProviderDeploymentPlan plan = await storage.PlanAsync(false);
 
-    // 发布脚本不再兜底校验内容，因此必须保留卸载前对工作版本和候选的验证边界。
-    File.WriteAllText(DeploymentFiles.Under(AppDataPaths.PackageLocalFeedProviderFolder, "FeedProvider\\FeedProvider.exe"),
-        "changed after planning");
+    // 不再全量检查工作目录，但计划中的文件复制后仍须在候选中校验。
+    File.WriteAllText(AppDataPaths.PackageLocalManifestPath, "<Package Changed='true' />");
     bool rejected = false;
     try
     {
         await storage.StageAsync(plan);
     }
-    catch (InvalidDataException)
+    catch (InvalidDataException ex)
     {
-        rejected = true;
+        rejected = ex.Message.Contains("部署候选的文件内容已变化");
     }
 
     Check(rejected);
-    Check(!Directory.Exists(storage.CandidatePath));
+    Check(Directory.Exists(storage.CandidatePath));
     Check(!Directory.Exists(AppDataPaths.FeedProviderFolder));
 }
 
@@ -882,7 +1026,7 @@ static async Task WorkspaceUpgradeAsync()
     CreateWorkspace(directory.Path);
     string work = AppDataPaths.PackageLocalFeedProviderFolder;
     var storage = new ProviderDeploymentStorage(new ProviderDeploymentPowerShellAdapter(new SandboxExecutor(AppDataPaths.FeedProviderFolder)));
-    await storage.PrepareWorkAsync();
+    await storage.PrepareWorkAtStartupAsync();
     var feeds = new List<Feed> { new() { Id = "existing-user-feed", Name = "旧用户订阅", Url = "https://example.com", ImagePath = "Images\\user.png" } };
     File.WriteAllText(DeploymentFiles.Under(work, "Images\\user.png"), "user-image");
     await storage.SaveFeedsAsync(feeds);
@@ -890,12 +1034,14 @@ static async Task WorkspaceUpgradeAsync()
     File.Delete(DeploymentFiles.Under(work, DeploymentFiles.VersionFile));
     File.WriteAllText(DeploymentFiles.Under(work, ".first_run_complete"), "1.0.0.0");
     File.WriteAllText(DeploymentFiles.Under(work, "FeedProvider\\old.dll"), "obsolete");
-    Check(!await storage.IsWorkCurrentAsync());
-    await storage.PrepareWorkAsync();
+    // 重新创建进程级存储实例模拟应用再次启动，运行期间不再探测工作版本漂移。
+    storage = new ProviderDeploymentStorage(new ProviderDeploymentPowerShellAdapter(new SandboxExecutor(AppDataPaths.FeedProviderFolder)));
+    Check(!await storage.InspectWorkAtStartupAsync());
+    await storage.PrepareWorkAtStartupAsync();
     Check((await ManifestXmlService.Read()).Single().Id == "existing-user-feed");
     Check(File.ReadAllText(DeploymentFiles.Under(work, "Images\\user.png")) == "user-image");
     Check(!File.Exists(DeploymentFiles.Under(work, "FeedProvider\\old.dll")));
-    Check(await storage.IsWorkCurrentAsync());
+    Check(await storage.InspectWorkAtStartupAsync());
     ProviderDeploymentPlan plan = await storage.PlanAsync(false);
     Check(plan.Scope == ProviderDeploymentScope.Full);
     await storage.StageAsync(plan);
@@ -941,7 +1087,7 @@ static async Task CorruptWorkspaceAsync()
     Directory.CreateDirectory(AppDataPaths.PackageLocalFeedProviderFolder);
     File.WriteAllText(AppDataPaths.PackageLocalManifestPath, "broken-user-data");
     var storage = new ProviderDeploymentStorage(new ProviderDeploymentPowerShellAdapter(new SandboxExecutor(AppDataPaths.FeedProviderFolder)));
-    try { await storage.PrepareWorkAsync(); throw new Exception("损坏配置未阻止准备。"); }
+    try { await storage.PrepareWorkAtStartupAsync(); throw new Exception("损坏配置未阻止准备。"); }
     catch (System.Xml.XmlException) { }
     Check(File.ReadAllText(AppDataPaths.PackageLocalManifestPath) == "broken-user-data");
 }
@@ -1326,6 +1472,7 @@ sealed class FakeStorage(List<string> trace) : IProviderDeploymentStorage
 {
     public string ManifestPath => "test-manifest";
     public string CandidatePath => "test-candidate";
+    public bool WorkReady { get; set; } = true;
     public bool HasTransaction { get; set; }
     public DeploymentStage PendingStage { get; set; }
     public bool TransactionCommitted => PendingStage == DeploymentStage.Completed;
@@ -1334,19 +1481,30 @@ sealed class FakeStorage(List<string> trace) : IProviderDeploymentStorage
     public ProviderDeploymentScope? StagedScope { get; private set; }
     public string? FailAt { get; set; }
     private void Record(string name) { trace.Add(name); if (name == FailAt) throw new IOException(name + " failed"); }
-    public Task<bool> IsWorkCurrentAsync() => Task.FromResult(true);
-    public async Task PrepareWorkAsync() { Record("Prepare"); await Task.Delay(10); }
+    public Task<bool> InspectWorkAtStartupAsync()
+    {
+        Record("InspectWork");
+        return Task.FromResult(WorkReady);
+    }
+    public Task PrepareWorkAtStartupAsync()
+    {
+        Record("Prepare");
+        WorkReady = true;
+        return Task.CompletedTask;
+    }
     public Task SaveFeedsAsync(List<Feed> feeds) { Record("Save"); return Task.CompletedTask; }
-    public Task<ProviderDeploymentPlan> PlanAsync(bool installed)
+    public async Task<ProviderDeploymentPlan> PlanAsync(bool installed)
     {
         Record("Plan");
+        // 保留可控的异步让步，验证锁覆盖整个部署用例而非仅同步执行的片段。
+        await Task.Delay(10);
         ProviderDeploymentScope scope = installed && Current
             ? ProviderDeploymentScope.Current
             : installed && ConfigurationOnly
                 ? ProviderDeploymentScope.Configuration
                 : ProviderDeploymentScope.Full;
         IReadOnlyList<string> paths = scope == ProviderDeploymentScope.Current ? [] : ["AppxManifest.xml"];
-        return Task.FromResult(new ProviderDeploymentPlan(scope, paths));
+        return new ProviderDeploymentPlan(scope, paths);
     }
     public Task StageAsync(ProviderDeploymentPlan plan)
     {

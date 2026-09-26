@@ -57,11 +57,15 @@ internal interface IProviderDeploymentStorage
     string ManifestPath { get; }
     /// <summary>构建完成的候选目录；只供平台发布使用，不是用户配置来源。</summary>
     string CandidatePath { get; }
+    /// <summary>启动校验或修复已成功，运行时只读取此状态，不扫描工作目录。</summary>
+    bool WorkReady { get; }
     bool HasTransaction { get; }
     bool TransactionCommitted { get; }
     DeploymentStage PendingStage { get; }
-    Task<bool> IsWorkCurrentAsync();
-    Task PrepareWorkAsync();
+    /// <summary>启动阶段检查一次工作版本，并保留已有版本清单；重复调用复用结果。</summary>
+    Task<bool> InspectWorkAtStartupAsync();
+    /// <summary>启动阶段按需修复工作版本，失败向上传递，不在运行时自动重建。</summary>
+    Task PrepareWorkAtStartupAsync();
     Task SaveFeedsAsync(List<Feed> feeds);
     Task<ProviderDeploymentPlan> PlanAsync(bool installed);
     Task StageAsync(ProviderDeploymentPlan plan);

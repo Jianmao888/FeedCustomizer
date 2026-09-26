@@ -171,8 +171,11 @@ namespace FeedCustomizer.ViewModels
 
                 SetFeedProviderEnabled(providerInstalled);
 
-                // 先通知启动协调器切换加载遮罩，再执行耗时准备；准备工作不影响现有注册目录。
-                if (requiresResourceSynchronization) await ProviderDeployment.Current.PrepareAsync();
+                // 工作版本只在启动时检查和修复；先切换遮罩，修复成功后后续部署直接复用版本清单。
+                if (requiresResourceSynchronization)
+                {
+                    await ProviderDeployment.Current.PrepareAsync();
+                }
 
                 if (FeedListDataService.IsEnable)
                 {
@@ -452,7 +455,7 @@ namespace FeedCustomizer.ViewModels
         }
 
         /// <summary>
-        /// 执行完整资源检查后的注册，并将失败交给 UI 层展示。
+        /// 使用启动已准备的工作版本进行部署，并将失败交给 UI 层展示。
         /// </summary>
         private async Task<bool> TryInstallFeedProviderAsync()
         {

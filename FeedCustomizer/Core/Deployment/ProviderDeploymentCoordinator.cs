@@ -19,7 +19,7 @@ internal sealed class ProviderDeploymentCoordinator(
     private static readonly IAppLog Log = AppLog.For<ProviderDeploymentCoordinator>();
     private readonly SemaphoreSlim _gate = new(1, 1);
 
-    /// <summary>先恢复上次中断的部署，再探测是否需要展示资源复制遮罩。</summary>
+    /// <summary>启动时先恢复中断部署，再检查工作版本；同一进程重复初始化不重新扫描工作目录。</summary>
     internal Task<DeploymentInspection> InspectAsync()
     {
         return SerializedAsync(async () =>
@@ -29,7 +29,7 @@ internal sealed class ProviderDeploymentCoordinator(
             await RecoverAsync();
             var inspection = new DeploymentInspection(
                 await platform.IsInstalledAsync(default),
-                await storage.IsWorkCurrentAsync());
+                await storage.InspectWorkAtStartupAsync());
             Log.Information(
                 "Provider 部署状态检查完成，已安装={Installed}，工作副本最新={WorkCurrent}，耗时毫秒={ElapsedMilliseconds}",
                 inspection.Installed,
@@ -39,7 +39,7 @@ internal sealed class ProviderDeploymentCoordinator(
         });
     }
 
-    /// <summary>更新工作副本无需卸载正在运行的包；候选保留用户配置，清单按单文件原子替换。</summary>
+    /// <summary>仅在启动阶段按需修复工作版本，不影响当前注册；保留用户配置并原子替换清单。</summary>
     internal Task PrepareAsync()
     {
         return SerializedAsync(async () =>
@@ -47,7 +47,7 @@ internal sealed class ProviderDeploymentCoordinator(
             Stopwatch stopwatch = Stopwatch.StartNew();
             Log.Information("开始准备 Provider 工作副本");
             await RecoverAsync();
-            await storage.PrepareWorkAsync();
+            await storage.PrepareWorkAtStartupAsync();
             Log.Information("Provider 工作副本准备完成，耗时毫秒={ElapsedMilliseconds}", stopwatch.ElapsedMilliseconds);
             return true;
         });
@@ -110,10 +110,10 @@ internal sealed class ProviderDeploymentCoordinator(
 
             stage = DeploymentStage.Preparing;
             Log.Debug("Provider 部署进入阶段，操作={OperationId}，阶段={Stage}", operationId, stage);
-            // 单纯关闭不依赖资源完整性；即使模板/配置损坏，用户仍能关闭已安装 Provider。
-            if (enable || feeds is not null)
+            // 运行时直接使用启动已准备的工作版本，不重新校验或修复；单纯关闭不依赖启动准备成功。
+            if ((enable || feeds is not null) && !storage.WorkReady)
             {
-                await storage.PrepareWorkAsync();
+                throw new InvalidOperationException("Provider 工作版本尚未完成启动准备。");
             }
 
             if (feeds is not null)

@@ -30,9 +30,14 @@ internal sealed class ProviderDeploymentStorage(ProviderDeploymentPowerShellAdap
     private string Prepared => DeploymentFiles.Under(State, "prepared");
     private string Journal => DeploymentFiles.Under(State, "operation.xml");
     private readonly Lazy<(string Identity, Dictionary<string, string> Sources)> _template = new(CreateTemplate);
+    // 仅保留启动时读取或重建的现有版本清单；所有访问由部署协调器串行保护，不新增摘要存储。
+    private DeploymentVersion? _workVersion;
+    private bool _workInspectionCompleted;
 
     public string ManifestPath => AppDataPaths.ManifestPath;
     public string CandidatePath => Candidate;
+    /// <summary>启动已验证或重建现有版本清单，运行时无需再次检查工作文件。</summary>
+    public bool WorkReady => _workVersion is not null;
     public bool HasTransaction => File.Exists(Journal);
     public bool TransactionCommitted => PendingStage == DeploymentStage.Completed;
     public DeploymentStage PendingStage
@@ -47,35 +52,52 @@ internal sealed class ProviderDeploymentStorage(ProviderDeploymentPowerShellAdap
         }
     }
 
-    /// <summary>缺少新版清单的旧安装自然进入准备流程，不读取旧 flag，也不迁移目录。</summary>
-    public Task<bool> IsWorkCurrentAsync()
+    /// <summary>仅在启动时检查工作版本；重复页面初始化复用检查结果，旧安装仍按原目录准备。</summary>
+    public Task<bool> InspectWorkAtStartupAsync()
     {
+        if (_workInspectionCompleted)
+        {
+            return Task.FromResult(WorkReady);
+        }
+
         try
         {
             var version = DeploymentVersion.Read(Work);
-            return Task.FromResult(version is not null && version.Template == _template.Value.Identity &&
+            bool current = version is not null && version.Template == _template.Value.Identity &&
                 version.Files.Count == _template.Value.Sources.Count && _template.Value.Sources.Keys.All(version.Files.ContainsKey) &&
                 version.Matches(Work, includeManifest: false) &&
-                ManifestXmlService.IsPresentationCurrent(AppDataPaths.PackageLocalManifestPath));
+                ManifestXmlService.IsPresentationCurrent(AppDataPaths.PackageLocalManifestPath);
+            if (current)
+            {
+                _workVersion = version;
+            }
         }
         catch (Exception ex) when (ex is IOException or System.Xml.XmlException or InvalidDataException)
         {
-            // 版本元数据损坏允许重建；真正的用户清单会在 PrepareWork 中严格读取，失败则停止。
+            // 版本元数据损坏允许启动时重建；真正的用户清单会在准备时严格读取，失败则停止。
             Log.Warning(ex, "检查 Provider 部署版本失败，将重新准备工作副本");
-            return Task.FromResult(false);
         }
+
+        _workInspectionCompleted = true;
+        return Task.FromResult(WorkReady);
     }
 
-    /// <summary>完整构建新版工作候选后再发布，始终从现有私有清单读取订阅源。</summary>
-    public async Task PrepareWorkAsync()
+    /// <summary>仅在启动时修复工作版本，复用启动探测结果；复制完成即可使用，不再扫描工作目录。</summary>
+    public async Task PrepareWorkAtStartupAsync()
     {
-        if (await IsWorkCurrentAsync()) return;
+        if (await InspectWorkAtStartupAsync())
+        {
+            return;
+        }
+
         List<Feed> feeds = File.Exists(AppDataPaths.PackageLocalManifestPath)
             ? await ManifestXmlService.Read() : [];
         // 上面的读取失败时直接退出；不以空模板覆盖损坏的用户清单，也不回读注册副本。
         DeploymentFiles.Clear(Prepared);
         foreach (var source in _template.Value.Sources)
+        {
             DeploymentFiles.AtomicCopy(source.Value, DeploymentFiles.Under(Prepared, source.Key));
+        }
 
         string manifest = DeploymentFiles.Under(Prepared, "AppxManifest.xml");
         await ManifestXmlService.Write(feeds, manifest);
@@ -86,11 +108,15 @@ internal sealed class ProviderDeploymentStorage(ProviderDeploymentPowerShellAdap
 
         // 工作目录不是注册目录，更新它无需停止 Provider。配置清单最后替换，旧版 flag 完全不参与判断。
         foreach (string path in version.Files.Keys.Where(p => !p.Equals("AppxManifest.xml", StringComparison.OrdinalIgnoreCase)))
+        {
             DeploymentFiles.AtomicCopy(DeploymentFiles.Under(Prepared, path), DeploymentFiles.Under(Work, path));
+        }
         DeploymentFiles.AtomicCopy(manifest, AppDataPaths.PackageLocalManifestPath);
         RemoveObsoleteRuntime(Work, version);
         DeploymentFiles.AtomicCopy(DeploymentFiles.Under(Prepared, DeploymentFiles.VersionFile), DeploymentFiles.Under(Work, DeploymentFiles.VersionFile));
         DeploymentFiles.Clear(Prepared);
+        // 修复失败直接向上传递，只有全部操作成功后才允许后续保存或部署使用此版本。
+        _workVersion = version;
     }
 
     /// <summary>原子保存唯一配置源；部署失败不回滚用户刚保存的订阅源。</summary>
@@ -103,12 +129,23 @@ internal sealed class ProviderDeploymentStorage(ProviderDeploymentPowerShellAdap
         File.Delete(temporary);
     }
 
-    /// <summary>预期版本始终包含完整文件集合；只在已有注册时检查是否可复用程序文件。</summary>
+    /// <summary>复用启动版本清单中的程序摘要，只重算配置摘要；注册版本检查仍决定发布范围。</summary>
     public async Task<ProviderDeploymentPlan> PlanAsync(bool installed)
     {
         Stopwatch stopwatch = Stopwatch.StartNew();
+        DeploymentVersion workVersion = _workVersion
+            ?? throw new InvalidOperationException("Provider 工作版本尚未完成启动准备。");
         var paths = await GetDeploymentPathsAsync();
-        DeploymentVersion expected = DeploymentVersion.Capture(Work, _template.Value.Identity, paths);
+        var files = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (string path in paths.OrderBy(path => path, StringComparer.OrdinalIgnoreCase))
+        {
+            // XML 和图片会在编辑时变化，摘要用于比较配置差异；程序和静态资源不重新读取。
+            files.Add(path, DeploymentVersion.IsConfigurationPath(path)
+                ? DeploymentFiles.Hash(DeploymentFiles.Under(Work, path))
+                : workVersion.Files[path]);
+        }
+
+        var expected = new DeploymentVersion(workVersion.Template, files);
         expected.Save(State);
         ProviderDeploymentPlan plan = installed
             ? expected.Plan(await deployed.InspectAsync(DeploymentFiles.Under(State, DeploymentFiles.VersionFile)))
@@ -122,7 +159,7 @@ internal sealed class ProviderDeploymentStorage(ProviderDeploymentPowerShellAdap
         return plan;
     }
 
-    /// <summary>候选只复制计划文件，仍携带完整版本清单以验证未改动的注册文件。</summary>
+    /// <summary>只复制并验证计划中的候选文件，不再全量校验工作版本；完整清单供发布和后续规划使用。</summary>
     public Task StageAsync(ProviderDeploymentPlan plan)
     {
         Stopwatch stopwatch = Stopwatch.StartNew();
@@ -133,11 +170,6 @@ internal sealed class ProviderDeploymentStorage(ProviderDeploymentPowerShellAdap
 
         DeploymentVersion expected = DeploymentVersion.Read(State)
             ?? throw new InvalidDataException("缺少预期部署版本清单。");
-        if (!expected.Matches(Work))
-        {
-            throw new InvalidDataException("工作版本在规划后发生变化，停止发布。");
-        }
-
         var uniquePaths = new HashSet<string>(plan.CopyPaths, StringComparer.OrdinalIgnoreCase);
         if (uniquePaths.Count != plan.CopyPaths.Count ||
             (plan.Scope == ProviderDeploymentScope.Full && uniquePaths.Count != expected.Files.Count))
@@ -146,6 +178,7 @@ internal sealed class ProviderDeploymentStorage(ProviderDeploymentPowerShellAdap
         }
 
         DeploymentFiles.Clear(Candidate);
+        // 启动后信任工作目录；仍校验实际复制的候选，复制或校验失败发生在卸载现有注册之前。
         foreach (string path in plan.CopyPaths)
         {
             if (!expected.Files.TryGetValue(path, out string? hash) ||
