@@ -61,7 +61,7 @@ var tests = new (string Name, Func<Task> Run)[]
         Check(f.Trace.IndexOf("Publish") < f.Trace.IndexOf("Register"));
         var current = new Fixture { Storage = { Current = true } };
         Check((await current.Coordinator.ApplyAsync(null, true, false)).Succeeded);
-        Check(!current.Trace.Contains("Stage") && !current.Trace.Contains("Remove"));
+        Check(!current.Trace.Contains("Stage") && !current.Trace.Contains("Remove") && !current.Trace.Contains("DeveloperMode"));
     }),
     ("仅配置计划贯穿卸载前候选和卸载后发布", async () =>
     {
@@ -82,7 +82,7 @@ var tests = new (string Name, Func<Task> Run)[]
     }),
     ("UAC取消不回滚注册旧版", async () =>
     {
-        var f = new Fixture { Platform = { RegisterStatus = ProviderRegistrationStatus.ElevationCancelled } };
+        var f = new Fixture { Platform = { DeveloperMode = DeveloperModeState.Disabled, TemporaryRegisterStatus = ProviderRegistrationStatus.ElevationCancelled } };
         var result = await f.Coordinator.ApplyAsync(null, true, true);
         Check(result.Status == ProviderRegistrationStatus.ElevationCancelled);
         Check(result.Compensation == DeploymentCompensation.ProviderDisabled && f.Trace.Count(x => x == "Register") == 1);
@@ -92,6 +92,123 @@ var tests = new (string Name, Func<Task> Run)[]
         var f = new Fixture { Platform = { RegisterStatus = ProviderRegistrationStatus.DeveloperModeConfirmationRequired } };
         var result = await f.Coordinator.ApplyAsync(null, true, false);
         Check(result.Status == ProviderRegistrationStatus.DeveloperModeConfirmationRequired && result.ProviderEnabled == false);
+    }),
+    ("注册前检查在卸载停止后且关闭不检查", async () =>
+    {
+        var f = new Fixture();
+        Check((await f.Coordinator.ApplyAsync(null, true, false)).Succeeded);
+        Check(f.Trace.IndexOf("Remove") < f.Trace.IndexOf("DeveloperMode"));
+        Check(f.Trace.IndexOf("Stop") < f.Trace.IndexOf("DeveloperMode"));
+        Check(f.Trace.IndexOf("DeveloperMode") < f.Trace.IndexOf("Publish"));
+        Check(f.Trace.Count(step => step == "Register:Normal") == 1);
+        var closed = new Fixture { Platform = { DeveloperMode = DeveloperModeState.Disabled } };
+        Check((await closed.Coordinator.ApplyAsync(null, false, false)).Succeeded);
+        Check(!closed.Trace.Contains("DeveloperMode"));
+    }),
+    ("未开启且不自动开启只提示不发布注册", async () =>
+    {
+        var f = new Fixture { Platform = { DeveloperMode = DeveloperModeState.Disabled } };
+        var result = await f.Coordinator.ApplyAsync([new Feed()], true, false);
+        Check(result.Status == ProviderRegistrationStatus.DeveloperModeConfirmationRequired);
+        Check(result.ExitCode is null && result.ConfigurationSaved && result.ProviderEnabled == false);
+        Check(result.Stage == DeploymentStage.Registering && !f.Storage.HasTransaction);
+        Check(f.Trace.Contains("Remove") && !f.Trace.Contains("Publish") && !f.Trace.Contains("Register"));
+    }),
+    ("未开启且自动开启直接提权注册", async () =>
+    {
+        var f = new Fixture { Platform = { DeveloperMode = DeveloperModeState.Disabled } };
+        Check((await f.Coordinator.ApplyAsync(null, true, true)).Succeeded);
+        Check(f.Trace.Count(step => step == "Publish") == 1);
+        Check(f.Trace.Count(step => step == "Register:TemporaryDeveloperMode") == 1);
+        Check(!f.Trace.Contains("Register:Normal"));
+    }),
+    ("读取失败仍普通注册且不因未知提权", async () =>
+    {
+        foreach (bool allowDeveloperMode in new[] { false, true })
+        {
+            var f = new Fixture { Platform = { DeveloperMode = DeveloperModeState.Unknown } };
+            Check((await f.Coordinator.ApplyAsync(null, true, allowDeveloperMode)).Succeeded);
+            Check(f.Trace.Count(step => step == "Register:Normal") == 1);
+            Check(!f.Trace.Contains("Register:TemporaryDeveloperMode"));
+        }
+    }),
+    ("普通注册需要开发者模式时单次兜底不重复发布", async () =>
+    {
+        foreach (DeveloperModeState state in new[] { DeveloperModeState.Unknown, DeveloperModeState.Enabled })
+        {
+            var f = new Fixture { Platform = { DeveloperMode = state, RegisterStatus = ProviderRegistrationStatus.DeveloperModeConfirmationRequired } };
+            Check((await f.Coordinator.ApplyAsync(null, true, true)).Succeeded);
+            Check(f.Trace.Count(step => step == "Publish") == 1);
+            Check(f.Trace.Count(step => step == "Register:Normal") == 1);
+            Check(f.Trace.Count(step => step == "Register:TemporaryDeveloperMode") == 1);
+        }
+    }),
+    ("未知状态注册需要开发者模式且不自动时返回确认", async () =>
+    {
+        var f = new Fixture { Platform = { DeveloperMode = DeveloperModeState.Unknown, RegisterStatus = ProviderRegistrationStatus.DeveloperModeConfirmationRequired } };
+        var result = await f.Coordinator.ApplyAsync(null, true, false);
+        Check(result.Status == ProviderRegistrationStatus.DeveloperModeConfirmationRequired && result.ProviderEnabled == false);
+        Check(f.Trace.Count(step => step == "Register:Normal") == 1);
+        Check(!f.Trace.Contains("Register:TemporaryDeveloperMode"));
+    }),
+    ("其他注册错误不提权", async () =>
+    {
+        var f = new Fixture { Platform = { DeveloperMode = DeveloperModeState.Unknown, RegisterStatus = ProviderRegistrationStatus.Failed } };
+        Check(!(await f.Coordinator.ApplyAsync(null, true, true)).Succeeded);
+        Check(!f.Trace.Contains("Register:TemporaryDeveloperMode"));
+    }),
+    ("提权兜底失败或取消立即结束", async () =>
+    {
+        foreach (ProviderRegistrationStatus status in new[] { ProviderRegistrationStatus.Failed, ProviderRegistrationStatus.ElevationCancelled })
+        {
+            var f = new Fixture { Platform =
+            {
+                DeveloperMode = DeveloperModeState.Unknown,
+                RegisterStatus = ProviderRegistrationStatus.DeveloperModeConfirmationRequired,
+                TemporaryRegisterStatus = status
+            } };
+            var result = await f.Coordinator.ApplyAsync(null, true, true);
+            Check(result.Status == status && result.ProviderEnabled == false);
+            Check(f.Trace.Count(step => step == "Register:TemporaryDeveloperMode") == 1);
+            Check(!f.Storage.HasTransaction);
+        }
+    }),
+    ("已确认重试不再检查或普通注册", async () =>
+    {
+        var f = new Fixture { Platform = { DeveloperMode = DeveloperModeState.Unknown } };
+        Check((await f.Coordinator.ApplyAsync(null, true, true, developerModeConfirmed: true)).Succeeded);
+        Check(!f.Trace.Contains("DeveloperMode") && !f.Trace.Contains("Register:Normal"));
+        Check(f.Trace.Count(step => step == "Register:TemporaryDeveloperMode") == 1);
+        foreach (bool enable in new[] { false, true })
+        {
+            bool rejected = false;
+            try
+            {
+                _ = f.Coordinator.ApplyAsync(null, enable, !enable, developerModeConfirmed: true);
+            }
+            catch (ArgumentException)
+            {
+                rejected = true;
+            }
+
+            Check(rejected);
+        }
+    }),
+    ("直接提权路径发布失败禁止注册", async () =>
+    {
+        var f = new Fixture { Platform = { DeveloperMode = DeveloperModeState.Disabled, FailPublish = true } };
+        var result = await f.Coordinator.ApplyAsync(null, true, true);
+        Check(result.Stage == DeploymentStage.Publishing && result.ProviderEnabled == false);
+        Check(!f.Trace.Contains("Register"));
+    }),
+    ("开发者模式缺失关闭而异常类型未知", () =>
+    {
+        Check(DeveloperModeRegistry.ParseValue(null) == DeveloperModeState.Disabled);
+        Check(DeveloperModeRegistry.ParseValue(0) == DeveloperModeState.Disabled);
+        Check(DeveloperModeRegistry.ParseValue(1) == DeveloperModeState.Enabled);
+        Check(DeveloperModeRegistry.ParseValue("1") == DeveloperModeState.Unknown);
+        Check(DeveloperModeRegistry.ParseValue(new byte[] { 1 }) == DeveloperModeState.Unknown);
+        return Task.CompletedTask;
     }),
     ("卸载失败不得发布且补偿错误独立可见", async () =>
     {
@@ -176,6 +293,7 @@ var tests = new (string Name, Func<Task> Run)[]
     ("小组件数据清理跨调用串行且保留锁定结果", WidgetDataResetCoordinatorAsync),
     ("地区策略脚本只使用执行器临时诊断", RegionPolicyUsesTemporaryDiagnosticsAsync),
     ("开发者模式脚本捕获操作与恢复错误", DeveloperModeCapturesFailureDiagnosticsAsync),
+    ("临时开发者模式脚本执行恢复和错误合并", DeveloperModeScriptIntegrationAsync),
     ("同版本文档维护不启动PowerShell", CurrentDocumentMaintenanceSkipsCleanupAsync),
     ("全新安装同步文档但不启动PowerShell", FreshDocumentInstallationSkipsCleanupAsync),
     ("应用更新同步文档并且每版本只清理一次", UpdatedDocumentMaintenanceCleansOnceAsync),
@@ -595,7 +713,7 @@ static async Task ConfigurationDeploymentAsync()
     ProviderDeploymentPlan full = await storage.PlanAsync(false);
     Check(full.Scope == ProviderDeploymentScope.Full);
     await storage.StageAsync(full);
-    await deployed.PublishAsync(storage.CandidatePath, full);
+    Check((await deployed.PublishAsync(storage.CandidatePath, full)).Result.ExitCode == 0);
 
     string executable = DeploymentFiles.Under(target, "FeedProvider\\FeedProvider.exe");
     string asset = DeploymentFiles.Under(target, "Assets\\StoreLogo.scale-200.png");
@@ -628,7 +746,7 @@ static async Task ConfigurationDeploymentAsync()
     // 独占程序文件：配置发布既不能覆盖它，也不应重新打开它计算哈希。
     using (var locked = new FileStream(executable, FileMode.Open, FileAccess.Read, FileShare.None))
     {
-        await deployed.PublishAsync(storage.CandidatePath, configuration);
+        Check((await deployed.PublishAsync(storage.CandidatePath, configuration)).Result.ExitCode == 0);
     }
 
     Check(File.GetLastWriteTimeUtc(executable) == programTime);
@@ -641,7 +759,7 @@ static async Task ConfigurationDeploymentAsync()
     Check(imageOnly.Scope == ProviderDeploymentScope.Configuration);
     Check(imageOnly.CopyPaths.Count == 1 && imageOnly.CopyPaths[0] == "Images\\user.png");
     await storage.StageAsync(imageOnly);
-    await deployed.PublishAsync(storage.CandidatePath, imageOnly);
+    Check((await deployed.PublishAsync(storage.CandidatePath, imageOnly)).Result.ExitCode == 0);
     Check(File.GetLastWriteTimeUtc(executable) == programTime);
     Check(File.GetLastWriteTimeUtc(asset) == assetTime);
     Check((await storage.PlanAsync(true)).Scope == ProviderDeploymentScope.Current);
@@ -656,7 +774,7 @@ static async Task ConfigurationDeploymentAsync()
     Check(removedImage.Scope == ProviderDeploymentScope.Configuration);
     Check(removedImage.CopyPaths.Count == 1 && removedImage.CopyPaths[0] == "AppxManifest.xml");
     await storage.StageAsync(removedImage);
-    await deployed.PublishAsync(storage.CandidatePath, removedImage);
+    Check((await deployed.PublishAsync(storage.CandidatePath, removedImage)).Result.ExitCode == 0);
     Check(File.Exists(DeploymentFiles.Under(target, "Images\\user.png")));
     Check((await storage.PlanAsync(true)).Scope == ProviderDeploymentScope.Current);
 
@@ -673,7 +791,7 @@ static async Task ConfigurationDeploymentAsync()
     string unexpectedRuntime = DeploymentFiles.Under(target, "FeedProvider\\unexpected.dll");
     File.WriteAllText(unexpectedRuntime, "unexpected-program");
     File.WriteAllText(DeploymentFiles.Under(target, DeploymentFiles.VersionFile), "changed after planning");
-    await deployed.PublishAsync(storage.CandidatePath, stale);
+    Check((await deployed.PublishAsync(storage.CandidatePath, stale)).Result.ExitCode == 0);
     Check(File.ReadAllText(DeploymentFiles.Under(target, "AppxManifest.xml")) ==
         File.ReadAllText(AppDataPaths.PackageLocalManifestPath));
     Check(File.ReadAllText(executable) == "program-tampered");
@@ -751,7 +869,7 @@ static async Task RuntimeWorkVersionAsync()
     await initial.PrepareWorkAtStartupAsync();
     ProviderDeploymentPlan full = await initial.PlanAsync(false);
     await initial.StageAsync(full);
-    await adapter.PublishAsync(initial.CandidatePath, full);
+    Check((await adapter.PublishAsync(initial.CandidatePath, full)).Result.ExitCode == 0);
 
     // 从现有版本清单启动，验证运行时复用的是该对象，而非重新读取工作文件生成摘要。
     var storage = new ProviderDeploymentStorage(adapter);
@@ -775,7 +893,7 @@ static async Task RuntimeWorkVersionAsync()
         Check(configuration.Scope == ProviderDeploymentScope.Configuration);
         Check(configuration.CopyPaths.Contains("AppxManifest.xml") && configuration.CopyPaths.Contains("Images\\user.png"));
         await storage.StageAsync(configuration);
-        await adapter.PublishAsync(storage.CandidatePath, configuration);
+        Check((await adapter.PublishAsync(storage.CandidatePath, configuration)).Result.ExitCode == 0);
         Check((await storage.PlanAsync(true)).Scope == ProviderDeploymentScope.Current);
 
         File.WriteAllText(image, "image-v2");
@@ -783,7 +901,7 @@ static async Task RuntimeWorkVersionAsync()
         Check(changedImage.Scope == ProviderDeploymentScope.Configuration);
         Check(changedImage.CopyPaths.Count == 1 && changedImage.CopyPaths[0] == "Images\\user.png");
         await storage.StageAsync(changedImage);
-        await adapter.PublishAsync(storage.CandidatePath, changedImage);
+        Check((await adapter.PublishAsync(storage.CandidatePath, changedImage)).Result.ExitCode == 0);
         Check(File.ReadAllText(DeploymentFiles.Under(AppDataPaths.FeedProviderFolder, "Images\\user.png")) == "image-v2");
 
         feeds[0].ImagePath = string.Empty;
@@ -793,7 +911,7 @@ static async Task RuntimeWorkVersionAsync()
         DeploymentVersion expected = DeploymentVersion.Read(DeploymentFiles.Under(work, ".deployment"))!;
         Check(!expected.Files.ContainsKey("Images\\user.png"));
         await storage.StageAsync(removedImage);
-        await adapter.PublishAsync(storage.CandidatePath, removedImage);
+        Check((await adapter.PublishAsync(storage.CandidatePath, removedImage)).Result.ExitCode == 0);
     }
 
     // 工作程序在运行时漂移不触发重新校验或改变预期摘要；注册版本漂移仍由现有规划发现。
@@ -851,12 +969,12 @@ static async Task ScriptIntegrationAsync()
     string versionPath = System.IO.Path.Combine(candidate, DeploymentFiles.VersionFile);
     ProviderDeploymentPlan fullPlan = version.Plan(await adapter.InspectAsync(versionPath));
     Check(fullPlan.Scope == ProviderDeploymentScope.Full);
-    await adapter.PublishAsync(candidate, fullPlan);
+    Check((await adapter.PublishAsync(candidate, fullPlan)).Result.ExitCode == 0);
     Check(!File.Exists(System.IO.Path.Combine(target, "FeedProvider", "old.dll")));
     Check(version.Plan(await adapter.InspectAsync(versionPath)).Scope == ProviderDeploymentScope.Current);
     File.WriteAllText(System.IO.Path.Combine(target, DeploymentFiles.VersionFile), "broken metadata");
     Check(version.Plan(await adapter.InspectAsync(versionPath)).Scope == ProviderDeploymentScope.Full);
-    await adapter.PublishAsync(candidate, fullPlan);
+    Check((await adapter.PublishAsync(candidate, fullPlan)).Result.ExitCode == 0);
     Check((await adapter.ReadManifestAsync()).Contains("Package"));
 
     // 图片清理必须保留默认、被引用和刚下载的文件，只删除超过宽限期的孤儿。
@@ -876,17 +994,9 @@ static async Task ScriptIntegrationAsync()
     string registeredVersion = File.ReadAllText(System.IO.Path.Combine(target, DeploymentFiles.VersionFile));
     DeploymentVersion.Capture(candidate, "version-2", paths).Save(candidate);
     File.Delete(DeploymentFiles.Under(candidate, "FeedProvider\\FeedProvider.exe"));
-    bool copyFailed = false;
-    try
-    {
-        await adapter.PublishAsync(candidate, fullPlan);
-    }
-    catch (IOException)
-    {
-        copyFailed = true;
-    }
-
-    Check(copyFailed);
+    ProviderPublicationAttempt copyFailure = await adapter.PublishAsync(candidate, fullPlan);
+    Check(copyFailure.Result.ExitCode != 0 && copyFailure.Stage == DeploymentStage.Publishing);
+    Check(copyFailure.RegistrationElapsedMilliseconds is null);
     Check(File.ReadAllText(System.IO.Path.Combine(target, DeploymentFiles.VersionFile)) == registeredVersion);
     Check(File.ReadAllText(DeploymentFiles.Under(target, "FeedProvider\\FeedProvider.exe")) == "data");
 }
@@ -1051,7 +1161,7 @@ static async Task WorkspaceUpgradeAsync()
     var reopenedAdapter = new ProviderDeploymentPowerShellAdapter(new SandboxExecutor(AppDataPaths.FeedProviderFolder));
     var reopened = new ProviderDeploymentStorage(reopenedAdapter);
     Check(reopened.HasTransaction && reopened.PendingStage == DeploymentStage.Publishing);
-    await reopenedAdapter.PublishAsync(reopened.CandidatePath, plan);
+    Check((await reopenedAdapter.PublishAsync(reopened.CandidatePath, plan)).Result.ExitCode == 0);
     await reopened.CommitAsync();
     await reopened.FinishAsync();
     Check((await storage.PlanAsync(true)).Scope == ProviderDeploymentScope.Current);
@@ -1177,6 +1287,119 @@ static async Task DeveloperModeCapturesFailureDiagnosticsAsync()
     Check(generatedScript.Content.Contains("operation failure type", StringComparison.Ordinal));
     Check(generatedScript.Content.Contains("restore failure type", StringComparison.Ordinal));
     Check(generatedScript.Content.Contains("$originalRead", StringComparison.Ordinal));
+    Check(generatedScript.Content.Contains(AppxPackagePowerShellScript.CreateRegisterBody("C:\\test\\AppxManifest.xml"), StringComparison.Ordinal));
+    Check(generatedScript.Timeout == TimeSpan.FromMinutes(4));
+}
+
+static async Task DeveloperModeScriptIntegrationAsync()
+{
+    // 用脚本函数完整遮蔽注册表和 AppX 命令；执行器取消提权，测试不会读取或改写真实注册表。
+    var capture = new CapturingExecutor();
+    await new DeveloperModePowerShellAdapter(capture).RegisterPackageAsync("C:\\test's folder\\AppxManifest.xml");
+    PowerShellScript generated = capture.Script ?? throw new Exception("未捕获临时开发者模式脚本。");
+    foreach (string originalValue in new[] { "$null", "0", "1" })
+    {
+        foreach (bool registrationFailure in new[] { false, true })
+        {
+            PowerShellResult result = await RunAsync(originalValue, registrationFailure, restoreFailure: false);
+            if ((result.ExitCode == 0) != !registrationFailure)
+            {
+                throw new Exception($"临时开发者模式脚本结果异常，原值={originalValue}，注册失败={registrationFailure}，退出码={result.ExitCode}，诊断={result.Error}");
+            }
+            Check(result.Output.Contains("MockRestored", StringComparison.Ordinal));
+            if (registrationFailure)
+            {
+                Check(result.Error.Contains("controlled-registration-failure", StringComparison.Ordinal));
+            }
+        }
+    }
+
+    PowerShellResult restoreOnly = await RunAsync("0", registrationFailure: false, restoreFailure: true);
+    Check(restoreOnly.ExitCode != 0 && restoreOnly.Error.Contains("controlled-restore-failure", StringComparison.Ordinal));
+    PowerShellResult both = await RunAsync("0", registrationFailure: true, restoreFailure: true);
+    Check(both.ExitCode != 0 && both.Error.Contains("controlled-registration-failure", StringComparison.Ordinal));
+    Check(both.Error.Contains("controlled-restore-failure", StringComparison.Ordinal));
+
+    async Task<PowerShellResult> RunAsync(string originalValue, bool registrationFailure, bool restoreFailure)
+    {
+        string mocks = $$"""
+            $script:mockOriginal = {{originalValue}}
+            $script:mockValue = $script:mockOriginal
+            $script:mockWrites = 0
+            $script:mockRegistrationFailure = ${{registrationFailure.ToString().ToLowerInvariant()}}
+            $script:mockRestoreFailure = ${{restoreFailure.ToString().ToLowerInvariant()}}
+            function Test-Path
+            {
+                param($LiteralPath)
+                return $true
+            }
+            function Get-Item
+            {
+                param($LiteralPath, $ErrorAction)
+                $key = New-Object psobject
+                $key | Add-Member ScriptMethod GetValue {
+                    param($name, $default, $options)
+                    return $script:mockValue
+                }
+                $key | Add-Member ScriptMethod GetValueKind {
+                    param($name)
+                    return 'DWord'
+                }
+                $key | Add-Member ScriptMethod GetValueNames {
+                    if ($null -ne $script:mockValue)
+                    {
+                        return 'AllowDevelopmentWithoutDevLicense'
+                    }
+                }
+                return $key
+            }
+            function Set-ItemProperty
+            {
+                param($LiteralPath, $Name, $Value, $Type, $ErrorAction)
+                $script:mockWrites++
+                if ($script:mockWrites -gt 1)
+                {
+                    if ($script:mockRestoreFailure)
+                    {
+                        throw 'controlled-restore-failure'
+                    }
+                    if ($Value -ne $script:mockOriginal -or $Type -ne 'DWord')
+                    {
+                        throw 'incorrect-original-value'
+                    }
+                    Write-Output 'MockRestored'
+                }
+                $script:mockValue = $Value
+            }
+            function Remove-ItemProperty
+            {
+                param($LiteralPath, $Name, $ErrorAction)
+                if ($null -ne $script:mockOriginal)
+                {
+                    throw 'incorrect-removal'
+                }
+                $script:mockValue = $null
+                Write-Output 'MockRestored'
+            }
+            function Add-AppxPackage
+            {
+                param([switch]$Register, [switch]$ForceApplicationShutdown, [Parameter(Position=0)]$Manifest)
+                if ($script:mockValue -ne 1 -or $Manifest -ne "C:\test's folder\AppxManifest.xml")
+                {
+                    throw 'incorrect-registration-context'
+                }
+                if ($script:mockRegistrationFailure)
+                {
+                    throw 'controlled-registration-failure'
+                }
+            }
+            """;
+        return await new PowerShellProcessExecutor().ExecuteAsync(generated with
+        {
+            RequiresElevation = false,
+            Content = mocks + Environment.NewLine + generated.Content
+        });
+    }
 }
 
 static async Task CurrentDocumentMaintenanceSkipsCleanupAsync()
@@ -1529,6 +1752,13 @@ sealed class FakePlatform(List<string> trace) : IProviderDeploymentPlatform
     public bool RegisterVisible { get; set; } = true;
     public ProviderDeploymentScope? PublishedScope { get; private set; }
     public ProviderRegistrationStatus RegisterStatus { get; set; } = ProviderRegistrationStatus.Success;
+    public ProviderRegistrationStatus TemporaryRegisterStatus { get; set; } = ProviderRegistrationStatus.Success;
+    public DeveloperModeState DeveloperMode { get; set; } = DeveloperModeState.Enabled;
+    public DeveloperModeState ReadDeveloperModeState()
+    {
+        trace.Add("DeveloperMode");
+        return DeveloperMode;
+    }
     public Task<bool> IsInstalledAsync(CancellationToken token)
     {
         trace.Add("Query");
@@ -1540,12 +1770,26 @@ sealed class FakePlatform(List<string> trace) : IProviderDeploymentPlatform
         return Task.FromResult(Installed);
     }
     public Task RemoveAsync(CancellationToken token)
-    { trace.Add("Remove"); if (FailRemove) throw new IOException("remove failed"); Installed = false; return Task.CompletedTask; }
-    public Task StopAsync(CancellationToken token) { trace.Add("Stop"); return Task.CompletedTask; }
+    {
+        trace.Add("Remove");
+        if (FailRemove)
+        {
+            throw new IOException("remove failed");
+        }
+
+        Installed = false;
+        return Task.CompletedTask;
+    }
+
+    public Task StopAsync(CancellationToken token)
+    {
+        trace.Add("Stop");
+        return Task.CompletedTask;
+    }
     public Task<ProviderRegistrationResult> PublishAndRegisterAsync(
         string candidatePath,
         ProviderDeploymentPlan plan,
-        bool allowDeveloperMode,
+        ProviderRegistrationMode mode,
         CancellationToken token)
     {
         PublishedScope = plan.Scope;
@@ -1555,9 +1799,21 @@ sealed class FakePlatform(List<string> trace) : IProviderDeploymentPlatform
             throw new IOException("publish failed");
         }
 
+        return CompleteRegistration(mode);
+    }
+
+    public Task<ProviderRegistrationResult> RegisterWithTemporaryDeveloperModeAsync(CancellationToken token)
+    {
+        return CompleteRegistration(ProviderRegistrationMode.TemporaryDeveloperMode);
+    }
+
+    private Task<ProviderRegistrationResult> CompleteRegistration(ProviderRegistrationMode mode)
+    {
         trace.Add("Register");
-        Installed = RegisterStatus == ProviderRegistrationStatus.Success && RegisterVisible;
-        return Task.FromResult(new ProviderRegistrationResult(RegisterStatus, 0, string.Empty, string.Empty, "test-manifest")
+        trace.Add("Register:" + mode);
+        ProviderRegistrationStatus status = mode == ProviderRegistrationMode.Normal ? RegisterStatus : TemporaryRegisterStatus;
+        Installed = status == ProviderRegistrationStatus.Success && RegisterVisible;
+        return Task.FromResult(new ProviderRegistrationResult(status, 0, string.Empty, string.Empty, "test-manifest")
         {
             Stage = DeploymentStage.Registering
         });

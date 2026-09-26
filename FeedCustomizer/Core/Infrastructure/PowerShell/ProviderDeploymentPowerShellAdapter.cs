@@ -7,6 +7,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace FeedCustomizer.Core.Infrastructure.PowerShell;
@@ -151,30 +152,50 @@ internal sealed class ProviderDeploymentPowerShellAdapter(IPowerShellExecutor ex
     /// 每个文件先写临时文件再替换，复制成功后最后写入版本清单；旧程序不备份。
     /// 发布片段也供组合注册复用，确保单独执行与组合执行遵循同一套文件约束。
     /// </summary>
-    internal async Task PublishAsync(string candidate, ProviderDeploymentPlan plan)
+    /// <returns>包含退出码、诊断与发布耗时的结果；文件操作失败不伪装为成功，由调用方决定补偿。</returns>
+    internal Task<ProviderPublicationAttempt> PublishAsync(
+        string candidate,
+        ProviderDeploymentPlan plan,
+        CancellationToken token = default)
     {
-        await RunAsync("PublishProviderDeployment.ps1", CreatePublishBody(candidate, plan));
+        return ExecutePublicationAsync(candidate, plan, manifest: null, token);
     }
 
     /// <summary>文件发布和普通注册共用一次包外进程，分别记录耗时；提权重试仍由平台实现单独执行。</summary>
-    internal async Task<ProviderPublicationAttempt> PublishAndRegisterAsync(
+    internal Task<ProviderPublicationAttempt> PublishAndRegisterAsync(
         string candidate,
         ProviderDeploymentPlan plan,
         string manifest,
-        System.Threading.CancellationToken token)
+        CancellationToken token)
     {
+        return ExecutePublicationAsync(candidate, plan, manifest, token);
+    }
+
+    /// <summary>单独发布和组合发布共用片段及诊断边界，区别仅在是否追加普通注册步骤。</summary>
+    private async Task<ProviderPublicationAttempt> ExecutePublicationAsync(
+        string candidate,
+        ProviderDeploymentPlan plan,
+        string? manifest,
+        CancellationToken token)
+    {
+        var steps = new List<PowerShellScriptStep>
+        {
+            CreateTimedStep("Publishing", CreatePublishBody(candidate, plan), PublishFailureExitCode)
+        };
+        if (manifest is not null)
+        {
+            steps.Add(CreateTimedStep("Registering", AppxPackagePowerShellScript.CreateRegisterBody(manifest), RegisterFailureExitCode));
+        }
+
         PowerShellScript script = PowerShellScriptComposer.Compose(
-            "PublishAndRegisterProvider.ps1",
+            manifest is null ? "PublishProviderDeployment.ps1" : "PublishAndRegisterProvider.ps1",
             Prelude,
-            [
-                CreateTimedStep("Publishing", CreatePublishBody(candidate, plan), PublishFailureExitCode),
-                CreateTimedStep("Registering", AppxPackagePowerShellScript.CreateRegisterBody(manifest), RegisterFailureExitCode)
-            ],
+            steps,
             TimeSpan.FromMinutes(4));
 
         Stopwatch stopwatch = Stopwatch.StartNew();
         PowerShellResult result = await executor.ExecuteAsync(script, token);
-        DeploymentStage stage = result.ExitCode is 0 or RegisterFailureExitCode
+        DeploymentStage stage = manifest is not null && (result.ExitCode is 0 or RegisterFailureExitCode)
             ? DeploymentStage.Registering
             : DeploymentStage.Publishing;
 

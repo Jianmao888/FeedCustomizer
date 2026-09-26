@@ -53,13 +53,24 @@ internal sealed class ProviderDeploymentCoordinator(
         });
     }
 
-    /// <summary>保存和发布属于同一用例，UI 不再自行串联卸载、写清单和注册。</summary>
+    /// <summary>保存和发布属于同一用例；确认重试只影响本次注册路径，仍重新进入完整部署事务。</summary>
+    /// <param name="feeds">待保存配置；为空时使用当前工作配置。</param>
+    /// <param name="enable">是否启用 Provider；关闭时不检查开发者模式。</param>
+    /// <param name="allowDeveloperMode">应用设置是否允许自动临时开启开发者模式。</param>
+    /// <param name="developerModeConfirmed">本次重试已确认需要开发者模式，跳过预检查和普通注册。</param>
     internal Task<ProviderRegistrationResult> ApplyAsync(
         List<Feed>? feeds,
         bool enable,
-        bool allowDeveloperMode)
+        bool allowDeveloperMode,
+        bool developerModeConfirmed = false)
     {
-        return SerializedAsync(() => ApplyCoreAsync(feeds, enable, allowDeveloperMode));
+        // 确认标记只影响本次已获授权的注册，不能绕过自动设置获得提权能力。
+        if (developerModeConfirmed && (!enable || !allowDeveloperMode))
+        {
+            throw new ArgumentException("开发者模式确认重试必须启用源并允许自动开发者模式。");
+        }
+
+        return SerializedAsync(() => ApplyCoreAsync(feeds, enable, allowDeveloperMode, developerModeConfirmed));
     }
 
     /// <summary>清理也受部署锁保护，避免删除候选清单仍在引用的图片。</summary>
@@ -87,7 +98,8 @@ internal sealed class ProviderDeploymentCoordinator(
     private async Task<ProviderRegistrationResult> ApplyCoreAsync(
         List<Feed>? feeds,
         bool enable,
-        bool allowDeveloperMode)
+        bool allowDeveloperMode,
+        bool developerModeConfirmed)
     {
         string operationId = Guid.NewGuid().ToString("N")[..8];
         Stopwatch stopwatch = Stopwatch.StartNew();
@@ -156,15 +168,52 @@ internal sealed class ProviderDeploymentCoordinator(
 
             if (enable)
             {
+                // 关闭与无需更新不进入此处。先完成卸载，再检查注册权限；不跨 UI 弹窗持有部署事务。
+                DeveloperModeState developerMode = developerModeConfirmed
+                    ? DeveloperModeState.Unknown
+                    : platform.ReadDeveloperModeState();
+                Log.Information("Provider 注册前检查，操作={OperationId}，开发者模式={DeveloperMode}，已确认重试={Confirmed}",
+                    operationId, developerMode, developerModeConfirmed);
+                if (developerMode == DeveloperModeState.Disabled && !allowDeveloperMode)
+                {
+                    stage = DeploymentStage.Registering;
+                    await storage.RecordStageAsync(stage);
+                    return await CompensateAsync(new ProviderRegistrationResult(
+                        ProviderRegistrationStatus.DeveloperModeConfirmationRequired,
+                        null,
+                        "注册前检查发现开发者模式未开启。",
+                        string.Empty,
+                        storage.ManifestPath)
+                    {
+                        Stage = stage,
+                        ConfigurationSaved = saved
+                    }, operationId);
+                }
+
+                ProviderRegistrationMode mode = developerModeConfirmed || developerMode == DeveloperModeState.Disabled
+                    ? ProviderRegistrationMode.TemporaryDeveloperMode
+                    : ProviderRegistrationMode.Normal;
                 stage = DeploymentStage.Publishing;
                 Log.Debug("Provider 部署进入阶段，操作={OperationId}，阶段={Stage}", operationId, stage);
                 await storage.RecordStageAsync(stage);
-                // 同一包外进程先发布再尝试普通注册；脚本返回后根据结果记录最后确认的阶段。
+                // 普通路径保持合并执行；已知需要开发者模式时跳过预期失败的普通注册。
                 ProviderRegistrationResult registration = await platform.PublishAndRegisterAsync(
                     storage.CandidatePath,
                     plan!,
-                    allowDeveloperMode,
+                    mode,
                     default);
+                if (mode == ProviderRegistrationMode.Normal &&
+                    registration.Stage == DeploymentStage.Registering &&
+                    registration.Status == ProviderRegistrationStatus.DeveloperModeConfirmationRequired &&
+                    allowDeveloperMode)
+                {
+                    // 读取失败或设置在检查后发生变化时仅兜底一次，重用已发布文件，不形成重试循环。
+                    stage = DeploymentStage.Registering;
+                    await storage.RecordStageAsync(stage);
+                    Log.Information("普通注册需要开发者模式，执行单次提权兜底，操作={OperationId}", operationId);
+                    registration = await platform.RegisterWithTemporaryDeveloperModeAsync(default);
+                }
+
                 stage = registration.Stage;
                 Log.Debug("Provider 部署进入阶段，操作={OperationId}，阶段={Stage}", operationId, stage);
                 await storage.RecordStageAsync(stage);

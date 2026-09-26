@@ -14,6 +14,21 @@ public enum DeploymentCompensation { NotNeeded, ProviderDisabled, Failed }
 /// <summary>启动只读探测结果，UI 可在准备大量文件之前切换加载遮罩。</summary>
 internal sealed record DeploymentInspection(bool Installed, bool ResourcesCurrent);
 
+/// <summary>开发者模式开关的预检查结果；无法读取时仍允许尝试普通注册。</summary>
+internal enum DeveloperModeState
+{
+    Enabled,
+    Disabled,
+    Unknown
+}
+
+/// <summary>协调器选定的注册方式；平台不再自行决定是否提权重试。</summary>
+internal enum ProviderRegistrationMode
+{
+    Normal,
+    TemporaryDeveloperMode
+}
+
 /// <summary>图片清理允许部分失败；调用方可观察跳过原因，而不是误以为全部删除成功。</summary>
 internal sealed record ImageCleanupResult(int Deleted, IReadOnlyList<string> Diagnostics);
 
@@ -40,12 +55,16 @@ internal interface IProviderDeploymentPlatform
     Task<bool> IsInstalledAsync(CancellationToken token);
     Task RemoveAsync(CancellationToken token);
     Task StopAsync(CancellationToken token);
-    /// <summary>先发布经过验证的候选，再于同一包外进程尝试普通注册；失败结果指出最后确认阶段。</summary>
+    /// <summary>只读预检查，不修改系统设置；异常通过 Unknown 表达，不解释为关闭。</summary>
+    DeveloperModeState ReadDeveloperModeState();
+    /// <summary>先发布候选再按指定方式注册；普通方式共享进程，提权方式保留独立权限边界。</summary>
     Task<ProviderRegistrationResult> PublishAndRegisterAsync(
         string candidatePath,
         ProviderDeploymentPlan plan,
-        bool allowDeveloperMode,
+        ProviderRegistrationMode mode,
         CancellationToken token);
+    /// <summary>仅提权注册已发布的版本；用于普通注册失败后的单次兜底，不再次发布文件。</summary>
+    Task<ProviderRegistrationResult> RegisterWithTemporaryDeveloperModeAsync(CancellationToken token);
 }
 
 /// <summary>

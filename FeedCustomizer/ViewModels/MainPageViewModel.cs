@@ -443,15 +443,35 @@ namespace FeedCustomizer.ViewModels
         /// 用户在 UI 层确认后开启自动开发者模式，并重新尝试 Provider 注册。
         /// 重试结果直接返回给 UI 层，避免针对同一次失败重复触发错误提示事件。
         /// </summary>
-        public async Task<ProviderRegistrationResult> RetryProviderRegistrationWithAutoDeveloperModeAsync()
+        /// <param name="failure">已由用户确认的开发者模式失败结果，补偿失败时禁止重试。</param>
+        public async Task<ProviderRegistrationResult> RetryProviderRegistrationWithAutoDeveloperModeAsync(ProviderRegistrationResult failure)
         {
-            // 此重试由 UI 已确认的操作触发；直接返回结果，避免再次触发同一失败事件导致重复弹窗。
-            SettingsLoader.SetAutoEnableDeveloperMode(true);
-            ProviderRegistrationResult result = await ProviderDeployment.Current.ApplyAsync(null, true, true);
-            if (result.ProviderEnabled is bool enabled) _lastConfirmedProviderEnabled = enabled;
-            IsFeedProviderEnabled = _lastConfirmedProviderEnabled;
+            if (failure.Status != ProviderRegistrationStatus.DeveloperModeConfirmationRequired ||
+                failure.Compensation == Core.Deployment.DeploymentCompensation.Failed)
+            {
+                throw new ArgumentException("仅允许重试已确认且补偿完成的开发者模式注册失败。", nameof(failure));
+            }
 
-            return result;
+            BeginLoading();
+            try
+            {
+                // 此重试由 UI 已确认的操作触发；直接返回结果，避免再次触发同一失败事件导致重复弹窗。
+                SettingsLoader.SetAutoEnableDeveloperMode(true);
+                ProviderRegistrationResult result = await ProviderDeployment.Current.ApplyAsync(
+                    null, true, true, developerModeConfirmed: true);
+                if (result.ProviderEnabled is bool enabled)
+                {
+                    _lastConfirmedProviderEnabled = enabled;
+                }
+
+                IsFeedProviderEnabled = _lastConfirmedProviderEnabled;
+
+                return result;
+            }
+            finally
+            {
+                EndLoading();
+            }
         }
 
         /// <summary>

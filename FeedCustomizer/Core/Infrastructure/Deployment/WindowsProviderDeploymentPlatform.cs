@@ -14,7 +14,7 @@ using Windows.Management.Deployment;
 
 namespace FeedCustomizer.Core.Infrastructure.Deployment;
 
-/// <summary>Provider 平台实现；查询与卸载使用系统 API，文件发布和注册共用包外 PowerShell。</summary>
+/// <summary>Provider 平台实现；查询与卸载使用系统 API，发布和注册在包外执行，提权仅覆盖临时设置与注册。</summary>
 internal sealed class WindowsProviderDeploymentPlatform(ProviderDeploymentPowerShellAdapter deployed) : IProviderDeploymentPlatform
 {
     private static readonly IAppLog Log = AppLog.For<WindowsProviderDeploymentPlatform>();
@@ -165,77 +165,78 @@ internal sealed class WindowsProviderDeploymentPlatform(ProviderDeploymentPowerS
         await Task.CompletedTask;
     }
 
-    /// <summary>普通注册与文件发布共享进程；发布失败禁止注册，开发者模式重试维持独立提权边界。</summary>
+    /// <summary>通过注册表 API 预检查，不发起注册或提权。</summary>
+    public DeveloperModeState ReadDeveloperModeState()
+    {
+        return DeveloperModeRegistry.ReadState();
+    }
+
+    /// <summary>执行协调器指定的注册路径；发布失败禁止注册，不在平台层自行重试。</summary>
     public async Task<ProviderRegistrationResult> PublishAndRegisterAsync(
         string candidatePath,
         ProviderDeploymentPlan plan,
-        bool allowDeveloperMode,
+        ProviderRegistrationMode mode,
         CancellationToken token)
     {
         string manifest = AppDataPaths.ManifestPath;
-        ProviderPublicationAttempt attempt = await deployed.PublishAndRegisterAsync(
-            candidatePath,
-            plan,
-            manifest,
-            token);
+        ProviderPublicationAttempt attempt = mode == ProviderRegistrationMode.Normal
+            ? await deployed.PublishAndRegisterAsync(candidatePath, plan, manifest, token)
+            : await deployed.PublishAsync(candidatePath, plan, token);
         Log.Information(
-            "Provider 发布及普通注册完成，范围={Scope}，覆盖文件数={CopyCount}，最后确认阶段={Stage}，退出码={ExitCode}，耗时毫秒={ElapsedMilliseconds}，发布片段耗时毫秒={PublicationElapsedMilliseconds}，普通注册片段耗时毫秒={RegistrationElapsedMilliseconds}",
+            "Provider 发布脚本完成，范围={Scope}，覆盖文件数={CopyCount}，最后确认阶段={Stage}，退出码={ExitCode}，耗时毫秒={ElapsedMilliseconds}，发布片段耗时毫秒={PublicationElapsedMilliseconds}，普通注册片段耗时毫秒={RegistrationElapsedMilliseconds}，注册方式={Mode}",
             plan.Scope,
             plan.CopyPaths.Count,
             attempt.Stage,
             attempt.Result.ExitCode,
             attempt.ElapsedMilliseconds,
             attempt.PublicationElapsedMilliseconds,
-            attempt.RegistrationElapsedMilliseconds);
+            attempt.RegistrationElapsedMilliseconds,
+            mode);
 
-        var result = attempt.Result;
-        if (attempt.Stage == DeploymentStage.Publishing)
+        if (attempt.Result.ExitCode != 0)
         {
-            return ProviderRegistrationResult.Failed(manifest, result.ExitCode, result.Error, result.Output) with
+            return CreateRegistrationResult(attempt.Result,
+                allowDeveloperModeConfirmation: mode == ProviderRegistrationMode.Normal && attempt.Stage == DeploymentStage.Registering) with
             {
-                Stage = DeploymentStage.Publishing
+                Stage = attempt.Stage
             };
         }
 
-        if (result.ExitCode == 0)
+        if (mode == ProviderRegistrationMode.TemporaryDeveloperMode)
         {
-            return ProviderRegistrationResult.Success(manifest) with
-            {
-                Stage = DeploymentStage.Registering
-            };
+            return await RegisterWithTemporaryDeveloperModeAsync(token);
         }
 
-        bool developerModeRequired = result.Error.Contains("0x80073CFF", StringComparison.OrdinalIgnoreCase) ||
-            result.Output.Contains("0x80073CFF", StringComparison.OrdinalIgnoreCase);
-        if (developerModeRequired)
+        return ProviderRegistrationResult.Success(manifest) with
         {
-            if (!allowDeveloperMode)
-            {
-                return new(ProviderRegistrationStatus.DeveloperModeConfirmationRequired, result.ExitCode, result.Error, result.Output, manifest)
-                {
-                    Stage = DeploymentStage.Registering
-                };
-            }
+            Stage = DeploymentStage.Registering
+        };
+    }
 
-            result = await PowerShellInfrastructure.DeveloperMode.RegisterPackageAsync(manifest, token);
-            if (result.ExitCode == 0)
-            {
-                return ProviderRegistrationResult.Success(manifest) with
-                {
-                    Stage = DeploymentStage.Registering
-                };
-            }
+    /// <summary>仅注册已发布文件；提权失败不会再次要求开发者模式确认，避免循环弹窗。</summary>
+    public async Task<ProviderRegistrationResult> RegisterWithTemporaryDeveloperModeAsync(CancellationToken token)
+    {
+        Stopwatch stopwatch = Stopwatch.StartNew();
+        PowerShellResult result = await PowerShellInfrastructure.DeveloperMode.RegisterPackageAsync(AppDataPaths.ManifestPath, token);
+        Log.Information("Provider 临时开发者模式注册完成，退出码={ExitCode}，耗时毫秒={ElapsedMilliseconds}",
+            result.ExitCode, stopwatch.ElapsedMilliseconds);
+        return CreateRegistrationResult(result, allowDeveloperModeConfirmation: false);
+    }
 
-            if (result.ExitCode == PowerShellExitCodes.ElevationCancelled)
-            {
-                return new(ProviderRegistrationStatus.ElevationCancelled, result.ExitCode, result.Error, result.Output, manifest)
-                {
-                    Stage = DeploymentStage.Registering
-                };
-            }
-        }
-
-        return ProviderRegistrationResult.Failed(manifest, result.ExitCode, result.Error, result.Output) with
+    /// <summary>只在普通注册错误中识别开发者模式需求；所有路径保留原始退出码及诊断。</summary>
+    private static ProviderRegistrationResult CreateRegistrationResult(PowerShellResult result, bool allowDeveloperModeConfirmation)
+    {
+        string manifest = AppDataPaths.ManifestPath;
+        ProviderRegistrationStatus status = result.ExitCode switch
+        {
+            0 => ProviderRegistrationStatus.Success,
+            PowerShellExitCodes.ElevationCancelled => ProviderRegistrationStatus.ElevationCancelled,
+            _ when allowDeveloperModeConfirmation &&
+                (result.Error.Contains("0x80073CFF", StringComparison.OrdinalIgnoreCase) ||
+                 result.Output.Contains("0x80073CFF", StringComparison.OrdinalIgnoreCase)) => ProviderRegistrationStatus.DeveloperModeConfirmationRequired,
+            _ => ProviderRegistrationStatus.Failed
+        };
+        return new ProviderRegistrationResult(status, result.ExitCode, result.Error, result.Output, manifest)
         {
             Stage = DeploymentStage.Registering
         };

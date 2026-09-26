@@ -167,7 +167,7 @@ namespace FeedCustomizer.Pages
                         return;
                     }
 
-                    result = await ViewModel.RetryProviderRegistrationWithAutoDeveloperModeAsync();
+                    result = await ViewModel.RetryProviderRegistrationWithAutoDeveloperModeAsync(result);
                     if (result.Succeeded)
                     {
                         return;

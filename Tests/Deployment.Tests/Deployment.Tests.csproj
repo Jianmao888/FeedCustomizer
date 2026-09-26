@@ -23,6 +23,7 @@
     <Compile Include="../../FeedCustomizer/Core/Models/Feed.cs" Link="Core/Feed.cs" />
     <Compile Include="../../FeedCustomizer/Core/Constants/Constants.cs" Link="Core/Constants.cs" />
     <Compile Include="../../FeedCustomizer/Core/Infrastructure/Deployment/DeploymentFiles.cs" Link="Core/DeploymentFiles.cs" />
+    <Compile Include="../../FeedCustomizer/Core/Infrastructure/Deployment/DeveloperModeRegistry.cs" Link="Core/DeveloperModeRegistry.cs" />
     <Compile Include="../../FeedCustomizer/Core/Infrastructure/PowerShell/IPowerShellExecutor.cs" Link="Core/IPowerShellExecutor.cs" />
     <Compile Include="../../FeedCustomizer/Core/Infrastructure/PowerShell/PowerShellScript.cs" Link="Core/PowerShellScript.cs" />
     <Compile Include="../../FeedCustomizer/Core/Infrastructure/PowerShell/PowerShellScriptComposer.cs" Link="Core/PowerShellScriptComposer.cs" />
