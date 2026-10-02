@@ -113,7 +113,6 @@ internal sealed class ApplicationDocumentService
             ? !string.Equals(previousState.PackageVersion, currentVersion, StringComparison.Ordinal)
             : legacyPrivateHelpExists;
         bool catalogIsCurrent = previousState is not null &&
-            previousState.CatalogSchema == ApplicationDocumentCatalog.SchemaVersion &&
             string.Equals(previousState.PackageVersion, currentVersion, StringComparison.Ordinal);
 
         if (!catalogIsCurrent || forceForMissingEntry)
@@ -138,7 +137,6 @@ internal sealed class ApplicationDocumentService
             cleanupAttemptedVersion = currentVersion;
             _storage.WriteState(new ApplicationDocumentState(
                 currentVersion,
-                ApplicationDocumentCatalog.SchemaVersion,
                 cleanupAttemptedVersion,
                 LegacyCleanupCompleted: false));
             LegacyDocumentCleanupResult cleanup = await _storage.RemoveLegacyHelpAsync(cancellationToken);
@@ -156,7 +154,6 @@ internal sealed class ApplicationDocumentService
 
         var currentState = new ApplicationDocumentState(
             currentVersion,
-            ApplicationDocumentCatalog.SchemaVersion,
             cleanupAttemptedVersion,
             cleanupCompleted);
         if (previousState != currentState)

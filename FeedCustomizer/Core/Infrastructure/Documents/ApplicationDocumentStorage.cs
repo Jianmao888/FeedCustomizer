@@ -91,9 +91,9 @@ internal sealed class ApplicationDocumentStorage : IApplicationDocumentStorage
                 throw new InvalidDataException("应用文档状态根节点无效。");
             }
 
+            // 旧状态中的 CatalogSchema 已不参与更新判断，忽略它可避免同包版本的安装发生额外同步或状态重写。
             return new ApplicationDocumentState(
                 (string?)root.Attribute("PackageVersion") ?? string.Empty,
-                (int?)root.Attribute("CatalogSchema") ?? 0,
                 (string?)root.Attribute("LegacyCleanupAttemptedVersion") ?? string.Empty,
                 (bool?)root.Attribute("LegacyCleanupCompleted") ?? false);
         }
@@ -118,7 +118,6 @@ internal sealed class ApplicationDocumentStorage : IApplicationDocumentStorage
                 new XElement(
                     StateElement,
                     new XAttribute("PackageVersion", state.PackageVersion),
-                    new XAttribute("CatalogSchema", state.CatalogSchema),
                     new XAttribute("LegacyCleanupAttemptedVersion", state.LegacyCleanupAttemptedVersion),
                     new XAttribute("LegacyCleanupCompleted", state.LegacyCleanupCompleted)));
             document.Save(temporary);

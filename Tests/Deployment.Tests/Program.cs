@@ -295,6 +295,7 @@ var tests = new (string Name, Func<Task> Run)[]
     ("开发者模式脚本捕获操作与恢复错误", DeveloperModeCapturesFailureDiagnosticsAsync),
     ("临时开发者模式脚本执行恢复和错误合并", DeveloperModeScriptIntegrationAsync),
     ("同版本文档维护不启动PowerShell", CurrentDocumentMaintenanceSkipsCleanupAsync),
+    ("旧文档结构版本不触发同包版本同步或状态重写", LegacyDocumentSchemaDoesNotTriggerSynchronizationAsync),
     ("全新安装同步文档但不启动PowerShell", FreshDocumentInstallationSkipsCleanupAsync),
     ("应用更新同步文档并且每版本只清理一次", UpdatedDocumentMaintenanceCleansOnceAsync),
     ("文档被手动删除时只从包内自愈", MissingDocumentSelfHealingSkipsCleanupAsync),
@@ -1406,7 +1407,7 @@ static async Task CurrentDocumentMaintenanceSkipsCleanupAsync()
 {
     var storage = new FakeDocumentStorage
     {
-        State = new ApplicationDocumentState("2.0.0.0", ApplicationDocumentCatalog.SchemaVersion, "2.0.0.0", true),
+        State = new ApplicationDocumentState("2.0.0.0", "2.0.0.0", true),
         DocumentPath = "C:\\private\\Documents\\Help\\en-US.html",
     };
     var service = new ApplicationDocumentService(storage);
@@ -1416,6 +1417,40 @@ static async Task CurrentDocumentMaintenanceSkipsCleanupAsync()
     Check(storage.ReplaceCalls == 0);
     Check(storage.CleanupCalls == 0);
     Check(storage.WriteStateCalls == 0);
+}
+
+static async Task LegacyDocumentSchemaDoesNotTriggerSynchronizationAsync()
+{
+    using var directory = new TestDirectory();
+    AppDataPaths.TestRoot = directory.Path;
+    var executor = new CapturingExecutor();
+    var storage = new ApplicationDocumentStorage(
+        System.IO.Path.Combine(directory.Path, "package", "Documents"),
+        AppDataPaths.PackageLocalDocumentsFolder,
+        AppDataPaths.PackageLocalDocumentsStatePath,
+        AppDataPaths.LegacyPackageLocalHelpDocFolder,
+        "2.0.0.0",
+        new LegacyDocumentPowerShellAdapter(executor));
+    var service = new ApplicationDocumentService(storage);
+    Directory.CreateDirectory(System.IO.Path.GetDirectoryName(AppDataPaths.PackageLocalDocumentsStatePath)!);
+
+    // 保留未完成的历史清理状态，并故意不创建包内文档源：若误判需要同步或清理，维护就会失败。
+    // 旧属性的数值和可解析性均不应影响包版本判断，也不能让同版本启动主动重写状态文件。
+    foreach (string schema in new[] { "1", "3", "invalid" })
+    {
+        string legacyXml = $"""
+            <ApplicationDocuments PackageVersion="2.0.0.0" CatalogSchema="{schema}"
+                LegacyCleanupAttemptedVersion="1.0.0.0" LegacyCleanupCompleted="false" />
+            """;
+        File.WriteAllText(AppDataPaths.PackageLocalDocumentsStatePath, legacyXml);
+        Check(storage.ReadState() == new ApplicationDocumentState("2.0.0.0", "1.0.0.0", false));
+
+        await service.MaintainAfterStartupAsync();
+
+        Check(File.ReadAllText(AppDataPaths.PackageLocalDocumentsStatePath) == legacyXml);
+        Check(!Directory.Exists(AppDataPaths.PackageLocalDocumentsFolder));
+        Check(executor.Script is null);
+    }
 }
 
 static async Task FreshDocumentInstallationSkipsCleanupAsync()
@@ -1434,7 +1469,7 @@ static async Task UpdatedDocumentMaintenanceCleansOnceAsync()
 {
     var storage = new FakeDocumentStorage
     {
-        State = new ApplicationDocumentState("1.0.0.0", ApplicationDocumentCatalog.SchemaVersion, "1.0.0.0", false),
+        State = new ApplicationDocumentState("1.0.0.0", "1.0.0.0", false),
         DocumentPath = "C:\\private\\Documents\\Help\\en-US.html",
     };
     var service = new ApplicationDocumentService(storage);
@@ -1453,7 +1488,7 @@ static async Task MissingDocumentSelfHealingSkipsCleanupAsync()
 {
     var storage = new FakeDocumentStorage
     {
-        State = new ApplicationDocumentState("2.0.0.0", ApplicationDocumentCatalog.SchemaVersion, "2.0.0.0", true),
+        State = new ApplicationDocumentState("2.0.0.0", "2.0.0.0", true),
     };
     var service = new ApplicationDocumentService(storage);
 
@@ -1532,9 +1567,10 @@ static async Task DocumentStorageReplacesCompleteCatalogAsync()
     Check(privacyFallback is not null && privacyFallback.EndsWith("en-US.html", StringComparison.Ordinal));
     Check(executor.Script is null);
 
-    var state = new ApplicationDocumentState("2.0.0.0", ApplicationDocumentCatalog.SchemaVersion, string.Empty, true);
+    var state = new ApplicationDocumentState("2.0.0.0", string.Empty, true);
     storage.WriteState(state);
     Check(storage.ReadState() == state);
+    Check(XDocument.Load(AppDataPaths.PackageLocalDocumentsStatePath).Root!.Attribute("CatalogSchema") is null);
 }
 
 static void CreateWorkspace(string root)

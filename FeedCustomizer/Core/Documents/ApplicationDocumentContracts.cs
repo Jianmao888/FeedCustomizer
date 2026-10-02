@@ -58,11 +58,10 @@ public sealed record ApplicationDocumentResult(
 }
 
 /// <summary>
-/// 文档目录的持久化状态。清理尝试版本单独记录，保证一次失败不会让普通启动反复创建 PowerShell 进程。
+/// 文档目录以应用包版本作为唯一更新标志。清理尝试版本单独记录，保证一次失败不会让普通启动反复创建 PowerShell 进程。
 /// </summary>
 internal sealed record ApplicationDocumentState(
     string PackageVersion,
-    int CatalogSchema,
     string LegacyCleanupAttemptedVersion,
     bool LegacyCleanupCompleted);
 

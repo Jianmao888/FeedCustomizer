@@ -9,9 +9,6 @@ namespace FeedCustomizer.Core.Documents;
 /// </summary>
 internal static class ApplicationDocumentCatalog
 {
-    // 新增随包文档时提升架构版本，确保旧安装在更新后会原子替换完整目录。
-    internal const int SchemaVersion = 3;
-
     private static readonly IReadOnlyDictionary<ApplicationDocumentKind, DocumentDescriptor> Descriptors =
         new Dictionary<ApplicationDocumentKind, DocumentDescriptor>
         {
