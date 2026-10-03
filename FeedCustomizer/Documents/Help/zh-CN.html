@@ -116,6 +116,26 @@
                 font-size: 0.9rem;
                 font-family: 'Consolas', 'Monaco', monospace;
                 color: #1e293b;
+                overflow-wrap: anywhere;
+            }
+
+            .card-desc h3 {
+                margin: 1.2rem 0 0.6rem;
+                font-size: 1.05rem;
+                font-weight: 600;
+                color: #0b1e33;
+            }
+
+        .command-block {
+            margin: 0.6rem 0;
+            padding: 0.6rem 0.8rem;
+            background: #eef2f6;
+            border-radius: 4px;
+            white-space: pre-wrap;
+        }
+
+            .command-block code {
+                padding: 0;
             }
 
         .step-list {
@@ -253,7 +273,7 @@
             <span>源自定义工具 · 帮助文档</span>
         </h1>
         <div class="subheading">
-            使用本工具前，请了解以下功能及其适用条件。开发者选项和地区限制均可在应用的“设置 → 高级”中处理。
+            开发者选项、地区限制和小组件网页数据均可在“设置 → 高级”中管理。
         </div>
 
         <div class="prereq-section">
@@ -264,20 +284,19 @@
                     <span class="card-title">自动启用开发者选项</span>
                 </div>
                 <div class="card-desc">
-                    <p>启用设置中的“自动启用开发者选项”后，应用每次安装自定义源时都会临时开启 Windows 开发者选项，完成操作后自动关闭。</p>
-                    <ul class="step-list">
-                        <li>打开本工具的 <strong>设置</strong> → <strong>高级</strong>。</li>
-                        <li>开启 <code>自动启用开发者选项</code> 配置即可，无需每次手动切换系统设置。</li>
-                        <li>关闭此配置后，如需继续注册自定义源，则需要按照 Windows 的提示手动开启开发者选项。</li>
-                    </ul>
+                    <p>开启“自动启用开发者选项”后，应用会在安装自定义源时临时开启 Windows 开发者选项，完成后恢复原状态。</p>
+                    <ol class="step-list">
+                        <li>打开“<strong>设置</strong> → <strong>高级</strong>”。</li>
+                        <li>开启“自动启用开发者选项”。</li>
+                        <li>若关闭此功能，则需要按提示手动开启开发者选项。</li>
+                    </ol>
                     <div class="action-hint">
-                        Windows 系统设置中的名称可能显示为“开发者模式”或“开发者选项”
+                        Windows 中的名称可能显示为“开发者模式”或“开发者选项”。
                     </div>
 
                     <!-- 安全警告 -->
                     <div class="warning-box">
-                        <strong>⚠️ 安全提示：</strong> 开发者选项可能会降低设备安全性。应用只会在执行需要该权限的操作期间临时开启，完成后自动恢复原状态。<br>
-                        <span style="font-size:0.92rem; display:inline-block; margin-top:0.2rem;">关闭开发者选项后，已添加的自定义源依旧会正常显示，不影响已有功能。</span>
+                        <strong>⚠️ 安全提示：</strong> 开发者选项可能会降低设备安全性。应用仅在必要操作期间临时开启，完成后恢复原状态。关闭开发者选项不影响已添加的自定义源。
                     </div>
                 </div>
             </div>
@@ -289,23 +308,22 @@
                     <span class="card-title">解除自定义源地区限制</span>
                 </div>
                 <div class="card-desc">
-                    <p>如果当前设备的“设备设置地区”不是欧盟成员国，可以使用设置中的“解除自定义源地区限制”功能，强制允许显示第三方自定义源。</p>
-                    <ul class="step-list">
-                        <li>打开本工具的 <strong>设置</strong> → <strong>高级</strong>。</li>
-                        <li>点击 <code>解除限制</code>，确认警告并按提示授予管理员权限。</li>
-                        <li>修改成功后，重启小组件，或注销并重新登录 Windows，使配置生效。</li>
-                    </ul>
+                    <p>如果设备的“设备设置地区”不是欧盟成员国，可使用此功能允许小组件面板显示第三方自定义源。</p>
+                    <ol class="step-list">
+                        <li>打开“<strong>设置</strong> → <strong>高级</strong>”。</li>
+                        <li>点击“解除限制”，确认警告并授予管理员权限。</li>
+                        <li>成功后重启电脑，或注销并重新登录 Windows。</li>
+                    </ol>
 
                     <div class="warning-box">
-                        <strong>⚠️ 风险提示：</strong> 此功能会通过修改 Windows 系统配置的方式强行开启自定义源显示，可能影响系统相关功能或稳定性。请在确认理解风险后再使用，并确保重要数据已有备份。<br>
-                        <span style="font-size:0.92rem; display:inline-block; margin-top:0.2rem;">系统更新可能会覆盖此修改，导致地区限制恢复；如需继续使用，可能需要重新执行解除限制操作。</span>
+                        <strong>⚠️ 风险提示：</strong> 此功能会修改 Windows 系统配置，可能影响相关功能或稳定性。请理解风险并备份重要数据后使用。系统更新可能恢复地区限制，届时需要重新解除。
                     </div>
 
                     <div class="eu-list">
-                        <strong>手动修改设备设置区域：</strong> Windows 无法在系统设置中直接修改“设备设置地区”。如需修改，请参考以下博客的说明，使用终端命令进行操作：
-                        <a href="https://lxnchan.cn/change-windows-installtion-region.html" target="_blank">修改Windows设备设置区域 · Lxn-Chan!</a>
+                        <strong>手动修改设备设置地区：</strong> Windows 无法在系统设置中直接修改此项，可参考
+                        <a href="https://lxnchan.cn/change-windows-installtion-region.html" target="_blank">修改 Windows 设备设置区域 · Lxn-Chan!</a>。
                         <div style="margin-top: 0.2rem; font-size:0.9rem; color: #1e3a5f;">
-                            ⚠️ 该博客并非由工具作者撰写，仅作为操作参考。请仔细阅读操作步骤，并自行评估风险。
+                            该博客并非工具作者撰写，仅供参考，请自行评估风险。
                         </div>
                     </div>
                 </div>
@@ -318,31 +336,44 @@
                     <span class="card-title">清除小组件网页数据</span>
                 </div>
                 <div class="card-desc">
-                    <p>可在 <strong>设置</strong> → <strong>高级</strong> 中使用“清除数据”重置小组件面板网页保存的本地数据。</p>
+                    <p>在“<strong>设置</strong> → <strong>高级</strong>”中点击“清除数据”，可重置小组件面板网页保存的本地数据。</p>
                     <ul class="step-list">
-                        <li>确认警告后，应用会关闭当前小组件面板并清除其网页本地数据。</li>
-                        <li>清理范围包括缓存、登录状态、站点存储，以及由其他应用管理的源保存的数据。</li>
-                        <li>下次打开小组件面板时，Windows 会创建新的网页数据；如有云端同步，部分内容可能重新出现。</li>
+                        <li>确认后，应用会关闭小组件面板，并清除缓存、登录状态、站点存储等数据，包括其他应用管理的源保存的数据。</li>
+                        <li>再次打开面板时，Windows 会重新创建网页数据；云端同步的内容可能恢复。</li>
                     </ul>
                     <div class="warning-box">
-                        <strong>⚠️ 数据提示：</strong> 此操作不可撤销，且会影响其他应用管理的源。若小组件进程持续占用数据，应用会提示无法删除；请关闭小组件面板后重试。
+                        <strong>⚠️ 数据提示：</strong> 此操作不可撤销，且会影响其他应用管理的源。若提示数据被占用，请关闭小组件面板后重试。
                     </div>
                 </div>
             </div>
 
-            <!-- 3. WinUI3 小组件 -->
+            <!-- 排查步骤按恢复成本递增排列，旧版地区策略问题单独说明。 -->
             <div class="prereq-card">
                 <div class="card-header">
-                    <span class="step-number">条件 1</span>
-                    <span class="card-title">WinUI 3 小组件</span>
+                    <span class="step-number">故障排查</span>
+                    <span class="card-title">启用失败或启用后不显示</span>
                 </div>
                 <div class="card-desc">
-                    <p>需确保 WinUI 3 小组件处于激活状态，具体样式参见下方示例。</p>
-                    <div class="img-indicator">
-                        <img src="winui3.png" alt="WinUI 3 小组件示意">
-                    </div>
-                    <div class="confirm-tag">
-                        ✅ 确认方式：打开小组件，若左侧有一个侧边栏则说明已经开启
+                    <p>请依次尝试，问题解决后即可停止：</p>
+                    <ol class="step-list">
+                        <li><strong>解除地区限制：</strong>在“设置 → 高级”中解除限制，然后重启电脑，或注销并重新登录 Windows。</li>
+                        <li><strong>清理后重新启用：</strong>关闭“自定义源”开关，在文件资源管理器地址栏输入 <code>%LOCALAPPDATA%\FeedCustomProvider</code>，删除该文件夹内的所有文件和子文件夹，再重新启用自定义源。该路径通常为 <code>C:\Users\用户名\AppData\Local\FeedCustomProvider</code>，请仅清理此文件夹中的内容。</li>
+                        <li><strong>重置应用：</strong>在开始菜单中右键点击“资讯源自定义工具”，选择“更多 → 应用设置”（或直接选择“应用设置”），点击“重置”，完成后重新配置并启用。重置会清除应用本地数据和设置，请提前备份。</li>
+                    </ol>
+
+                    <h3>旧版工具解除限制后，Windows 11 26H2 中不显示</h3>
+                    <p>请先修复系统文件，再用当前版本工具重新解除限制：</p>
+                    <ol class="step-list">
+                        <li>右键点击开始按钮，打开“终端（管理员）”，依次执行以下命令，等待第一条成功完成后再执行第二条：
+                            <pre class="command-block"><code>DISM /Online /Cleanup-Image /RestoreHealth
+sfc /scannow</code></pre>
+                        </li>
+                        <li>修复完成后重启电脑，使用当前版本工具重新解除地区限制。</li>
+                        <li>再次重启电脑，或注销并重新登录 Windows，然后检查自定义源。</li>
+                    </ol>
+                    <div class="ref-box">
+                        修复期间请保持联网，等待命令完成再关闭终端。参考：
+                        <a href="https://support.microsoft.com/zh-cn/windows/experience/backup-recovery/using-system-file-checker-in-windows" target="_blank">微软系统文件修复说明</a>。
                     </div>
                 </div>
             </div>
@@ -350,7 +381,7 @@
 
         <!-- 免责声明 -->
         <div class="disclaimer">
-            <strong>免责声明：</strong> 由于用户在修改系统配置时操作不当，或因第三方应用、网页造成的任何损失，均与本软件开发者无关。请用户自行评估风险，谨慎操作。
+            <strong>免责声明：</strong> 由于用户修改系统配置时操作不当，或因第三方应用、网页造成的任何损失，均与本软件开发者无关。请自行评估风险，谨慎操作。
         </div>
     </div>
 </body>
