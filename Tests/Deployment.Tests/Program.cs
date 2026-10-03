@@ -292,6 +292,8 @@ var tests = new (string Name, Func<Task> Run)[]
     ("损坏用户清单阻止模板覆盖", CorruptWorkspaceAsync),
     ("小组件数据清理跨调用串行且保留锁定结果", WidgetDataResetCoordinatorAsync),
     ("地区策略脚本只使用执行器临时诊断", RegionPolicyUsesTemporaryDiagnosticsAsync),
+    ("地区策略只替换目标值并保留原始字节", RegionPolicyPreservesBytesAsync),
+    ("地区策略拒绝歧义和损坏输入且不写入", RegionPolicyRejectsUnsafeEditsAsync),
     ("开发者模式脚本捕获操作与恢复错误", DeveloperModeCapturesFailureDiagnosticsAsync),
     ("临时开发者模式脚本执行恢复和错误合并", DeveloperModeScriptIntegrationAsync),
     ("同版本文档维护不启动PowerShell", CurrentDocumentMaintenanceSkipsCleanupAsync),
@@ -1247,6 +1249,155 @@ static async Task RegionPolicyUsesTemporaryDiagnosticsAsync()
         });
     Check(executionResult.ExitCode == 3);
     Check(executionResult.Error.Contains("File not found", StringComparison.Ordinal));
+}
+
+static async Task RegionPolicyPreservesBytesAsync()
+{
+    const string original = """
+        {
+          "policies": [
+            { "guid": "other-policy", "defaultState": "disabled" },
+            {
+              "$comment": "中文注释与表情 📰 不应使字节偏移错位。",
+              "guid": "{16d2b50e-fa7c-4bb1-ab17-01d766530b3b}",
+              "defaultState": "disabled",
+              "conditions": { "region": { "enabled": ["AT", "CN"], "disabled": [] } }
+            }
+          ]
+        }
+        """;
+    int valueOffset = original.IndexOf("\"defaultState\": \"disabled\"", original.IndexOf("$comment", StringComparison.Ordinal), StringComparison.Ordinal)
+        + "\"defaultState\": \"".Length;
+    string expected = original[..valueOffset] + "enabled" + original[(valueOffset + "disabled".Length)..];
+
+    using var directory = new TestDirectory();
+    foreach (bool withBom in new[] { false, true })
+    {
+        foreach (string newLine in new[] { "\n", "\r\n" })
+        {
+            foreach (bool trailingNewLine in new[] { false, true })
+            {
+                string path = System.IO.Path.Combine(directory.Path, "policy.json");
+                string marker = System.IO.Path.Combine(directory.Path, "permissions.txt");
+                var encoding = new System.Text.UTF8Encoding(withBom, true);
+                string suffix = trailingNewLine ? newLine : string.Empty;
+                byte[] originalBytes = encoding.GetPreamble().Concat(encoding.GetBytes(original.ReplaceLineEndings(newLine) + suffix)).ToArray();
+                byte[] expectedBytes = encoding.GetPreamble().Concat(encoding.GetBytes(expected.ReplaceLineEndings(newLine) + suffix)).ToArray();
+                File.WriteAllBytes(path, originalBytes);
+                File.Delete(marker);
+                PowerShellScript script = await CreateRegionPolicySandboxScriptAsync(path, marker);
+                var executor = new PowerShellProcessExecutor();
+
+                PowerShellResult first = await executor.ExecuteAsync(script);
+                if (first.ExitCode != 0)
+                {
+                    throw new Exception($"地区策略字节替换失败：{first.Error}");
+                }
+
+                Check(File.ReadAllBytes(path).SequenceEqual(expectedBytes));
+                Check(expectedBytes.Length == originalBytes.Length - 1);
+                Check(File.Exists(marker));
+
+                // 第二次执行不进入权限操作，也不能通过重写相同内容伪装成幂等。
+                File.Delete(marker);
+                DateTime sentinel = new(2020, 1, 2, 3, 4, 5, DateTimeKind.Utc);
+                File.SetLastWriteTimeUtc(path, sentinel);
+                PowerShellResult second = await executor.ExecuteAsync(script);
+                Check(second.ExitCode == 0);
+                Check(File.ReadAllBytes(path).SequenceEqual(expectedBytes));
+                Check(File.GetLastWriteTimeUtc(path) == sentinel);
+                Check(!File.Exists(marker));
+            }
+        }
+    }
+}
+
+static async Task RegionPolicyRejectsUnsafeEditsAsync()
+{
+    const string guid = "{16d2b50e-fa7c-4bb1-ab17-01d766530b3b}";
+    string policy = "{\"guid\":\"" + guid + "\",\"defaultState\":\"disabled\"}";
+    string valid = "{\"policies\":[" + policy + "]}";
+    var encoding = new System.Text.UTF8Encoding(false, true);
+    (string Name, byte[] Bytes, int ExitCode)[] cases =
+    [
+        ("目标缺失", encoding.GetBytes("{\"policies\":[]}"), 2),
+        ("目标重复", encoding.GetBytes("{\"policies\":[" + policy + "," + policy + "]}"), 1),
+        ("状态未知", encoding.GetBytes(valid.Replace("disabled", "unknown", StringComparison.Ordinal)), 1),
+        ("字段缺失", encoding.GetBytes("{\"policies\":[{\"guid\":\"" + guid + "\"}]}"), 1),
+        ("字段顺序变化", encoding.GetBytes("{\"policies\":[{\"defaultState\":\"disabled\",\"guid\":\"" + guid + "\"}]}"), 1),
+        ("不跨越其他属性", encoding.GetBytes(valid.Replace("\",\"defaultState", "\",\"extra\":{},\"defaultState", StringComparison.Ordinal)), 1),
+        ("文本定位歧义", encoding.GetBytes("{\"policies\":[" + policy + "],\"extra\":" + policy + "}"), 1),
+        ("重复状态导致候选校验失败", encoding.GetBytes(valid.Replace("\"defaultState\":\"disabled\"", "\"defaultState\":\"disabled\",\"defaultState\":\"disabled\"", StringComparison.Ordinal)), 1),
+        ("JSON 损坏", encoding.GetBytes(valid[..^1]), 1),
+        ("UTF-8 损坏", encoding.GetBytes(valid).Concat(new byte[] { 0xFF }).ToArray(), 1),
+        ("UTF-16 不自动转码", System.Text.Encoding.Unicode.GetPreamble().Concat(System.Text.Encoding.Unicode.GetBytes(valid)).ToArray(), 1)
+    ];
+
+    using var directory = new TestDirectory();
+    string path = System.IO.Path.Combine(directory.Path, "policy.json");
+    string marker = System.IO.Path.Combine(directory.Path, "permissions.txt");
+    foreach (var test in cases)
+    {
+        File.WriteAllBytes(path, test.Bytes);
+        File.Delete(marker);
+        PowerShellScript script = await CreateRegionPolicySandboxScriptAsync(path, marker);
+        PowerShellResult result = await new PowerShellProcessExecutor().ExecuteAsync(script);
+        if (result.ExitCode != test.ExitCode)
+        {
+            throw new Exception($"地区策略未按预期拒绝{test.Name}，退出码={result.ExitCode}，诊断={result.Error}");
+        }
+
+        Check(!string.IsNullOrWhiteSpace(result.Error));
+        Check(File.ReadAllBytes(path).SequenceEqual(test.Bytes));
+        Check(!File.Exists(marker));
+    }
+
+    // 在权限阶段模拟外部文件更新，不能覆盖更新后的内容。
+    File.WriteAllBytes(path, encoding.GetBytes(valid));
+    byte[] conflictingBytes = encoding.GetBytes(valid + "\r\n");
+    PowerShellScript conflictScript = await CreateRegionPolicySandboxScriptAsync(path, marker, conflictingBytes);
+    PowerShellResult conflict = await new PowerShellProcessExecutor().ExecuteAsync(conflictScript);
+    Check(conflict.ExitCode == 1);
+    Check(conflict.Error.Contains("changed before writing", StringComparison.Ordinal));
+    Check(File.ReadAllBytes(path).SequenceEqual(conflictingBytes));
+}
+
+static async Task<PowerShellScript> CreateRegionPolicySandboxScriptAsync(string path, string permissionMarker, byte[]? conflictingBytes = null)
+{
+    var capture = new CapturingExecutor();
+    await new RegionPolicyPowerShellAdapter(capture).EnablePolicyAsync("policy.json", "{16d2b50e-fa7c-4bb1-ab17-01d766530b3b}");
+    PowerShellScript generated = capture.Script ?? throw new Exception("未捕获地区策略脚本。");
+    const string systemPathLine = "$policyPath = [System.IO.Path]::Combine([System.Environment]::SystemDirectory, $policyFileName)";
+    Check(generated.Content.Contains(systemPathLine, StringComparison.Ordinal));
+    Check(!generated.Content.Contains("ConvertTo-Json", StringComparison.Ordinal));
+    Check(generated.Content.All(character => character <= 0x7F));
+
+    // 只把固定系统路径改为测试临时文件，并遮蔽权限命令；内容处理仍执行真实生成脚本。
+    string conflictAction = conflictingBytes is null
+        ? "'mock attributes'"
+        : $"[IO.File]::WriteAllBytes({PowerShellLiteral.Quote(path)}, [Convert]::FromBase64String({PowerShellLiteral.Quote(Convert.ToBase64String(conflictingBytes))}))";
+    string permissionStubs = $$"""
+        function icacls
+        {
+            [IO.File]::AppendAllText({{PowerShellLiteral.Quote(permissionMarker)}}, 'mock ACL')
+        }
+        function takeown
+        {
+            'mock owner'
+        }
+        function attrib
+        {
+            {{conflictAction}}
+        }
+        """;
+    return generated with
+    {
+        RequiresElevation = false,
+        Content = permissionStubs + Environment.NewLine + generated.Content.Replace(
+            systemPathLine,
+            "$policyPath = " + PowerShellLiteral.Quote(path),
+            StringComparison.Ordinal)
+    };
 }
 
 static async Task PowerShellFailureLoggingAsync()
