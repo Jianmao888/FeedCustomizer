@@ -1,3 +1,4 @@
+using FeedCustomizer.Core.Infrastructure.Images;
 using FeedCustomizer.Core.Infrastructure.Storage;
 using System;
 using System.Collections.Generic;
@@ -189,7 +190,7 @@ namespace FeedCustomizer.Core.Tools
             }
             catch
             {
-                ImageHelper.DeleteImage(fullPath);
+                ImageFileStorage.DeleteImage(fullPath);
                 throw;
             }
 

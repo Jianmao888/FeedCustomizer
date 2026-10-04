@@ -1,5 +1,4 @@
 using FeedCustomizer.Core.Interface;
-using FeedCustomizer.Core.Tools;
 using Microsoft.Windows.ApplicationModel.Resources;
 using System.Threading;
 using System.Threading.Tasks;

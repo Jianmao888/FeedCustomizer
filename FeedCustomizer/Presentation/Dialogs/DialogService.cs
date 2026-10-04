@@ -11,10 +11,11 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Windows.ApplicationModel.Resources;
 
-namespace FeedCustomizer.Core.Tools
+namespace FeedCustomizer.Presentation.Dialogs
 {
     /// <summary>
-    /// 负责在主窗口上以串行方式展示各类 ContentDialog。
+    /// 主窗口的统一对话框呈现入口。复用窗口初始化时提供的调度器、共享显示锁和启动信号，
+    /// 使不同页面请求遵守既有显示顺序。
     /// </summary>
     public static class DialogService
     {
@@ -28,6 +29,10 @@ namespace FeedCustomizer.Core.Tools
         private static FeedbackService? _feedbackService;
         private static Func<IntPtr>? _windowHandleProvider;
 
+        /// <summary>
+        /// 在主窗口导航页面前绑定 UI 环境、共享显示锁与反馈服务，
+        /// 后续页面请求继续使用这里保存的窗口状态，不各自创建独立显示队列。
+        /// </summary>
         internal static void Initialize(
             DispatcherQueue dispatcherQueue,
             Func<XamlRoot?> xamlRootProvider,
@@ -59,6 +64,7 @@ namespace FeedCustomizer.Core.Tools
             }
         }
 
+        /// <summary>标记首次运行说明的待显示状态；无需说明时立即解除后续启动弹窗的等待。</summary>
         public static void SetFirstRunDialogPending(bool pending)
         {
             EnsureInitialized();
@@ -69,6 +75,7 @@ namespace FeedCustomizer.Core.Tools
             }
         }
 
+        /// <summary>启动视觉结束后排队展示普通消息，调度与显示异常向调用方传播。</summary>
         public static Task ShowMessageAsync(string title, string content, string closeButtonText)
         {
             EnsureInitialized();
@@ -118,6 +125,7 @@ namespace FeedCustomizer.Core.Tools
             return await ShowConfirmAsync(title, content, primaryButtonText, closeButtonText);
         }
 
+        /// <summary>等待启动视觉和首次运行说明结束后展示可发送反馈的启动错误。</summary>
         public static async Task ShowStartupFailureAsync(string title, string details)
         {
             EnsureInitialized();
@@ -172,6 +180,7 @@ namespace FeedCustomizer.Core.Tools
             });
         }
 
+        /// <summary>等待启动视觉结束后展示首次运行说明；显示尝试结束时解除后续启动提示的等待。</summary>
         public static async Task ShowFirstRunAsync()
         {
             EnsureInitialized();
@@ -203,6 +212,7 @@ namespace FeedCustomizer.Core.Tools
             }
         }
 
+        /// <summary>使用网页图标错误的本地化标题展示统一反馈弹窗，避免另建专用错误流程。</summary>
         public static Task ShowWebIconFetchErrorAsync(string details)
         {
             var resources = new ResourceLoader();

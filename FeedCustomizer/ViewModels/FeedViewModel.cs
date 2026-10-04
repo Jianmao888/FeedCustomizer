@@ -2,9 +2,11 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using FeedCustomizer.Core.Constants;
 using FeedCustomizer.Core.DataService;
+using FeedCustomizer.Core.Infrastructure.Images;
 using FeedCustomizer.Core.Infrastructure.Logging;
 using FeedCustomizer.Core.Models;
 using FeedCustomizer.Core.Tools;
+using FeedCustomizer.Presentation.Images;
 using Microsoft.UI.Xaml.Media.Imaging;
 using Microsoft.Windows.ApplicationModel.Resources;
 using System;
@@ -77,7 +79,7 @@ namespace FeedCustomizer.ViewModels
 
         /// <summary>源图标（用于主列表卡片显示）。</summary>
         public BitmapImage BitmapImage =>
-            new(new Uri(ImageHelper.GetImageFullPathFromXmlRelativePath(ImagePath)));
+            new(new Uri(ImageFileStorage.GetImageFullPathFromXmlRelativePath(ImagePath)));
 
         /// <summary>是否使用默认图片。</summary>
         public bool UsesDefaultImage => string.Equals(
@@ -142,7 +144,7 @@ namespace FeedCustomizer.ViewModels
             if (!UsesDefaultImage)
             {
                 PreviewImage = new BitmapImage(
-                    new Uri(ImageHelper.GetImageFullPathFromXmlRelativePath(ImagePath)));
+                    new Uri(ImageFileStorage.GetImageFullPathFromXmlRelativePath(ImagePath)));
             }
         }
 
@@ -203,7 +205,7 @@ namespace FeedCustomizer.ViewModels
             ImagePath = Path.Combine("Images", imageName);
             CanClearImage = true;
             PreviewImage = new BitmapImage(
-                new Uri(ImageHelper.GetImageFullPathFromXmlRelativePath(ImagePath)));
+                new Uri(ImageFileStorage.GetImageFullPathFromXmlRelativePath(ImagePath)));
             CheckCanSave();
         }
 
@@ -238,7 +240,7 @@ namespace FeedCustomizer.ViewModels
             Url = iconResult.PageUri.AbsoluteUri;
             SetDownloadedImage(iconResult.RelativeIconPath);
             return await ImageHelper.LoadImageFromPathAsync(
-                ImageHelper.GetImageFullPathFromXmlRelativePath(iconResult.RelativeIconPath))
+                ImageFileStorage.GetImageFullPathFromXmlRelativePath(iconResult.RelativeIconPath))
                 ?? throw new InvalidDataException("网页图标已保存，但无法加载预览。");
         }
 

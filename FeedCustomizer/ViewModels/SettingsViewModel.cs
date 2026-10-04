@@ -8,7 +8,7 @@ using FeedCustomizer.Core.Infrastructure.Logging;
 using FeedCustomizer.Core.Interface;
 using FeedCustomizer.Core.Region;
 using FeedCustomizer.Core.Settings;
-using FeedCustomizer.Core.Tools;
+using FeedCustomizer.Presentation.Dialogs;
 using FeedCustomizer.Core.Models;
 using FeedCustomizer.Core.WidgetData;
 using AppConstants = FeedCustomizer.Core.Constants.Constants;

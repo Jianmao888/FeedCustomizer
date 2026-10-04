@@ -106,7 +106,7 @@ FeedCustomizer/
 │   │   ├── Donations/ # 捐赠者版查询与购买用例
 │   │   ├── Region/   # 地区判断、缓存与策略修改用例
 │   │   └── Infrastructure/ # 文件、存储和 Windows 平台实现
-│   ├── Presentation/ # 共享界面适配（UI 调度、外部打开、设置确认）
+│   ├── Presentation/ # 共享界面适配（UI 调度、外部打开、弹窗、图片选择与预览）
 │   ├── Pages/        # 页面（主页、添加/编辑源、设置）
 │   ├── ViewModels/   # 视图模型
 │   ├── Models/       # 数据模型

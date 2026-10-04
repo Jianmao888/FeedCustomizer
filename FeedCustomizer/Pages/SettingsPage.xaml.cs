@@ -3,7 +3,6 @@ using FeedCustomizer.Core.Documents;
 using FeedCustomizer.Core.Feedback;
 using FeedCustomizer.Core.Interface;
 using FeedCustomizer.Core.Infrastructure.Logging;
-using FeedCustomizer.Core.Tools;
 using FeedCustomizer.Presentation.Dialogs;
 using FeedCustomizer.ViewModels;
 using Microsoft.UI.Xaml;

@@ -9,7 +9,7 @@ using FeedCustomizer.Core.Infrastructure.PowerShell;
 using FeedCustomizer.Core.Feedback;
 using FeedCustomizer.Core.Region;
 using FeedCustomizer.Core.Settings;
-using FeedCustomizer.Core.Tools;
+using FeedCustomizer.Presentation.Dialogs;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;

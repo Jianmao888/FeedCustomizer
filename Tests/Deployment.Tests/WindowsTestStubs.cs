@@ -61,6 +61,38 @@ namespace FeedCustomizer.Core.Infrastructure.Storage
         internal static string PackageLocalLogPath => Path.Combine(TestRoot, "private", "Local", "Logs");
         internal static string FeedProviderFolder => Path.Combine(TestRoot, "real", "FeedCustomProvider");
         internal static string ManifestPath => Path.Combine(FeedProviderFolder, "AppxManifest.xml");
+        internal static string ImagesFolder => Path.Combine(PackageLocalFeedProviderFolder, "Images");
+    }
+}
+
+namespace Windows.Storage
+{
+    /// <summary>只将测试选定的文件交给真实复制实现，不调用文件选择器或真实 WinRT 存储。</summary>
+    internal sealed class StorageFile(string path)
+    {
+        public string Name => System.IO.Path.GetFileName(path);
+
+        /// <summary>提供由复制实现释放的源流，保留选择文件后的流所有权。</summary>
+        public Task<TestStorageReadStream> OpenReadAsync()
+        {
+            return Task.FromResult(new TestStorageReadStream(File.OpenRead(path)));
+        }
+    }
+
+    /// <summary>模拟 WinRT 源流到 .NET 流的转换，只包装测试文件。</summary>
+    internal sealed class TestStorageReadStream(Stream stream) : IDisposable
+    {
+        /// <summary>借出已有流；生命周期由源流包装统一管理。</summary>
+        public Stream AsStream()
+        {
+            return stream;
+        }
+
+        /// <summary>释放源流，使测试能够观察复制结束后的文件占用。</summary>
+        public void Dispose()
+        {
+            stream.Dispose();
+        }
     }
 }
 

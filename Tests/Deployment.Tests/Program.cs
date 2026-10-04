@@ -445,7 +445,8 @@ tests =
     .. SettingsMigrationTests.Cases,
     .. DonationMigrationTests.Cases,
     .. RegionMigrationTests.Cases,
-    .. UiThreadRunnerTests.Cases
+    .. UiThreadRunnerTests.Cases,
+    .. ImageStorageMigrationTests.Cases
 ];
 
 foreach (var test in tests)

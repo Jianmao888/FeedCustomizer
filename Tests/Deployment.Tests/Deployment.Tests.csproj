@@ -53,5 +53,6 @@
     <Compile Include="../../FeedCustomizer/Core/Infrastructure/Region/RegionPolicyJsonParser.cs" Link="Core/RegionPolicyJsonParser.cs" />
     <Compile Include="../../FeedCustomizer/Core/Infrastructure/Region/WindowsRegionPlatform.cs" Link="Core/WindowsRegionPlatform.cs" />
     <Compile Include="../../FeedCustomizer/Presentation/Threading/UiThreadRunner.cs" Link="Presentation/UiThreadRunner.cs" />
+    <Compile Include="../../FeedCustomizer/Core/Infrastructure/Images/ImageFileStorage.cs" Link="Core/ImageFileStorage.cs" />
   </ItemGroup>
 </Project>
