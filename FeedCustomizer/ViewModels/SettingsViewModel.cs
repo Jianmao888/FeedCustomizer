@@ -2,8 +2,12 @@
 using CommunityToolkit.Mvvm.Input;
 using FeedCustomizer.Core.Constants;
 using FeedCustomizer.Core.Documents;
+using FeedCustomizer.Core.Donations;
 using FeedCustomizer.Core.Feedback;
 using FeedCustomizer.Core.Infrastructure.Logging;
+using FeedCustomizer.Core.Interface;
+using FeedCustomizer.Core.Region;
+using FeedCustomizer.Core.Settings;
 using FeedCustomizer.Core.Tools;
 using FeedCustomizer.Core.Models;
 using FeedCustomizer.Core.WidgetData;
@@ -13,6 +17,7 @@ using Microsoft.UI.Xaml.Media.Imaging;
 using Microsoft.Windows.ApplicationModel.Resources;
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using Windows.ApplicationModel;
 
@@ -28,7 +33,14 @@ namespace FeedCustomizer.ViewModels
         private readonly ResourceLoader _resourceLoader = new();
         private readonly FeedbackService _feedbackService;
         private readonly ApplicationDocumentService _documents;
+        private readonly IAppSettings _settings;
+        private readonly DonationService _donations;
+        private readonly RegionService _region;
+        private readonly ISettingsInteraction _interaction;
         private readonly string _documentLanguageTag;
+
+        // 查询可能早于购买发起；已确认的购买不能被较晚返回的旧许可证快照覆盖。
+        private bool _donationPurchaseConfirmed;
 
         /// <summary>Store 购买与许可证查询所需的窗口句柄，由页面初始化时传入。</summary>
         private IntPtr _windowHandle = IntPtr.Zero;
@@ -168,6 +180,12 @@ namespace FeedCustomizer.ViewModels
         /// <summary>请求显示或隐藏加载遮罩。</summary>
         public event EventHandler<bool>? LoadingOverlayRequested;
 
+        /// <summary>请求页面应用已经保存的主题，ViewModel 不直接访问窗口或控件。</summary>
+        public event EventHandler<string>? ThemeChangeRequested;
+
+        /// <summary>请求页面应用已经保存的背景材质，窗口适配由页面完成。</summary>
+        public event EventHandler<string>? MaterialChangeRequested;
+
         /// <summary>请求页面展示不带反馈按钮的普通结果，防止反馈功能自身失败后递归发送反馈。</summary>
         public event EventHandler<SettingsMessageRequestedEventArgs>? MessageRequested;
 
@@ -181,10 +199,18 @@ namespace FeedCustomizer.ViewModels
         internal SettingsViewModel(
             FeedbackService feedbackService,
             ApplicationDocumentService documents,
+            IAppSettings settings,
+            DonationService donations,
+            RegionService region,
+            ISettingsInteraction interaction,
             string documentLanguageTag)
         {
             _feedbackService = feedbackService;
             _documents = documents;
+            _settings = settings;
+            _donations = donations;
+            _region = region;
+            _interaction = interaction;
             _documentLanguageTag = documentLanguageTag;
             _isInitializing = true;
             LoadSettings();
@@ -194,30 +220,30 @@ namespace FeedCustomizer.ViewModels
         /// <summary>加载持久化的设置项，并映射为页面控件的初始值。</summary>
         private void LoadSettings()
         {
-            ThemeIndex = SettingsLoader.GetAppTheme() switch
+            ThemeIndex = _settings.GetAppTheme() switch
             {
                 "Light" => 1,
                 "Dark" => 2,
                 _ => 0
             };
 
-            MaterialIndex = SettingsLoader.GetAppMaterial() switch
+            MaterialIndex = _settings.GetAppMaterial() switch
             {
                 "MicaAlt" => 1,
                 "Acrylic" => 2,
                 _ => 0
             };
 
-            IsAutoDeveloperModeEnabled = SettingsLoader.GetAutoEnableDeveloperMode();
+            IsAutoDeveloperModeEnabled = _settings.GetAutoEnableDeveloperMode();
         }
 
         /// <summary>
         /// 页面初始化：记录窗口句柄，并在后台刷新捐赠者版购买状态，不阻塞页面展示。
         /// </summary>
-        public async Task InitializeAsync(IntPtr windowHandle)
+        public async Task InitializeAsync(IntPtr windowHandle, CancellationToken cancellationToken = default)
         {
             _windowHandle = windowHandle;
-            await RefreshDonationStateAsync();
+            await RefreshDonationStateAsync(cancellationToken);
         }
 
         // =====================
@@ -237,20 +263,8 @@ namespace FeedCustomizer.ViewModels
                 2 => "Dark",
                 _ => "System"
             };
-            var theme = value switch
-            {
-                1 => ElementTheme.Light,
-                2 => ElementTheme.Dark,
-                _ => ElementTheme.Default
-            };
-
-            SettingsLoader.SetAppTheme(themeSetting);
-            AppThemeManager.CurrentTheme = theme;
-            if (App.MainWindow?.Content is FrameworkElement root)
-            {
-                root.RequestedTheme = theme;
-            }
-            AppThemeManager.UpdateTitleBarColors();
+            _settings.SetAppTheme(themeSetting);
+            ThemeChangeRequested?.Invoke(this, themeSetting);
         }
 
         partial void OnMaterialIndexChanged(int value)
@@ -266,14 +280,8 @@ namespace FeedCustomizer.ViewModels
                 2 => "Acrylic",
                 _ => "Mica"
             };
-            SettingsLoader.SetAppMaterial(materialSetting);
-            AppThemeManager.CurrentMaterial = materialSetting switch
-            {
-                "MicaAlt" => BackgroundMaterial.MicaAlt,
-                "Acrylic" => BackgroundMaterial.Acrylic,
-                _ => BackgroundMaterial.Mica
-            };
-            AppThemeManager.ApplyMaterial();
+            _settings.SetAppMaterial(materialSetting);
+            MaterialChangeRequested?.Invoke(this, materialSetting);
         }
 
         partial void OnIsAutoDeveloperModeEnabledChanged(bool value)
@@ -283,7 +291,7 @@ namespace FeedCustomizer.ViewModels
                 return;
             }
 
-            SettingsLoader.SetAutoEnableDeveloperMode(value);
+            _settings.SetAutoEnableDeveloperMode(value);
         }
 
         // =====================
@@ -292,26 +300,28 @@ namespace FeedCustomizer.ViewModels
 
         /// <summary>
         /// 在后台查询 Store 许可证，判断捐赠者版是否已购买。
-        /// 设置最长等待 5 秒，避免许可证服务无响应时拖慢页面。
+        /// 查询期限由应用服务控制；失败时保留已确认状态，不把无法查询解释为未购买。
         /// </summary>
-        private async Task RefreshDonationStateAsync()
+        private async Task RefreshDonationStateAsync(CancellationToken cancellationToken)
         {
-            var checkTask = DonationService.IsDonorEditionPurchasedAsync(_windowHandle);
-            var timeoutTask = Task.Delay(TimeSpan.FromSeconds(5));
-            var completedTask = await Task.WhenAny(checkTask, timeoutTask);
-
-            bool purchased =
-                completedTask == checkTask &&
-                checkTask.Status == TaskStatus.RanToCompletion &&
-                checkTask.Result;
-
-            IsDonorEditionPurchased = purchased;
+            DonationLicenseResult result = await _donations.GetLicenseAsync(_windowHandle, cancellationToken);
+            if (result.Status == DonationLicenseStatus.Purchased)
+            {
+                IsDonorEditionPurchased = true;
+            }
+            else if (result.Status == DonationLicenseStatus.NotPurchased && !_donationPurchaseConfirmed)
+            {
+                IsDonorEditionPurchased = false;
+            }
+            else if (result.Status is DonationLicenseStatus.Failed or DonationLicenseStatus.TimedOut)
+            {
+                Log.Warning("捐赠者版状态暂不可用，状态={LicenseStatus}，诊断={Diagnostic}", result.Status, result.Diagnostic);
+            }
         }
 
         /// <summary>根据解锁结果拼装带诊断信息的失败提示。</summary>
-        private static string BuildRegionPolicyFailureMessage(string baseMessage)
+        private static string BuildRegionPolicyFailureMessage(string baseMessage, string diagnostics)
         {
-            string? diagnostics = RegionPolicyService.LastDiagnostics;
             return string.IsNullOrWhiteSpace(diagnostics)
                 ? baseMessage
                 : baseMessage + Environment.NewLine + Environment.NewLine + diagnostics;
@@ -511,27 +521,37 @@ namespace FeedCustomizer.ViewModels
         /// 购买捐赠者版：先确认，再通过 Store 完成购买，成功后更新感谢文案状态。
         /// </summary>
         [RelayCommand]
-        private async Task DonateAsync()
+        private async Task DonateAsync(CancellationToken cancellationToken)
         {
-            bool confirmed = await DialogService.ShowConfirmAsync(
-                _resourceLoader.GetString("DonationConfirmTitle"),
-                _resourceLoader.GetString("DonationConfirmMessage"),
-                _resourceLoader.GetString("DonationConfirmPrimaryButtonText"),
-                _resourceLoader.GetString("DonationConfirmCloseButtonText"));
-
-            if (!confirmed)
+            try
             {
-                return;
+                if (!await _interaction.ConfirmDonationAsync(cancellationToken))
+                {
+                    return;
+                }
+
+                DonationPurchaseResult result = await _donations.PurchaseAsync(_windowHandle, cancellationToken);
+                if (result.Status is DonationPurchaseStatus.Purchased or DonationPurchaseStatus.AlreadyPurchased)
+                {
+                    _donationPurchaseConfirmed = true;
+                    IsDonorEditionPurchased = true;
+                }
+                else if (result.Status == DonationPurchaseStatus.Failed)
+                {
+                    Log.Warning("Store 购买失败，诊断={Diagnostic}", result.Diagnostic);
+                    RequestError(
+                        _resourceLoader.GetString("DonationErrorTitle"),
+                        _resourceLoader.GetString("DonationErrorMessage"),
+                        FeedbackSource.Donation);
+                }
             }
-
-            DonationPurchaseResult result = await DonationService.PurchaseDonorEditionAsync(_windowHandle);
-
-            if (result is DonationPurchaseResult.Purchased or DonationPurchaseResult.AlreadyPurchased)
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
-                IsDonorEditionPurchased = true;
+                Log.Debug("设置页结束，捐赠流程已取消");
             }
-            else if (result == DonationPurchaseResult.Failed)
+            catch (Exception ex)
             {
+                Log.Error(ex, "设置页捐赠流程失败");
                 RequestError(
                     _resourceLoader.GetString("DonationErrorTitle"),
                     _resourceLoader.GetString("DonationErrorMessage"),
@@ -543,59 +563,68 @@ namespace FeedCustomizer.ViewModels
         /// 解除第三方小组件源的地区限制：先确认，再执行提权脚本，并按结果展示反馈。
         /// </summary>
         [RelayCommand]
-        private async Task UnlockRegionPolicyAsync()
+        private async Task UnlockRegionPolicyAsync(CancellationToken cancellationToken)
         {
-            bool confirmed = await DialogService.ShowConfirmAsync(
-                _resourceLoader.GetString("RegionPolicyWarningTitle"),
-                _resourceLoader.GetString("RegionPolicyWarningMessage"),
-                _resourceLoader.GetString("RegionPolicyWarningPrimaryButtonText"),
-                _resourceLoader.GetString("DonationConfirmCloseButtonText"));
-
-            if (!confirmed)
-            {
-                return;
-            }
-
-            LoadingOverlayRequested?.Invoke(this, true);
-            RegionPolicyOperationResult result;
             try
             {
-                result = await RegionPolicyService.EnableThirdPartyWidgetFeedAsync();
+                if (!await _interaction.ConfirmRegionUnlockAsync(cancellationToken))
+                {
+                    return;
+                }
+
+                LoadingOverlayRequested?.Invoke(this, true);
+                RegionPolicyOperationResult result;
+                try
+                {
+                    result = await _region.EnablePolicyAsync(cancellationToken);
+                }
+                finally
+                {
+                    LoadingOverlayRequested?.Invoke(this, false);
+                }
+
+                switch (result.Status)
+                {
+                    case RegionPolicyOperationStatus.Success:
+                        RequestMessage(
+                            _resourceLoader.GetString("RegionPolicySuccessTitle"),
+                            _resourceLoader.GetString("RegionPolicySuccessMessage"));
+                        break;
+
+                    case RegionPolicyOperationStatus.Cancelled:
+                        RequestMessage(
+                            _resourceLoader.GetString("RegionPolicyWarningTitle"),
+                            _resourceLoader.GetString("RegionPolicyCancelledMessage"));
+                        break;
+
+                    case RegionPolicyOperationStatus.PolicyNotFound:
+                        RequestError(
+                            _resourceLoader.GetString("RegionPolicyFailureTitle"),
+                            BuildRegionPolicyFailureMessage(
+                                _resourceLoader.GetString("RegionPolicyPolicyNotFoundMessage"), result.Diagnostic),
+                            FeedbackSource.RegionPolicy);
+                        break;
+
+                    default:
+                        RequestError(
+                            _resourceLoader.GetString("RegionPolicyFailureTitle"),
+                            BuildRegionPolicyFailureMessage(
+                                _resourceLoader.GetString("RegionPolicyFailureMessage"), result.Diagnostic),
+                            FeedbackSource.RegionPolicy);
+                        break;
+                }
             }
-            finally
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
-                LoadingOverlayRequested?.Invoke(this, false);
+                Log.Debug("设置页结束，地区解锁流程已取消");
             }
-
-            switch (result)
+            catch (Exception ex)
             {
-                case RegionPolicyOperationResult.Success:
-                    await DialogService.ShowMessageAsync(
-                        _resourceLoader.GetString("RegionPolicySuccessTitle"),
-                        _resourceLoader.GetString("RegionPolicySuccessMessage"),
-                        _resourceLoader.GetString("DialogOK"));
-                    break;
-
-                case RegionPolicyOperationResult.Cancelled:
-                    await DialogService.ShowMessageAsync(
-                        _resourceLoader.GetString("RegionPolicyWarningTitle"),
-                        _resourceLoader.GetString("RegionPolicyCancelledMessage"),
-                        _resourceLoader.GetString("DialogOK"));
-                    break;
-
-                case RegionPolicyOperationResult.PolicyNotFound:
-                    RequestError(
-                        _resourceLoader.GetString("RegionPolicyFailureTitle"),
-                        BuildRegionPolicyFailureMessage(_resourceLoader.GetString("RegionPolicyPolicyNotFoundMessage")),
-                        FeedbackSource.RegionPolicy);
-                    break;
-
-                default:
-                    RequestError(
-                        _resourceLoader.GetString("RegionPolicyFailureTitle"),
-                        BuildRegionPolicyFailureMessage(_resourceLoader.GetString("RegionPolicyFailureMessage")),
-                        FeedbackSource.RegionPolicy);
-                    break;
+                Log.Error(ex, "设置页地区解锁流程失败");
+                RequestError(
+                    _resourceLoader.GetString("RegionPolicyFailureTitle"),
+                    _resourceLoader.GetString("RegionPolicyFailureMessage"),
+                    FeedbackSource.RegionPolicy);
             }
         }
 

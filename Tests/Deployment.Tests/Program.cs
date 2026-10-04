@@ -439,6 +439,15 @@ var tests = new (string Name, Func<Task> Run)[]
     ("伪本地化资源与英文资源同步", PseudoLocalizationResourcesStaySynchronizedAsync)
 };
 
+tests =
+[
+    .. tests,
+    .. SettingsMigrationTests.Cases,
+    .. DonationMigrationTests.Cases,
+    .. RegionMigrationTests.Cases,
+    .. UiThreadRunnerTests.Cases
+];
+
 foreach (var test in tests)
 {
     await test.Run();

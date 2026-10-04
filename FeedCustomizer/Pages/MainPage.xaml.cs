@@ -2,6 +2,7 @@ using FeedCustomizer.Core.Models;
 using FeedCustomizer.Core.Documents;
 using FeedCustomizer.Core.Feedback;
 using FeedCustomizer.Core.Infrastructure.Logging;
+using FeedCustomizer.Core.Settings;
 using FeedCustomizer.Core.Tools;
 using FeedCustomizer.ViewModels;
 using Microsoft.Windows.ApplicationModel.Resources;
@@ -34,7 +35,9 @@ namespace FeedCustomizer.Pages
         public Task InitializationTask => ViewModel.InitializationTask;
 
         /// <summary>是否需要在启动完成后展示首次运行安全说明。</summary>
-        private readonly bool _showFirstRunDialog = SettingsLoader.GetIsFirstRun();
+        private readonly bool _showFirstRunDialog;
+
+        private readonly IAppSettings _settings;
 
         /// <summary>启动失败对话框是否已展示过，避免重复弹出。</summary>
         private bool _startupFailureShown;
@@ -46,8 +49,12 @@ namespace FeedCustomizer.Pages
         {
             MainWindow window = App.MainWindow
                 ?? throw new InvalidOperationException("主窗口尚未创建，无法构造主页文档服务。");
+            _settings = window.Settings;
+            _showFirstRunDialog = _settings.GetIsFirstRun();
             ViewModel = new MainPageViewModel(
                 window.Documents,
+                _settings,
+                window.Region,
                 new ResourceLoader().GetString("LanguageTag"));
             InitializeComponent();
             NavigationCacheMode = NavigationCacheMode.Enabled;
@@ -58,10 +65,30 @@ namespace FeedCustomizer.Pages
             ViewModel.DocumentOpenRequested += OnDocumentOpenRequested;
             ViewModel.DocumentPreparationFailed += OnDocumentPreparationFailed;
             ViewModel.ProviderRegistrationFailed += OnProviderRegistrationFailed;
+            Loaded += MainPage_Loaded;
 
             if (App.MainWindow is MainWindow)
             {
                 DialogService.SetFirstRunDialogPending(_showFirstRunDialog);
+            }
+        }
+
+        /// <summary>页面首次加载与返回时重新检测地区状态，保证解锁后的警告及时更新。</summary>
+        private async void MainPage_Loaded(object sender, RoutedEventArgs e)
+        {
+            _ = sender;
+            _ = e;
+
+            try
+            {
+                // 等待已有初始化完成再刷新，避免页面返回检测与启动阶段绑定状态更新竞争。
+                await ViewModel.InitializationTask;
+                await ViewModel.RefreshRegionStateAsync();
+            }
+            catch (Exception ex)
+            {
+                // 启动失败已由窗口协调器统一提示；页面事件仍需观察检测异常，避免脱离 UI 上下文。
+                Log.Error(ex, "主页加载时刷新地区状态失败");
             }
         }
 
@@ -301,7 +328,7 @@ namespace FeedCustomizer.Pages
             if (_showFirstRunDialog)
             {
                 await DialogService.ShowFirstRunAsync();
-                SettingsLoader.SetIsFirstRun(false);
+                _settings.SetIsFirstRun(false);
             }
 
             if (initializationException is not null && !_startupFailureShown)

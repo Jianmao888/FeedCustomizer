@@ -4,6 +4,7 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <!-- 无额外测试依赖；直接链接不依赖 WinUI 的真实实现，用可执行回归测试覆盖副作用边界。 -->
   <ItemGroup>
@@ -41,5 +42,16 @@
     <Compile Include="../../FeedCustomizer/Core/Infrastructure/PowerShell/LegacyDocumentPowerShellAdapter.cs" Link="Core/LegacyDocumentPowerShellAdapter.cs" />
     <Compile Include="../../FeedCustomizer/Core/WidgetData/IWidgetDataResetPlatform.cs" Link="Core/IWidgetDataResetPlatform.cs" />
     <Compile Include="../../FeedCustomizer/Core/WidgetData/WidgetDataResetCoordinator.cs" Link="Core/WidgetDataResetCoordinator.cs" />
+    <Compile Include="../../FeedCustomizer/Core/Settings/AppSettingsContracts.cs" Link="Core/AppSettingsContracts.cs" />
+    <Compile Include="../../FeedCustomizer/Core/Settings/AppSettingsService.cs" Link="Core/AppSettingsService.cs" />
+    <Compile Include="../../FeedCustomizer/Core/Donations/DonationContracts.cs" Link="Core/DonationContracts.cs" />
+    <Compile Include="../../FeedCustomizer/Core/Donations/DonationService.cs" Link="Core/DonationService.cs" />
+    <Compile Include="../../FeedCustomizer/Core/Region/RegionContracts.cs" Link="Core/RegionContracts.cs" />
+    <Compile Include="../../FeedCustomizer/Core/Region/EuropeanUnionRegionRules.cs" Link="Core/EuropeanUnionRegionRules.cs" />
+    <Compile Include="../../FeedCustomizer/Core/Region/RegionService.cs" Link="Core/RegionService.cs" />
+    <Compile Include="../../FeedCustomizer/Core/Region/RegionDiagnostics.cs" Link="Core/RegionDiagnostics.cs" />
+    <Compile Include="../../FeedCustomizer/Core/Infrastructure/Region/RegionPolicyJsonParser.cs" Link="Core/RegionPolicyJsonParser.cs" />
+    <Compile Include="../../FeedCustomizer/Core/Infrastructure/Region/WindowsRegionPlatform.cs" Link="Core/WindowsRegionPlatform.cs" />
+    <Compile Include="../../FeedCustomizer/Presentation/Threading/UiThreadRunner.cs" Link="Presentation/UiThreadRunner.cs" />
   </ItemGroup>
 </Project>

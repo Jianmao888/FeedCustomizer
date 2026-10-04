@@ -80,7 +80,13 @@ namespace FeedCustomizer.Core.Tools
             });
         }
 
-        public static async Task<bool> ShowConfirmAsync(string title, string content, string primaryButtonText, string closeButtonText)
+        /// <summary>串行显示确认框；调用方取消时停止排队或关闭已显示的确认框，并观察显示操作结束。</summary>
+        public static async Task<bool> ShowConfirmAsync(
+            string title,
+            string content,
+            string primaryButtonText,
+            string closeButtonText,
+            CancellationToken cancellationToken = default)
         {
             EnsureInitialized();
             bool confirmed = false;
@@ -89,9 +95,9 @@ namespace FeedCustomizer.Core.Tools
                 var dialog = new ConfirmDialog();
                 dialog.Configure(title, content, primaryButtonText, closeButtonText);
 
-                var result = await ShowWithGateAsync(dialog);
+                var result = await ShowWithGateAsync(dialog, cancellationToken);
                 confirmed = result == ContentDialogResult.Primary;
-            });
+            }, cancellationToken);
 
             return confirmed;
         }
@@ -234,9 +240,12 @@ namespace FeedCustomizer.Core.Tools
             await ShowWithGateAsync(dialog);
         }
 
-        private static async Task<ContentDialogResult> ShowWithGateAsync(ContentDialog dialog)
+        private static async Task<ContentDialogResult> ShowWithGateAsync(
+            ContentDialog dialog,
+            CancellationToken cancellationToken = default)
         {
             EnsureInitialized();
+            cancellationToken.ThrowIfCancellationRequested();
             var xamlRoot = _xamlRootProvider!();
             if (xamlRoot is null)
             {
@@ -244,10 +253,66 @@ namespace FeedCustomizer.Core.Tools
             }
 
             dialog.XamlRoot = xamlRoot;
-            await _dialogGate!.WaitAsync();
+            await _dialogGate!.WaitAsync(cancellationToken);
             try
             {
-                return await dialog.ShowAsync();
+                cancellationToken.ThrowIfCancellationRequested();
+                DispatcherQueue dispatcherQueue = dialog.DispatcherQueue;
+                bool displayFinished = false;
+
+                void HideDialog()
+                {
+                    if (displayFinished)
+                    {
+                        return;
+                    }
+
+                    try
+                    {
+                        dialog.Hide();
+                    }
+                    catch (Exception ex)
+                    {
+                        // 关闭失败不能从取消回调逃逸，显示操作的最终结果仍由下方 await 观察。
+                        Log.Warning(ex, "取消确认框时关闭控件失败");
+                    }
+                }
+
+                void RequestHide()
+                {
+                    try
+                    {
+                        if (dispatcherQueue.HasThreadAccess)
+                        {
+                            HideDialog();
+                            return;
+                        }
+
+                        if (!dispatcherQueue.TryEnqueue(HideDialog))
+                        {
+                            Log.Warning("窗口调度器已不可用，无法提交确认框取消请求");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Warning(ex, "提交确认框取消请求失败");
+                    }
+                }
+
+                // 先启动显示再注册关闭回调，保证已经取消的令牌不会在 ShowAsync 前无效调用 Hide。
+                var displayOperation = dialog.ShowAsync();
+                using CancellationTokenRegistration registration = cancellationToken.Register(RequestHide);
+                try
+                {
+                    ContentDialogResult result = await displayOperation;
+                    cancellationToken.ThrowIfCancellationRequested();
+                    return result;
+                }
+                finally
+                {
+                    // 已提交但尚未执行的 Hide 回调只读取此 UI 线程标志，不再触碰已结束的弹窗。
+                    displayFinished = true;
+                }
             }
             finally
             {

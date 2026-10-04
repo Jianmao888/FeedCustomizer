@@ -1,9 +1,14 @@
 using FeedCustomizer.Core.Interface;
+using FeedCustomizer.Core.Donations;
+using FeedCustomizer.Core.Infrastructure.Donations;
+using FeedCustomizer.Core.Infrastructure.Region;
 using FeedCustomizer.Core.Infrastructure.Logging;
 using FeedCustomizer.Core.Documents;
 using FeedCustomizer.Core.Infrastructure.Documents;
 using FeedCustomizer.Core.Infrastructure.PowerShell;
 using FeedCustomizer.Core.Feedback;
+using FeedCustomizer.Core.Region;
+using FeedCustomizer.Core.Settings;
 using FeedCustomizer.Core.Tools;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
@@ -43,9 +48,22 @@ namespace FeedCustomizer
         /// <summary>窗口生命周期内唯一的反馈服务，设置页和错误弹窗复用同一串行协调实例。</summary>
         internal FeedbackService Feedback { get; }
 
+        /// <summary>复用应用实例的设置入口，避免窗口重新创建独立设置状态。</summary>
+        internal IAppSettings Settings { get; }
+
+        /// <summary>窗口生命周期内的 Store 用例服务，查询与购买共享同一个平台适配器。</summary>
+        internal DonationService Donations { get; }
+
+        /// <summary>窗口生命周期内的地区服务，主页检测与设置页解锁共享同一个平台边界。</summary>
+        internal RegionService Region { get; }
+
         public MainWindow()
         {
             InitializeComponent();
+
+            Settings = ((App)Application.Current).Settings;
+            Donations = new DonationService(new WindowsDonationStore());
+            Region = new RegionService(new WindowsRegionPlatform(PowerShellInfrastructure.RegionPolicy));
 
             if (Content is FrameworkElement root)
             {
@@ -266,6 +284,15 @@ namespace FeedCustomizer
                 }
 
                 awarePage.OnWindowClosing();
+            }
+
+            if (Region.IsPolicyOperationRunning)
+            {
+                // 先取消页面中尚未开始的请求，再检查服务的关键操作标志，避免检查与启动之间的竞争。
+                // 已开始的地区修改必须观察到有限时操作和权限恢复结束，窗口才能真正退出。
+                args.Cancel = true;
+                Log.Information("地区策略修改或权限恢复尚未完成，暂缓关闭窗口");
+                return;
             }
 
             SaveWindowPlacement();

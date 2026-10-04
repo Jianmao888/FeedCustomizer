@@ -1,5 +1,52 @@
-// 测试仅替换包路径、包版本和显示名称来源，XML 读写/规范化和部署存储均链接真实实现。
-// 这些类型只在独立测试项目编译，不进入 WinUI 应用。
+// 替身提供包路径、包版本、显示名称、日志记录和可控 UI 调度；应用规则与文件操作均链接真实实现。
+// 这些类型只在独立测试项目编译，不进入 WinUI 应用，也不创建真实控件。
+namespace Microsoft.UI.Dispatching
+{
+    /// <summary>显式控制派发时机的最小调度器替身，不创建真实 UI 线程或消息循环。</summary>
+    public sealed class DispatcherQueue
+    {
+        private readonly System.Collections.Concurrent.ConcurrentQueue<Action> _actions = new();
+
+        /// <summary>由测试控制线程访问状态，用于选择直接执行或排队执行。</summary>
+        public bool HasThreadAccess { get; set; }
+
+        internal bool AcceptEnqueue { get; set; } = true;
+
+        internal int PendingCount => _actions.Count;
+
+        /// <summary>保存待执行回调，测试通过显式推进模拟排队与取消之间的时序。</summary>
+        public bool TryEnqueue(Action action)
+        {
+            if (!AcceptEnqueue)
+            {
+                return false;
+            }
+
+            _actions.Enqueue(action);
+            return true;
+        }
+
+        internal void RunNext()
+        {
+            if (!_actions.TryDequeue(out Action? action))
+            {
+                throw new InvalidOperationException("调度器替身没有待执行的回调。");
+            }
+
+            bool previousThreadAccess = HasThreadAccess;
+            HasThreadAccess = true;
+            try
+            {
+                action();
+            }
+            finally
+            {
+                HasThreadAccess = previousThreadAccess;
+            }
+        }
+    }
+}
+
 namespace FeedCustomizer.Core.Infrastructure.Storage
 {
     internal static class AppDataPaths

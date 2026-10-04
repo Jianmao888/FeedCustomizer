@@ -1,4 +1,6 @@
 using FeedCustomizer.Core.Infrastructure.Logging;
+using FeedCustomizer.Core.Infrastructure.Settings;
+using FeedCustomizer.Core.Settings;
 using FeedCustomizer.Core.Tools;
 using Microsoft.UI;
 using Microsoft.UI.Composition.SystemBackdrops;
@@ -21,6 +23,9 @@ namespace FeedCustomizer
 
         /// <summary>应用唯一主窗口。使用具体类型以暴露启动协调和窗口服务能力。</summary>
         public static MainWindow? MainWindow { get; private set; }
+
+        /// <summary>应用实例持有的唯一设置入口，各窗口与页面共享同一份持久化设置。</summary>
+        internal IAppSettings Settings { get; }
 
         public App()
         {
@@ -46,6 +51,7 @@ namespace FeedCustomizer
 
             try
             {
+                Settings = new AppSettingsService(new WindowsSettingsStore());
                 InitializeComponent();
                 SystemInfoLogWriter.WriteStartupEnvironment();
             }
@@ -82,7 +88,7 @@ namespace FeedCustomizer
                 });
             };
 
-            AppThemeManager.LoadSettings();
+            AppThemeManager.LoadSettings(Settings);
             MainWindow = new MainWindow();
             AppThemeManager.SetupTitleBar();
             MainWindow.Activate();
@@ -188,11 +194,12 @@ namespace FeedCustomizer
         public static ElementTheme CurrentTheme = ElementTheme.Default;
         public static BackgroundMaterial CurrentMaterial = BackgroundMaterial.Mica;
 
-        public static void LoadSettings()
+        /// <summary>读取应用实例提供的设置，并在存储失败时保留既有外观降级行为。</summary>
+        public static void LoadSettings(IAppSettings settings)
         {
             try
             {
-                CurrentTheme = SettingsLoader.GetAppTheme() switch
+                CurrentTheme = settings.GetAppTheme() switch
                 {
                     "Light" => ElementTheme.Light,
                     "Dark" => ElementTheme.Dark,
@@ -207,7 +214,7 @@ namespace FeedCustomizer
 
             try
             {
-                CurrentMaterial = SettingsLoader.GetAppMaterial() switch
+                CurrentMaterial = settings.GetAppMaterial() switch
                 {
                     "MicaAlt" => BackgroundMaterial.MicaAlt,
                     "Acrylic" => BackgroundMaterial.Acrylic,

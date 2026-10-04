@@ -1,14 +1,17 @@
 using FeedCustomizer.Core.Constants;
 using FeedCustomizer.Core.Documents;
 using FeedCustomizer.Core.Feedback;
+using FeedCustomizer.Core.Interface;
 using FeedCustomizer.Core.Infrastructure.Logging;
 using FeedCustomizer.Core.Tools;
+using FeedCustomizer.Presentation.Dialogs;
 using FeedCustomizer.ViewModels;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
 using Microsoft.Windows.ApplicationModel.Resources;
 using System;
+using System.Threading;
 
 // To learn more about WinUI, the WinUI project structure,
 // and more about our project templates, see: http://aka.ms/winui-project-info.
@@ -19,7 +22,7 @@ namespace FeedCustomizer.Pages
     /// 设置页：只保留与 UI 强相关的代码（导航参数处理、控件焦点、打开外部链接），
     /// 业务逻辑统一放在 SettingsViewModel 中。
     /// </summary>
-    public sealed partial class SettingsPage : Page
+    public sealed partial class SettingsPage : Page, IWindowCloseAware
     {
         private static readonly IAppLog Log = AppLog.For<SettingsPage>();
 
@@ -28,6 +31,8 @@ namespace FeedCustomizer.Pages
 
         /// <summary>导航到设置页时是否请求聚焦“解除地区限制”按钮。</summary>
         private bool _focusRegionPolicyButton;
+
+        private CancellationTokenSource _pageLifetime = new();
 
         public SettingsPage()
         {
@@ -38,6 +43,10 @@ namespace FeedCustomizer.Pages
             ViewModel = new SettingsViewModel(
                 feedbackService,
                 window.Documents,
+                window.Settings,
+                window.Donations,
+                window.Region,
+                new SettingsInteraction(),
                 new ResourceLoader().GetString("LanguageTag"));
             InitializeComponent();
 
@@ -48,6 +57,8 @@ namespace FeedCustomizer.Pages
             ViewModel.LoadingOverlayRequested += OnLoadingOverlayRequested;
             ViewModel.MessageRequested += OnMessageRequested;
             ViewModel.ErrorRequested += OnErrorRequested;
+            ViewModel.ThemeChangeRequested += OnThemeChangeRequested;
+            ViewModel.MaterialChangeRequested += OnMaterialChangeRequested;
             Loaded += SettingsPage_Loaded;
         }
 
@@ -85,25 +96,128 @@ namespace FeedCustomizer.Pages
         protected override void OnNavigatedTo(NavigationEventArgs e)
         {
             base.OnNavigatedTo(e);
+            if (_pageLifetime.IsCancellationRequested)
+            {
+                _pageLifetime.Dispose();
+                _pageLifetime = new CancellationTokenSource();
+            }
+
             _focusRegionPolicyButton = e.Parameter is string parameter &&
                 parameter == "RegionPolicy";
+        }
+
+        protected override void OnNavigatedFrom(NavigationEventArgs e)
+        {
+            CancelPageOperations();
+            base.OnNavigatedFrom(e);
+        }
+
+        /// <summary>通过窗口已有关闭协议取消设置页操作，不让 Store 查询或购买继续更新离开的页面。</summary>
+        public void OnWindowClosing()
+        {
+            CancelPageOperations();
+        }
+
+        private void CancelPageOperations()
+        {
+            _pageLifetime.Cancel();
+            ViewModel.DonateCommand.Cancel();
+            ViewModel.UnlockRegionPolicyCommand.Cancel();
         }
 
         /// <summary>
         /// 页面加载完成后启动视图模型初始化，并按需聚焦“解除地区限制”按钮。
         /// </summary>
-        private void SettingsPage_Loaded(object sender, RoutedEventArgs e)
+        private async void SettingsPage_Loaded(object sender, RoutedEventArgs e)
         {
             _ = sender;
             _ = e;
 
-            // 设置项已在 ViewModel 构造函数中读取，这里只启动需要窗口句柄的异步初始化。
-            _ = ViewModel.InitializeAsync(GetWindowHandle());
-
-            if (_focusRegionPolicyButton)
+            CancellationToken cancellationToken = _pageLifetime.Token;
+            try
             {
-                _focusRegionPolicyButton = false;
-                FocusRegionPolicyButton();
+                if (_focusRegionPolicyButton)
+                {
+                    _focusRegionPolicyButton = false;
+                    FocusRegionPolicyButton();
+                }
+
+                // 设置项已在构造时读取；许可证查询由页面生命周期取消，并在事件内等待和观察结果。
+                await ViewModel.InitializeAsync(GetWindowHandle(), cancellationToken);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                Log.Debug("设置页离开或窗口关闭，已取消页面初始化");
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "设置页初始化失败");
+            }
+        }
+
+        /// <summary>将主题设置意图转换为窗口外观更新，持久化仍由视图模型交给设置服务。</summary>
+        private void OnThemeChangeRequested(object? sender, string themeSetting)
+        {
+            _ = sender;
+            ApplyAppearanceChange(() =>
+            {
+                ElementTheme theme = themeSetting switch
+                {
+                    "Light" => ElementTheme.Light,
+                    "Dark" => ElementTheme.Dark,
+                    _ => ElementTheme.Default
+                };
+
+                AppThemeManager.CurrentTheme = theme;
+                if (App.MainWindow?.Content is FrameworkElement root)
+                {
+                    root.RequestedTheme = theme;
+                }
+
+                AppThemeManager.UpdateTitleBarColors();
+            }, "theme");
+        }
+
+        /// <summary>将材质设置意图转换为窗口背景更新，不在页面重复写入用户设置。</summary>
+        private void OnMaterialChangeRequested(object? sender, string materialSetting)
+        {
+            _ = sender;
+            ApplyAppearanceChange(() =>
+            {
+                AppThemeManager.CurrentMaterial = materialSetting switch
+                {
+                    "MicaAlt" => BackgroundMaterial.MicaAlt,
+                    "Acrylic" => BackgroundMaterial.Acrylic,
+                    _ => BackgroundMaterial.Mica
+                };
+                AppThemeManager.ApplyMaterial();
+            }, "material");
+        }
+
+        private void ApplyAppearanceChange(Action change, string context)
+        {
+            void ApplyChange()
+            {
+                try
+                {
+                    change();
+                }
+                catch (Exception ex)
+                {
+                    Log.Error(ex, "应用设置页外观请求失败，类型={AppearanceContext}", context);
+                }
+            }
+
+            // 正常绑定回调同步更新外观；若请求来自后台线程，则只在窗口 Dispatcher 上接触控件。
+            if (DispatcherQueue.HasThreadAccess)
+            {
+                ApplyChange();
+                return;
+            }
+
+            if (!DispatcherQueue.TryEnqueue(ApplyChange))
+            {
+                Log.Warning("无法将外观请求提交到窗口 UI 线程，类型={AppearanceContext}", context);
             }
         }
 

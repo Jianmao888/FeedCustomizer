@@ -6,11 +6,14 @@ using FeedCustomizer.Core.Deployment;
 using FeedCustomizer.Core.Documents;
 using FeedCustomizer.Core.Infrastructure.Logging;
 using FeedCustomizer.Core.Models;
+using FeedCustomizer.Core.Region;
+using FeedCustomizer.Core.Settings;
 using FeedCustomizer.Core.Tools;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace FeedCustomizer.ViewModels
@@ -23,6 +26,8 @@ namespace FeedCustomizer.ViewModels
     {
         private static readonly IAppLog Log = AppLog.For<MainPageViewModel>();
         private readonly ApplicationDocumentService _documents;
+        private readonly IAppSettings _settings;
+        private readonly RegionService _region;
         private readonly string _documentLanguageTag;
 
         // =====================
@@ -109,9 +114,13 @@ namespace FeedCustomizer.ViewModels
 
         internal MainPageViewModel(
             ApplicationDocumentService documents,
+            IAppSettings settings,
+            RegionService region,
             string documentLanguageTag)
         {
             _documents = documents;
+            _settings = settings;
+            _region = region;
             _documentLanguageTag = documentLanguageTag;
             // 源集合变化时同步 HasFeeds，便于未来展示空状态。
             Feeds.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasFeeds));
@@ -123,7 +132,7 @@ namespace FeedCustomizer.ViewModels
         /// </summary>
         private async Task InitializeAllFeedsAsync()
         {
-            Task regionInitializationTask = InitializeRegionStateAsync();
+            Task regionInitializationTask = RefreshRegionStateAsync();
             Task feedInitializationTask = InitAsync();
             await Task.WhenAll(regionInitializationTask, feedInitializationTask);
 
@@ -133,28 +142,16 @@ namespace FeedCustomizer.ViewModels
         }
 
         /// <summary>
-        /// 初始化地区状态，并在进程生命周期内缓存检测结果。
+        /// 从窗口共享的地区服务刷新警告；调用方在 UI 线程等待，避免后台直接更新绑定状态。
         /// </summary>
-        private async Task InitializeRegionStateAsync()
+        public async Task RefreshRegionStateAsync(CancellationToken cancellationToken = default)
         {
-            // 如果系统策略已解限，则不展示地区限制警告横幅。
-            bool? cachedIsNonEu = RegionDataService.IsNonEuropeanUnionRegion;
-            bool? cachedIsPolicyEnabled = RegionDataService.IsThirdPartyWidgetFeedEnabled;
-
-            Task<bool> regionTask = cachedIsNonEu is bool isNonEu
-                ? Task.FromResult(isNonEu)
-                : Task.Run(DeviceRegionTool.IsNonEuropeanUnionRegion);
-            Task<bool> policyTask = cachedIsPolicyEnabled is bool isPolicyEnabled
-                ? Task.FromResult(isPolicyEnabled)
-                : RegionPolicyService.IsThirdPartyWidgetFeedEnabledAsync();
-
-            await Task.WhenAll(regionTask, policyTask);
-
-            bool regionResult = regionTask.Result;
-            bool policyResult = policyTask.Result;
-            RegionDataService.IsNonEuropeanUnionRegion = regionResult;
-            RegionDataService.IsThirdPartyWidgetFeedEnabled = policyResult;
-            IsRegionWarningVisible = regionResult && !policyResult;
+            RegionState state = await _region.GetStateAsync(cancellationToken);
+            IsRegionWarningVisible = state.ShouldShowWarning;
+            if (!string.IsNullOrWhiteSpace(state.Diagnostic))
+            {
+                Log.Warning("地区状态存在不可用的检测结果，诊断={Diagnostic}", state.Diagnostic);
+            }
         }
 
         /// <summary>
@@ -375,7 +372,7 @@ namespace FeedCustomizer.ViewModels
 
                 // 保存、卸载和注册在协调器的一次串行操作内完成；失败时保留“应用”能力用于重试。
                 var result = await ProviderDeployment.Current.ApplyAsync(
-                    feedItems, IsFeedProviderEnabled, SettingsLoader.GetAutoEnableDeveloperMode());
+                    feedItems, IsFeedProviderEnabled, _settings.GetAutoEnableDeveloperMode());
                 if (ReportProviderRegistrationResult(result))
                 {
                     _deleteFeeds.Clear();
@@ -426,7 +423,7 @@ namespace FeedCustomizer.ViewModels
             try
             {
                 var result = await ProviderDeployment.Current.ApplyAsync(
-                    null, IsFeedProviderEnabled, SettingsLoader.GetAutoEnableDeveloperMode());
+                    null, IsFeedProviderEnabled, _settings.GetAutoEnableDeveloperMode());
                 ReportProviderRegistrationResult(result);
             }
             catch (Exception ex)
@@ -456,7 +453,7 @@ namespace FeedCustomizer.ViewModels
             try
             {
                 // 此重试由 UI 已确认的操作触发；直接返回结果，避免再次触发同一失败事件导致重复弹窗。
-                SettingsLoader.SetAutoEnableDeveloperMode(true);
+                _settings.SetAutoEnableDeveloperMode(true);
                 ProviderRegistrationResult result = await ProviderDeployment.Current.ApplyAsync(
                     null, true, true, developerModeConfirmed: true);
                 if (result.ProviderEnabled is bool enabled)
@@ -480,7 +477,7 @@ namespace FeedCustomizer.ViewModels
         private async Task<bool> TryInstallFeedProviderAsync()
         {
             ProviderRegistrationResult result = await ProviderDeployment.Current.ApplyAsync(
-                null, true, SettingsLoader.GetAutoEnableDeveloperMode());
+                null, true, _settings.GetAutoEnableDeveloperMode());
             return ReportProviderRegistrationResult(result);
         }
 
