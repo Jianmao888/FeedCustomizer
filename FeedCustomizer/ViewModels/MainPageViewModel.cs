@@ -452,6 +452,9 @@ namespace FeedCustomizer.ViewModels
             BeginLoading();
             try
             {
+                // 用户确认后的重试是独立操作，需要重新显示加载遮罩。
+                LoadingOverlayRequested?.Invoke(this, true);
+
                 // 此重试由 UI 已确认的操作触发；直接返回结果，避免再次触发同一失败事件导致重复弹窗。
                 _settings.SetAutoEnableDeveloperMode(true);
                 ProviderRegistrationResult result = await ProviderDeployment.Current.ApplyAsync(
@@ -468,6 +471,7 @@ namespace FeedCustomizer.ViewModels
             finally
             {
                 EndLoading();
+                LoadingOverlayRequested?.Invoke(this, false);
             }
         }
 
