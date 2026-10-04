@@ -2,8 +2,11 @@ using System;
 using System.IO;
 using Windows.Storage;
 
-namespace FeedCustomizer.Core.Tools
+namespace FeedCustomizer.Core.Infrastructure.Storage
 {
+    /// <summary>
+    /// 集中提供应用私有数据与可再生部署产物的路径，避免调用方混用两类目录。
+    /// </summary>
     internal static class AppDataPaths
     {
         // 这是注册目录的逻辑地址，不保证应用进程直接访问时绕过 MSIX 重定向。

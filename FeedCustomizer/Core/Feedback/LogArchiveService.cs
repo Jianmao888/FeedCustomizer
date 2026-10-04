@@ -1,7 +1,7 @@
 using AppConstants = FeedCustomizer.Core.Constants.Constants;
 using FeedCustomizer.Core.Infrastructure.Feedback;
 using FeedCustomizer.Core.Infrastructure.Logging;
-using FeedCustomizer.Core.Tools;
+using AppDataPaths = FeedCustomizer.Core.Infrastructure.Storage.AppDataPaths;
 using System;
 using System.Globalization;
 using System.IO;
@@ -48,7 +48,7 @@ internal sealed class LogArchiveService
                 FileOptions.Asynchronous | FileOptions.SequentialScan))
             {
                 logFileCount = await LogArchiveBuilder.CreateAsync(
-                    FeedCustomizer.Core.Tools.AppDataPaths.PackageLocalLogPath,
+                    AppDataPaths.PackageLocalLogPath,
                     temporaryStream,
                     emptyArchiveInformation,
                     cancellationToken);

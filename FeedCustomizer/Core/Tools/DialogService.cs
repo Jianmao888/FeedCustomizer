@@ -2,6 +2,7 @@ using AppConstants = FeedCustomizer.Core.Constants.Constants;
 using FeedCustomizer.Core.Feedback;
 using FeedCustomizer.Core.Infrastructure.Logging;
 using FeedCustomizer.Dialogs;
+using FeedCustomizer.Presentation.Threading;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;

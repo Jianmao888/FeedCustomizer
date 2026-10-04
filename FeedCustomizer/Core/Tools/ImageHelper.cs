@@ -1,5 +1,6 @@
 ﻿using Microsoft.UI.Xaml.Media.Imaging;
 using FeedCustomizer.Core.Infrastructure.Logging;
+using FeedCustomizer.Core.Infrastructure.Storage;
 using System;
 using System.IO;
 using System.Threading.Tasks;

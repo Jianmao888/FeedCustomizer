@@ -1,3 +1,4 @@
+using FeedCustomizer.Core.Infrastructure.Storage;
 using System;
 using System.Collections.Generic;
 using System.IO;

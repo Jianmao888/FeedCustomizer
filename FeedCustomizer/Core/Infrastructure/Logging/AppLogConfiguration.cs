@@ -1,4 +1,4 @@
-using FeedCustomizer.Core.Tools;
+using FeedCustomizer.Core.Infrastructure.Storage;
 using System;
 using System.IO;
 

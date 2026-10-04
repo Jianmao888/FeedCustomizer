@@ -1,11 +1,12 @@
 using FeedCustomizer.Core.Infrastructure.Logging;
+using FeedCustomizer.Presentation.Threading;
 using System;
 using System.IO;
 using System.Threading.Tasks;
 using Windows.Storage;
 using Windows.System;
 
-namespace FeedCustomizer.Core.Tools
+namespace FeedCustomizer.Presentation.Launching
 {
     /// <summary>
     /// 将链接或文件直接交给 Windows 的默认关联应用，并统一记录启动失败。

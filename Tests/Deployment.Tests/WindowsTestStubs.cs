@@ -1,6 +1,6 @@
 // 测试仅替换包路径、包版本和显示名称来源，XML 读写/规范化和部署存储均链接真实实现。
 // 这些类型只在独立测试项目编译，不进入 WinUI 应用。
-namespace FeedCustomizer.Core.Tools
+namespace FeedCustomizer.Core.Infrastructure.Storage
 {
     internal static class AppDataPaths
     {

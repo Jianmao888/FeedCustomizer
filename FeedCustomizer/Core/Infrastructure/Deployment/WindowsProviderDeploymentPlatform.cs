@@ -2,7 +2,7 @@ using FeedCustomizer.Core.Deployment;
 using FeedCustomizer.Core.Infrastructure.Logging;
 using FeedCustomizer.Core.Infrastructure.PowerShell;
 using FeedCustomizer.Core.Models;
-using FeedCustomizer.Core.Tools;
+using FeedCustomizer.Core.Infrastructure.Storage;
 using System;
 using System.Diagnostics;
 using System.IO;
