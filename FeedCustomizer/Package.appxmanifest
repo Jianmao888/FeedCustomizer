@@ -11,7 +11,7 @@
 
   <Identity
     Name="D454B137.Jianmao.FeedCustomizer"
-    Publisher="CN=Jianmao"
+    Publisher="CN=8CB38C3F-7EA3-4B56-82F9-A2018B33EF3F"
     Version="1.2.1.0" />
 
   <Properties>
@@ -46,6 +46,9 @@
 					<uap3:AppExtension Name="com.microsoft.windows.widgets.feeds" DisplayName="ms-resource:StartFeedProviderDisplayName" Id="MicrosoftStartFeed" PublicFolder="Public">
 						<uap3:Properties>
 							<FeedProvider Id="feedcustomizerexamplefeed" DisplayName="Feed Customization Example Feed" SettingsUri="https://learn.microsoft.com/" Icon="Assets\StoreLogo.scale-200.png" Description="EFeed Customization">
+								<Activation>
+									<CreateInstance ClassId="53FCE339-5BFD-4912-BCAF-21302DE5CD85" />
+								</Activation>
 								<Definitions>
 									<Definition Id="FeedCustomizerExampleFeed"
 								    DisplayName="FeedCustomizerExampleFeed"
